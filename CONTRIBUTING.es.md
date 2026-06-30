@@ -76,10 +76,10 @@ Cada import interno lleva un sufijo `?v=NNN` (versión global de caché). Cuando
 cualquier JS o CSS, **sube la versión en TODOS los archivos a la vez**:
 
 ```bash
-# Sube de v1 a v2 en todo el repo (ajusta los números al bump actual).
+# Sube de v2 a v3 en todo el repo (ajusta los números al bump actual).
 # Ancla en "?v=" (con el ?) para no tocar matemática como (v=1) en comentarios.
-files=$(grep -rlF "?v=1" --include=*.js --include=*.html js index.html sw.js)
-for f in $files; do sed -i 's/?v=1/?v=2/g' "$f"; done
+files=$(grep -rlF "?v=2" --include=*.js --include=*.html js index.html sw.js)
+for f in $files; do sed -i 's/?v=2/?v=3/g' "$f"; done
 ```
 
 Además, `sw.js` (service worker, *network-first*) tiene su propio `CACHE_VERSION` —

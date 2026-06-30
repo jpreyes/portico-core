@@ -78,7 +78,7 @@ base and declares no capabilities is never selected, and core keeps working with
 A **partial** backend declares only what it covers; the registry routes the rest to `js`:
 
 ```js
-import { solverRegistry, SolverBackend } from './js/solver/backend.js?v=214';
+import { solverRegistry, SolverBackend } from './js/solver/backend.js?v=2';
 
 class NodexBackend extends SolverBackend {
   get name()  { return 'cpp'; }
@@ -135,7 +135,7 @@ A single `extensions` singleton with four registration points.
 
 ### 2.1 Sections of the ⚙ Settings dialog
 ```js
-import { extensions } from './js/ext/extensions.js?v=214';
+import { extensions } from './js/ext/extensions.js?v=2';
 
 extensions.registerConfigSection({
   id: 'pro-report',
@@ -169,7 +169,7 @@ backend can run. core registers **zero** additional analyses; everything that ar
 from an upper layer.
 
 ```js
-import { extensions } from './js/ext/extensions.js?v=214';
+import { extensions } from './js/ext/extensions.js?v=2';
 
 extensions.registerAnalysis({
   id:    'nodex-nlth-direct',
@@ -230,7 +230,7 @@ reimplementing anything. The `Results` class (JS solver) delegates to these same
 
 ```js
 import { actualLoadsLocal, diagramFromForces, elemAtXiFromForces }
-  from './js/solver/postprocess.js?v=214';
+  from './js/solver/postprocess.js?v=2';
 ```
 
 | Function | Signature | Returns |

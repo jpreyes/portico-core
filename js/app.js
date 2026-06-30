@@ -1,47 +1,47 @@
 // ──────────────────────────────────────────────────────────────────────────────
 // App — main orchestrator
 // ──────────────────────────────────────────────────────────────────────────────
-import { Model }           from './model/model.js?v=1';
-import { Serializer }      from './model/serializer.js?v=1';
-import { Viewport }        from './ui/viewport.js?v=1';
-import { PropertiesPanel } from './ui/properties.js?v=1';
-import { MenuBar }         from './ui/menu.js?v=1';
-import { UndoStack }       from './utils/undo.js?v=1';
-import { esc }             from './utils/escape.js?v=1';
-import { StaticSolver, ensureDefaultLC }   from './solver/static_solver.js?v=1';
-import { Results }                         from './solver/postprocess.js?v=1';
-import { assessStabilitySanity, STABILITY } from './solver/stability.js?v=1';
-import { areaStress, areaBendingStress, vonMises } from './solver/membrane.js?v=1';
-import { ModalSolver, guyanReduce }        from './solver/modal_solver.js?v=1';
-import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './solver/assembler.js?v=1';
-import { assembleSparseGlobal, extractFreeCSR } from './solver/sparse.js?v=1';
-import { corotBeamForceTangent } from './solver/corotbeam.js?v=1';
-import { insertInfill } from './model/macromodel.js?v=1';
-import { listMacros, getMacro, insertMacro } from './model/macro_registry.js?v=1';
-import { assembleKg } from './solver/geometric.js?v=1';
-import { makeFactor } from './solver/linsolve.js?v=1';
-import { ModalResults }                    from './solver/modal_results.js?v=1';
-import { parseAccelerogram, accStats, scaleToPGA, DEMO_PRESETS, G as GACC } from './solver/accelerograms.js?v=1';
-import { tendonEquivalentLoads, applyTendon, tendonEcc } from './solver/tendon.js?v=1';
-import { buildLane, influenceLine, responseReaction, responseSection } from './solver/moving_load.js?v=1';
-import { newmarkNonlinear, shearBuilding, rayleighDamping } from './solver/nl_timehistory.js?v=1';
-import { checkDrift } from './design/serviceability.js?v=1';
-import { selectProfile, steelCandidates, predimensionar, candidatesForFamily } from './design/autodesign.js?v=1';
-import { jointSCWB } from './design/seismic.js?v=1';
-import { resolveMaterial } from './design/material_props.js?v=1';
-import { resolveSectionProps } from './design/section_props.js?v=1';
-import { autoDetectDiaphragms, computeFloorCR, applyDiaphragmConstraints } from './solver/diaphragm.js?v=1';
-import { splitElement, splitByLength, discretizeAll, joinElements, intersectElements } from './model/discretize.js?v=1';
-import { localAxes, stiffnessMatrix, massMatrix, transformMatrix, globalStiffness, applyReleases } from './solver/timoshenko.js?v=1';
-import { blockCells, cornerGridIndices } from './model/mesher.js?v=1';
-import { coonsGridFromCorners } from './model/mesh_map.js?v=1';
-import { meshPolygonIntoModel } from './model/mesh_free.js?v=1';
-import { smoothAreasInModel } from './model/mesh_quality.js?v=1';
-import { listFormats, exportModel, importModel } from './io/index.js?v=1';
-import { extensions } from './ext/extensions.js?v=1';
-import { loadBranding, getBranding } from './branding.js?v=1';
-import { solverRegistry } from './solver/backend.js?v=1';
-import { i18n } from './i18n/i18n.js?v=1';
+import { Model }           from './model/model.js?v=2';
+import { Serializer }      from './model/serializer.js?v=2';
+import { Viewport }        from './ui/viewport.js?v=2';
+import { PropertiesPanel } from './ui/properties.js?v=2';
+import { MenuBar }         from './ui/menu.js?v=2';
+import { UndoStack }       from './utils/undo.js?v=2';
+import { esc }             from './utils/escape.js?v=2';
+import { StaticSolver, ensureDefaultLC }   from './solver/static_solver.js?v=2';
+import { Results }                         from './solver/postprocess.js?v=2';
+import { assessStabilitySanity, STABILITY } from './solver/stability.js?v=2';
+import { areaStress, areaBendingStress, vonMises } from './solver/membrane.js?v=2';
+import { ModalSolver, guyanReduce }        from './solver/modal_solver.js?v=2';
+import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './solver/assembler.js?v=2';
+import { assembleSparseGlobal, extractFreeCSR } from './solver/sparse.js?v=2';
+import { corotBeamForceTangent } from './solver/corotbeam.js?v=2';
+import { insertInfill } from './model/macromodel.js?v=2';
+import { listMacros, getMacro, insertMacro } from './model/macro_registry.js?v=2';
+import { assembleKg } from './solver/geometric.js?v=2';
+import { makeFactor } from './solver/linsolve.js?v=2';
+import { ModalResults }                    from './solver/modal_results.js?v=2';
+import { parseAccelerogram, accStats, scaleToPGA, DEMO_PRESETS, G as GACC } from './solver/accelerograms.js?v=2';
+import { tendonEquivalentLoads, applyTendon, tendonEcc } from './solver/tendon.js?v=2';
+import { buildLane, influenceLine, responseReaction, responseSection } from './solver/moving_load.js?v=2';
+import { newmarkNonlinear, shearBuilding, rayleighDamping } from './solver/nl_timehistory.js?v=2';
+import { checkDrift } from './design/serviceability.js?v=2';
+import { selectProfile, steelCandidates, predimensionar, candidatesForFamily } from './design/autodesign.js?v=2';
+import { jointSCWB } from './design/seismic.js?v=2';
+import { resolveMaterial } from './design/material_props.js?v=2';
+import { resolveSectionProps } from './design/section_props.js?v=2';
+import { autoDetectDiaphragms, computeFloorCR, applyDiaphragmConstraints } from './solver/diaphragm.js?v=2';
+import { splitElement, splitByLength, discretizeAll, joinElements, intersectElements } from './model/discretize.js?v=2';
+import { localAxes, stiffnessMatrix, massMatrix, transformMatrix, globalStiffness, applyReleases } from './solver/timoshenko.js?v=2';
+import { blockCells, cornerGridIndices } from './model/mesher.js?v=2';
+import { coonsGridFromCorners } from './model/mesh_map.js?v=2';
+import { meshPolygonIntoModel } from './model/mesh_free.js?v=2';
+import { smoothAreasInModel } from './model/mesh_quality.js?v=2';
+import { listFormats, exportModel, importModel } from './io/index.js?v=2';
+import { extensions } from './ext/extensions.js?v=2';
+import { loadBranding, getBranding } from './branding.js?v=2';
+import { solverRegistry } from './solver/backend.js?v=2';
+import { i18n } from './i18n/i18n.js?v=2';
 
 // Load categories (#106) — for automatic combinations and design.
 const LOAD_TYPES = [
@@ -2034,7 +2034,7 @@ class App {
   _staticWorkerSolve(K, nDOF, freeDOF, Flist, dense = false) {
     return new Promise((resolve, reject) => {
       let worker;
-      try { worker = new Worker(new URL('./solver/static_worker.js?v=1', import.meta.url), { type: 'module' }); }
+      try { worker = new Worker(new URL('./solver/static_worker.js?v=2', import.meta.url), { type: 'module' }); }
       catch (e) { reject(e); return; }
       this._staticWorker = worker;
       const cancelar = () => { try { worker.terminate(); } catch (e) {} this._staticWorker = null; this._hideProgress(); reject(new Error('cancelado')); };
@@ -2063,7 +2063,7 @@ class App {
   _staticWorkerSolveSparse(csr, cf, nDOF, freeDOF, Flist) {
     return new Promise((resolve, reject) => {
       let worker;
-      try { worker = new Worker(new URL('./solver/static_worker.js?v=1', import.meta.url), { type: 'module' }); }
+      try { worker = new Worker(new URL('./solver/static_worker.js?v=2', import.meta.url), { type: 'module' }); }
       catch (e) { reject(e); return; }
       this._staticWorker = worker;
       const cancelar = () => { try { worker.terminate(); } catch (e) {} this._staticWorker = null; this._hideProgress(); reject(new Error('cancelado')); };
@@ -2506,7 +2506,7 @@ class App {
       // "fast optimized" (banded Cholesky + RCM). Selectable per run.
       const denseModal = modalDense;
       let modes = await new Promise((resolve, reject) => {
-        const worker = new Worker(new URL('./solver/modal_worker.js?v=1', import.meta.url), { type: 'module' });
+        const worker = new Worker(new URL('./solver/modal_worker.js?v=2', import.meta.url), { type: 'module' });
         worker.postMessage({ Kff_flat: postK, Mff_flat: postM, nF: postN, nModes, dense: denseModal, method: modalMethod },
           [postK.buffer, postM.buffer]); // transfer — zero copy
         worker.onmessage = (ev) => {
@@ -2919,7 +2919,7 @@ class App {
       // Modal by subspace iteration in a worker (doesn't block the UI).
       const dense = !!this._config?.analisis?.matrizDensa;
       const rawModes = await new Promise((resolve, reject) => {
-        const w = new Worker(new URL('./solver/modal_worker.js?v=1', import.meta.url), { type: 'module' });
+        const w = new Worker(new URL('./solver/modal_worker.js?v=2', import.meta.url), { type: 'module' });
         w.postMessage({ Kff_flat: Kff, Mff_flat: Mff, nF, nModes, dense, method: 'subspace' }, [Kff.buffer, Mff.buffer]);
         w.onmessage = ev => { w.terminate(); ev.data.error ? reject(new Error(ev.data.error)) : resolve(ev.data.modes); };
         w.onerror = ev => { w.terminate(); reject(new Error(ev.message || 'Error en worker modal')); };
@@ -2992,7 +2992,7 @@ class App {
   _thSolveInWorker(modes, ag, dt, zeta) {
     return new Promise((resolve, reject) => {
       let w;
-      try { w = new Worker(new URL('./solver/timehistory_worker.js?v=1', import.meta.url), { type: 'module' }); }
+      try { w = new Worker(new URL('./solver/timehistory_worker.js?v=2', import.meta.url), { type: 'module' }); }
       catch (e) {
         try { solverRegistry.solveTimeHistoryModal({ modes: modes.map(m => ({ ...m, phi: new Float64Array(0) })), ag, dt, zeta }).then(r => resolve({ q: r.q, peakModal: r.peakModal }), reject); }
         catch (err) { reject(err); }
@@ -4490,12 +4490,12 @@ class App {
     if (!ok) return;
     const p = this._predim; if (!p) return;
     if (document.getElementById('pd-assign').checked) {
-      const { profileToSection } = await import('./design/profiles.js?v=1');
+      const { profileToSection } = await import('./design/profiles.js?v=2');
       this.snapshot();
       // Catalog profile → direct props; free shape (RC/timber) → compute A,I,J.
       let secProps = p.profile ? profileToSection(p.profile) : { design: { shape: p.shape, dims: p.dims } };
       if (!p.profile) {
-        const { fromShape } = await import('./design/section_props.js?v=1');
+        const { fromShape } = await import('./design/section_props.js?v=2');
         const g = fromShape(p.shape, p.dims);
         if (g) secProps = { A: g.A, Iz: g.Iz, Iy: g.Iy, J: g.J, Avy: g.Avz_web, Avz: g.Avy_flange, design: { shape: p.shape, dims: p.dims } };
       }
@@ -4520,7 +4520,7 @@ class App {
     return new Promise((resolve, reject) => {
       let worker;
       try {
-        worker = new Worker(new URL('./solver/nl_worker.js?v=1', import.meta.url), { type: 'module' });
+        worker = new Worker(new URL('./solver/nl_worker.js?v=2', import.meta.url), { type: 'module' });
       } catch (e) {
         try { (kind === 'dc' ? solverRegistry.solveNonlinearDC(opts) : solverRegistry.solveNonlinear(opts)).then(resolve, reject); return; }
         catch (err) { reject(err); }
@@ -7043,7 +7043,7 @@ class App {
               selectedNodes: sel.filter(s => s.type === 'node').map(s => s.id) };
     }
     this.snapshot();
-    const { applyOperations } = await import('./model/model_ops.js?v=1');
+    const { applyOperations } = await import('./model/model_ops.js?v=2');
     const res = applyOperations(this.model, ops, ctx);
     // previous results are no longer valid after modifying the geometry/loads
     this.viewport.clearResults?.();
@@ -7091,7 +7091,7 @@ class App {
     this._showProgress('Generando el modelo…', 'Aplicando reglas y cargas normativas');
     try {
       const libs = await this._loadAssistantLibraries();
-      const { generateModel } = await import('../assistant/generator.js?v=1');
+      const { generateModel } = await import('../assistant/generator.js?v=2');
       const modelo = generateModel(spec, libs);
 
       if (modo === 'sobreponer') {
@@ -7784,9 +7784,9 @@ class App {
       let mods;
       try {
         mods = await Promise.all([
-          import('./io/ifc/ifcToPortico.js?v=1'),
-          import('./ui/ifcImportDialog.js?v=1'),
-          import('./io/neutral.js?v=1'),
+          import('./io/ifc/ifcToPortico.js?v=2'),
+          import('./ui/ifcImportDialog.js?v=2'),
+          import('./io/neutral.js?v=2'),
         ]);
       } catch (e) { this.toast(i18n.t('No se pudo cargar el importador IFC:') + ' ' + e.message, 'error'); return; }
       const [{ analyzeIFC, itemsToNeutral }, { openIfcImportDialog }, { neutralToModel }] = mods;
@@ -7822,8 +7822,8 @@ class App {
     if (this.model.nodes.size === 0) { this.toast('Modelo vacío — nada que exportar', 'warn'); return; }
     try {
       const [{ modelToNeutral }, { neutralToIFC }] = await Promise.all([
-        import('./io/neutral.js?v=1'),
-        import('./io/ifc/ifcWriter.js?v=1'),
+        import('./io/neutral.js?v=2'),
+        import('./io/ifc/ifcWriter.js?v=2'),
       ]);
       const m = this._predisc ? this.serializer.fromJSON(this._predisc) : this.model;
       const neutral = modelToNeutral(m);
@@ -8583,7 +8583,7 @@ class App {
     if (!multi && this.model.nodes.size === 0) { this.toast('Modelo vacío — nada que documentar', 'warn'); return; }
     this.toast('Generando memoria (Word)…');
     try {
-      const { Docx } = await import('./io/docx.js?v=1');
+      const { Docx } = await import('./io/docx.js?v=2');
       let d;
       if (multi) {
         d = await this._reportProjectDocx(Docx);
@@ -8802,7 +8802,7 @@ class App {
   // Design verification (bending/shear/axial) per element, using the current
   // results and the editable parameters from assistant/design_params.json.
   async _computeDesign() {
-    const ver = '?v=1';
+    const ver = '?v=2';
     let params = null;
     try { params = await fetch('assistant/design_params.json' + ver).then(r => r.json()); }
     catch (e) { console.error('No se pudo cargar design_params.json:', e); return null; }
@@ -9603,7 +9603,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // White-label: applies branding.default.json to the DOM BEFORE starting the App, so
   // the i18n engine caches the already-«branded» text as the original. If it fails, it
   // uses the default values (the UI already carries the Spanish) and doesn't block startup.
-  await loadBranding('?v=1');
+  await loadBranding('?v=2');
   window.app = new App();
 });
 

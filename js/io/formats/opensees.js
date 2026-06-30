@@ -11,7 +11,7 @@
 // Limitations: the `elasticBeamColumn` has no end releases → they are warned and not
 // exported; density travels as `-mass` (mass per unit length = ρ·A).
 // ──────────────────────────────────────────────────────────────────────────────
-import { registerFormat } from '../registry.js?v=1';
+import { registerFormat } from '../registry.js?v=2';
 
 const num = (v) => { v = +v || 0; if (v === 0) return '0'; const a = Math.abs(v); return (a < 1e-4 || a >= 1e6) ? v.toExponential(6) : String(+v.toPrecision(9)); };
 

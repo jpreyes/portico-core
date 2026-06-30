@@ -82,7 +82,7 @@ con `js`).
 Un backend **parcial** declara solo lo que cubre; el registry enruta lo demás a `js`:
 
 ```js
-import { solverRegistry, SolverBackend } from './js/solver/backend.js?v=214';
+import { solverRegistry, SolverBackend } from './js/solver/backend.js?v=2';
 
 class NodexBackend extends SolverBackend {
   get name()  { return 'cpp'; }
@@ -139,7 +139,7 @@ Un único singleton `extensions` con cuatro puntos de registro.
 
 ### 2.1 Secciones del diálogo ⚙ Configuración
 ```js
-import { extensions } from './js/ext/extensions.js?v=214';
+import { extensions } from './js/ext/extensions.js?v=2';
 
 extensions.registerConfigSection({
   id: 'pro-memoria',
@@ -173,7 +173,7 @@ capacidades que solo el backend Pro puede ejecutar. Core registra **cero** anál
 adicionales; todo lo que llega aquí viene de una capa superior.
 
 ```js
-import { extensions } from './js/ext/extensions.js?v=214';
+import { extensions } from './js/ext/extensions.js?v=2';
 
 extensions.registerAnalysis({
   id:    'nodex-nlth-direct',
@@ -235,7 +235,7 @@ y obtiene **diagramas idénticos** al solver JS, sin reimplementar nada. La clas
 
 ```js
 import { actualLoadsLocal, diagramFromForces, elemAtXiFromForces }
-  from './js/solver/postprocess.js?v=214';
+  from './js/solver/postprocess.js?v=2';
 ```
 
 | Función | Firma | Devuelve |
