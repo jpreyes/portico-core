@@ -1,0 +1,110 @@
+[
+  {
+    "file": "verif_1-005a_settlement.s3d",
+    "title": "1-005 · Asentamiento de apoyo (desplazamiento prescrito)",
+    "description": "Desplazamiento prescrito en un apoyo; partición libre/prescrito del solver.",
+    "note": "Compara las reacciones y los esfuerzos inducidos por el asentamiento."
+  },
+  {
+    "file": "verif_1-009_prestress.s3d",
+    "title": "1-009 · Pretensado por tendón parabólico",
+    "description": "Tendón parabólico → cargas equivalentes (load balancing) y axial de presfuerzo.",
+    "note": "Verifica que el balanceo equilibra la carga gravitacional."
+  },
+  {
+    "file": "verif_1-010_link_offset.s3d",
+    "title": "1-010 · Link rígido (offset): tablero excéntrico",
+    "description": "Coupling rígido con brazo: transmite fuerza y momento sin elemento intermedio.",
+    "note": "Revisa el momento inducido por la excentricidad del link."
+  },
+  {
+    "file": "verif_1-012c_no_tension.s3d",
+    "title": "1-012 · Cables y puntales (solo tracción / solo compresión)",
+    "description": "Reticulado con miembros de solo tracción (cable) y solo compresión (puntal), NL-lite.",
+    "note": "Corre el análisis no lineal y mira qué miembros se desactivan."
+  },
+  {
+    "file": "verif_1-014_modal_cantilever.s3d",
+    "title": "1-014 · Modal: viga en voladizo",
+    "description": "Frecuencias y formas modales de flexión de un voladizo, contra la solución analítica.",
+    "note": "Corre Análisis Modal (F6) y compara la 1ª frecuencia con la teoría."
+  },
+  {
+    "file": "verif_1-017_taut_string.s3d",
+    "title": "1-017 · Modal con rigidez geométrica: cuerda tensa",
+    "description": "Vibración de una cuerda bajo tensión: modal con Kg desde un estado de referencia.",
+    "note": "Compara las frecuencias con f_n = (n/2L)·√(T/μ)."
+  },
+  {
+    "file": "verif_1-018_static_portal.s3d",
+    "title": "1-018 · Estático: flexión, corte y axial en un pórtico",
+    "description": "Pórtico plano en estático lineal (Timoshenko); reacciones y esfuerzos en equilibrio.",
+    "note": "Activa el DCL de un elemento y compara M, V, N con el cálculo manual."
+  },
+  {
+    "file": "verif_1-021_modal_bathe_wilson.s3d",
+    "title": "1-021 · Modal: pórtico Bathe-Wilson (10 vanos × 9 pisos)",
+    "description": "Pórtico plano grande; autovalores ω² contra el benchmark de Bathe-Wilson.",
+    "note": "Corre Modal (F6) y compara los primeros períodos con la referencia."
+  },
+  {
+    "file": "verif_1-030_influence_lines.s3d",
+    "title": "1-030 · Líneas de influencia y carga móvil",
+    "description": "Barrido de una carga móvil sobre una viga simple: líneas de influencia y envolventes.",
+    "note": "Compara la envolvente de momento con wL²/8 al centro."
+  },
+  {
+    "file": "verif_1-031_construction_stages.s3d",
+    "title": "1-031 · Etapas constructivas (voladizo apuntalado)",
+    "description": "Construcción por fases: activación de elementos/apoyos y acumulación de estado.",
+    "note": "Revisa cómo cambian los esfuerzos al retirar el puntal."
+  },
+  {
+    "file": "verif_2-014_thermal_gradient.s3d",
+    "title": "2-014 · Gradiente térmico en placa (momento térmico)",
+    "description": "Gradiente de temperatura a través del espesor de placa/cáscara → momento de flexión térmico.",
+    "note": "Compara la curvatura/momento con la solución analítica."
+  },
+  {
+    "file": "verif_3-001_patch_test_mesh.s3d",
+    "title": "3-001 · Patch test: malla transfinita distorsionada",
+    "description": "Mallador transfinito (Coons) → QUADs que pasan el patch test de tensión constante.",
+    "note": "El campo de tensión debe ser constante pese a la malla distorsionada."
+  },
+  {
+    "file": "verif_3-002_plane_stress.s3d",
+    "title": "3-002 · Membrana en tensión plana (plane-stress)",
+    "description": "Viga modelada con elementos de membrana QUAD (continuo plano).",
+    "note": "Compara la flecha con la teoría de viga."
+  },
+  {
+    "file": "verif_3-004_plane_strain_cylinder.s3d",
+    "title": "3-004 · Deformación plana: cilindro de pared gruesa",
+    "description": "Continuo en deformación plana (plane-strain); compara con la solución de Lamé.",
+    "note": "Revisa σ radial y circunferencial contra Lamé."
+  },
+  {
+    "file": "verif_3-005_free_mesh_L.s3d",
+    "title": "3-005 · Malla libre de una planta en L",
+    "description": "Mallador libre (ear-clipping + Delaunay + recombinación a QUAD) de un polígono cóncavo.",
+    "note": "Revisa la calidad de la malla y el patch test."
+  },
+  {
+    "file": "verif_3-006_allman_cantilever.s3d",
+    "title": "3-006 · Membrana triangular Allman (con giro)",
+    "description": "Elemento de membrana triangular con GDL de giro (Allman 1984); supera el bloqueo del CST.",
+    "note": "Compara la flecha con plane-stress y con la teoría de viga."
+  },
+  {
+    "file": "verif_4-001_steel_design.s3d",
+    "title": "4-001 · Diseño de acero AISC 360-16 (LRFD)",
+    "description": "Resistencias de diseño φRn: tracción (D2), compresión (E3) y flexión (F2 con LTB).",
+    "note": "Abre el panel de Diseño y compara φRn con AISC 360-16."
+  },
+  {
+    "file": "verif_network_arch_bs.s3d",
+    "title": "Network arch ferroviario (Brunn & Schanack)",
+    "description": "Modal de un arco network (péndolas cruzadas) contra una memoria de tesis publicada (TU Dresden).",
+    "note": "Corre Modal (F6) y compara la 1ª frecuencia de flexión (~2.34 Hz)."
+  }
+]

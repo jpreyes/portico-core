@@ -1,0 +1,59 @@
+{
+  "_meta": {
+    "version": "2.0",
+    "_EJEMPLO": "PLANTILLA DE EJEMPLO, AGNÓSTICA. Estos son valores genéricos de referencia, NO una normativa de ninguna jurisdicción. Reemplázalos con los de tu código de diseño. Desde v136 las resistencias son propiedades del MATERIAL (mat.design.{family,Fy,fc,...}) y la geometría de diseño viene de la FORMA de la sección (sec.design.shape); los módulos de código (AISC 360, Eurocódigo 3, ACI 318, Eurocódigo 9, madera) son conectables. Este JSON solo se usa como FALLBACK para materiales sin design.family (clasificados por nombre) y para los límites de aviso/falla. Ver docs/design.md. Las resistencias van en MPa.",
+    "codigos_soportados_por_los_modulos": ["AISC 360", "Eurocódigo 3", "ACI 318", "Eurocódigo 9", "madera (tensiones admisibles)"]
+  },
+
+  "steel": {
+    "method": "Ejemplo — método de factores de carga y resistencia (LRFD)",
+    "Fy_MPa": 250,
+    "Fu_MPa": 400,
+    "E_MPa": 200000,
+    "phi": { "flexion": 0.90, "corte": 0.90, "axial_traccion": 0.90, "axial_compresion": 0.90 },
+    "Cv_shear": 1.0,
+    "Z_over_S": 1.12,
+    "K_buckling": 1.0,
+    "_nota": "EJEMPLO. Fy/Fu son valores genéricos de un acero estructural común. Z_sobre_S estima el módulo plástico desde el elástico (perfiles I ≈1.10–1.15; rectangular macizo =1.5). Cv=1 asume alma compacta. K_pandeo es el factor de longitud efectiva para compresión. Ajusta a tu calidad de acero y a tu código."
+  },
+
+  "concrete": {
+    "method": "Ejemplo — resistencia última",
+    "fc_MPa": 25,
+    "fy_rebar_MPa": 420,
+    "E_MPa": 23500,
+    "phi": { "flexion": 0.90, "corte": 0.75, "axial_compresion": 0.65 },
+    "long_reinf_ratio": 0.012,
+    "cover_mm": 40,
+    "_nota": "EJEMPLO. El hormigón armado requiere armadura: como las secciones del modelo son genéricas (A, I), se diseña con la cuantía longitudinal rho indicada (As = rho·b·d) y supuestos declarados (b, h estimados de A e I; d = h − recubrimiento). Ajusta rho/recubrimiento, fc, fy y los φ a tu código."
+  },
+
+  "timber": {
+    "method": "Ejemplo — tensiones admisibles modificadas",
+    "Fb_MPa": 10.0,
+    "Fv_MPa": 1.2,
+    "Fc_MPa": 8.0,
+    "Ft_MPa": 7.0,
+    "E_MPa": 10000,
+    "modification_factors": {
+      "KD_load_duration": 1.0,
+      "KH_moisture": 1.0,
+      "Kt_temperature": 1.0,
+      "others": 1.0
+    },
+    "_nota": "EJEMPLO. Tensiones admisibles genéricas de una madera estructural de referencia. Se multiplican por el producto de los factores de modificación. Para compresión se aplica además el factor de estabilidad de columna CP (con la esbeltez). Ajusta a tu especie/grado y a tu código."
+  },
+
+  "deflection_limits": {
+    "beam_total_load_L_over": 300,
+    "beam_live_load_L_over": 360,
+    "cantilever_L_over": 150,
+    "_nota": "EJEMPLO. Límites de flecha como fracción de la luz L (p.ej. L/300). Ajusta a tu código y al uso del elemento."
+  },
+
+  "limits": {
+    "ratio_warning": 0.90,
+    "ratio_fail": 1.0,
+    "_nota": "ratio = demanda/capacidad. ≤ ratio_warning: holgado; entre aviso y 1.0: ajustado; > 1.0: NO CUMPLE."
+  }
+}

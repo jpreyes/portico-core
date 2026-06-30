@@ -1,0 +1,61 @@
+id,building_type,descripcion,Lo_kNm2,Qk_kN
+1,Biblioteca,Área de lectura,3,4.5
+2,Biblioteca,"Apilamiento de archivos <1,8 m",5,4.5
+3,Biblioteca,"Apilamiento extra por cada 0,3 m adicionales",0.5,0
+4,Biblioteca,Pasillos,4,0
+5,Bodegas,Áreas de mercadería liviana,6,4.5
+6,Bodegas,Áreas de mercadería pesada,12,0
+7,Cárceles,Áreas de celda,2,0
+8,Cárceles,Pasillos,4,0
+9,Escuelas,Salas de Clases,3,4.5
+10,Escuelas,Pasillos,4,4.5
+11,Estacionamientos,Vehículos livianos,3,b
+12,Estacionamientos,"Buses, camiones y otros vehículos pesados",c,c
+13,Fábricas,Industria liviana,6,9
+14,Fábricas,Industria pesada,12,13.5
+15,Hospitales,Áreas de hospitalización,2,4.5
+16,Hospitales,Laboratorios/quirófanos,3,4.5
+17,Hospitales,Pasillos y salas de espera,4,4.5
+18,Hoteles,Habitaciones,2,0
+19,Hoteles,Áreas públicas y sus pasillos,5,0
+20,Iglesias,Con asientos fijos,3,0
+21,Iglesias,Con asientos móviles,5,0
+22,Oficinas,Privadas sin equipos,2.5,0
+23,Oficinas,Públicas o privadas con equipos,5,9
+24,Oficinas,Correores,4,9
+25,Teatros/estadios,Áreas con asientos fijos,3,0
+26,Teatros/estadios,Áreas con asientos móviles o sin asientos,5,0
+27,Teatros/estadios,Áreas para escenarios,7,0
+28,Teatros/estadios,"Áreas de general, lobbies, plataformas, boleterias, galerías y gradas",5,0
+29,Gimnasios,Pisos principales y balcones,5,0
+30,Gimnasios,Gradas/terrazas/accesos,5,0
+31,Tiendas,Áreas para ventas al por menor,4,4.5
+32,Tiendas,Áreas para ventas al por mayor,6,4.5
+33,Tiendas,Bodegas de elementos livianos,6,4.5
+34,Tiendas,Bodegas de elementos pesados,12,0
+35,Viviendas,Áreas de uso general,2,0
+36,Viviendas,Dormitorios y buhardillas habitables,2,0
+37,Viviendas,Balcones que no excedan los 10 m2,3,0
+38,Viviendas,Entretecho con almacenaje,1.5,0
+39,Lugares especiales de uso público,Corredores/lugares de uso público,5,0
+40,Lugares especiales de uso público,Balcones exteriores,5,0
+41,Lugares especiales de uso público,"Aceras, accesos vehículares y patios sujetos a maniobras de camiones",12,36
+42,Lugares especiales de uso público,Calzadas vehicular,f,f
+43,Lugares especiales de uso público,"Sala de juegos, incluyendo bolos y billares o similares",4,0
+44,Lugares especiales de uso público,Pasarelas de mantenimiento,2,0
+45,Lugares especiales de uso público,Pasarelas y plataformas elevadas de uso público,4,0
+46,Lugares especiales de uso público,Escape de incendios,5,0
+47,Lugares especiales de uso público,Escaleras y vías de evacuación,5,0
+48,Lugares especiales de uso público,Parque de diversiones,5,0
+49,Lugares especiales de uso público,Salas para equipos computacionales,4,0
+50,Lugares especiales de uso público,Tribunales de justicia,5,1.35
+51,Lugares especiales de uso público,"Parrilla de piso en sala de máquina ascensores (en área 2,6 m2)",0,0
+52,Lugares especiales de uso público,Museos,5,0
+53,Lugares especiales de uso público,Áreas para fiestas y bailes,5,0
+54,Lugares especiales de uso público,Comedores y restaurantes,5,0
+55,Lugares especiales de uso público,Escaleras de gato para acceso de mantención,2,1.35
+56,Lugares especiales de uso público,Cocina y lavandería,5,0
+57,Lugares especiales de uso público,Estacionamiento de tren o metro,5,0
+58,Techos,Con acceso peatonal (uso privado),2,0
+59,Techos,Con acceso peatonal (uso público),5,0
+60,Techos,Con acceso sólo para mantención,1,0

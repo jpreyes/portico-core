@@ -1,0 +1,47 @@
+# Continuous Integration for portico-core.
+# Runs on every push to main and on every Pull Request: checks the syntax of the
+# ES modules and runs the test battery (node test_*.mjs). There is NO build step —
+# it is vanilla JS without a bundler — so the CI only needs Node.
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  test:
+    name: Syntax + tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ES modules must be checked with `--input-type=module` (a bare `.js` is
+      # treated as CommonJS and would false-fail on `import`/`export`).
+      - name: Syntax check (ES modules in js/ and assistant/)
+        shell: bash
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            node --input-type=module --check < "$f" || { echo "::error file=$f::syntax error"; fail=1; }
+          done < <(find js assistant -name '*.js')
+          exit $fail
+
+      # Each test is a standalone entry point that asserts against analytical
+      # solutions / global equilibrium (ΣReactions = ΣLoads) and exits non-zero on
+      # failure. (assistant/pipeline_cli.mjs is a CLI helper that calls a live LLM —
+      # not a test — and has no test_ prefix, so it is not picked up here.)
+      - name: Test battery (solver / design / IO / assistant)
+        shell: bash
+        run: |
+          fail=0
+          run() { echo "▶ $1"; node "$1" || { echo "::error::FAILED $1"; fail=1; }; }
+          for f in test_*.mjs; do run "$f"; done
+          for f in assistant/test_*.mjs; do run "$f"; done
+          exit $fail

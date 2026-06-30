@@ -1,0 +1,698 @@
+{
+  "_meta": {
+    "proposito": "Reglas de ingeniería para el asistente de PORTICO. El asistente solo extrae una 'ficha' estructurada desde el texto del usuario; este archivo + las bibliotecas CSV aportan los datos y decisiones que el asistente NO debe inventar. Un generador determinista combina ficha + reglas + bibliotecas para producir el modelo .s3d.",
+    "version": "0.5",
+    "fuentes": [
+      "Perfiles: EN 10365 (dataset pcachim/eurocodepy, verificado contra IPE300/HEB200)",
+      "Cargas de uso: NCh1537 | Viento: NCh432 | Sísmica: NCh433 | Nieve: NCh431",
+      "Combinaciones: NCh3171"
+    ]
+  },
+  "libraries": {
+    "profiles_csv": "profiles.csv",
+    "materials_csv": "materials.csv",
+    "_nota_perfiles": "90 perfiles I (IPE, HEA, HEB, HEM). Columnas en mm (h,b,tw,tf,r) y unidades de tabla (A_cm2, I_cm4, Iw_cm6, Av_cm2, W_cm3, i_cm). Iy=eje fuerte (mayor); Iz=eje débil (menor), convención Eurocode. Ampliable agregando filas. Pendiente: tubos CHS/RHS/SHS y perfiles IPN/UPN/L.",
+    "_conversion_a_PORTICO": "A: cm2 ×1e-4 → m2. I, It: cm4 ×1e-8 → m4. El generador mapea Iy(mayor)→plano fuerte y asigna Avy/Avz/kappa desde Av_y/Av_z del CSV.",
+    "live_loads_csv": "live_loads.csv"
+  },
+  "modeling_rules": {
+    "base_support": "empotrado",
+    "_apoyo_base_opciones": ["empotrado", "rotulado"],
+    "columns": "una en cada intersección de ejes de grilla",
+    "beams": "una por cada tramo entre ejes contiguos, en cada nivel",
+    "max_span_m": 6.0,
+    "_separacion_nota": "Si un lado de la planta supera esta luz, el generador agrega ejes intermedios (y por tanto columnas/vigas). Así se decide automáticamente la cantidad de vigas y pilares.",
+    "rigid_diaphragm_per_level": true,
+    "analysis_subdivision": 10,
+    "plan_transition": "interpolar linealmente las dimensiones entre nivel inferior y superior cuando la planta cambia (p.ej. 10×10 en base → 10×8 en techo)",
+    "default_beam": "IPE300",
+    "default_column": "HEB200"
+  },
+  "loads": {
+    "_modelo": "Las cargas de ÁREA (kN/m²) se reparten a las vigas según ancho tributario: w[kN/m] = q[kN/m²] × ancho_tributario[m]. El reparto por defecto es en una dirección (medio paño a cada lado); opción por paños (triangular/trapezoidal). Las cargas gravitacionales de área también definen la MASA SÍSMICA (CM + fracción de CV) en los diafragmas, que alimenta el caso espectral.",
+    "seismic_mass": {
+      "live_load_fraction": 0.25,
+      "_fuente": "NCh433 (verificar fracción según uso)"
+    },
+    "live_load_use": {
+      "_fuente": "NCh1537 — tabla COMPLETA (60 usos) en live_loads.csv.",
+      "_csv": "live_loads.csv",
+      "_columnas": "id, tipo_edificio, descripcion, Lo_kNm2 (sobrecarga uniforme), Qk_kN (carga concentrada)",
+      "_ejemplo_colegio": "Escuelas/Salas de Clases = 3.0 kN/m2 ; Escuelas/Pasillos = 4.0 kN/m2",
+      "_aplicacion": "Lo (kN/m2) se reparte a vigas por ancho tributario; Qk es carga concentrada de verificacion."
+    },
+    "snow": {
+      "_fuente": "NCh431.Of2010 'Diseño estructural — Sobrecargas de nieve'.",
+      "_estado": "codificado_pendiente_validacion",
+      "_unidad": "kN/m²",
+      "formula_techo_plano": "pf = 0.7·Ce·Ct·I·pg   (techos con pendiente ≤ 5°)",
+      "formula_techo_inclinado": "ps = Cs·pf   (Cs = factor de pendiente, Figura 1 NCh431)",
+      "peso_especifico_nieve": "γ = 0.426·pg + 2.2  [kN/m³], pero no mayor que 4.7 kN/m³",
+      "_coef_forma_techo_plano": 0.7,
+      "ground_snow_table": {
+        "_nota": "'0'=sin carga; null='sin información en la norma'.",
+        "latitudes": [
+          "17-26",
+          "26-29",
+          "29-32",
+          "32-34",
+          "34-36",
+          "36-38",
+          "38-42",
+          "42-48",
+          "48-55"
+        ],
+        "by_altitude_masl": {
+          "0-300": [0, 0, 0, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5],
+          "300-600": [0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 1.25],
+          "600-800": [0.25, 0.25, 0.25, 0.5, 0.75, 0.75, 0.75, 0.5, 1.25],
+          "800-1000": [0.25, 0.25, 0.25, 0.75, 1.0, 1.0, 1.0, 1.0, 1.25],
+          "1000-1250": [0, 0, 0, 1.0, 1.5, 1.5, 1.5, 1.5, null],
+          "1250-1500": [0, 0, 0, 2.0, 3.0, 3.0, 3.0, 2.0, null],
+          "1500-1750": [0, 0.25, 1.0, 3.0, 7.0, 14.5, 4.5, 3.0, null],
+          "1750-2000": [0, 0.25, 2.0, 4.0, 8.6, 16.2, 6.0, null, null],
+          "2000-2500": [0, 0, 2.0, 5.9, 11.0, 18.75, null, null, null],
+          "2500-3000": [0, 0, 2.6, 8.8, null, 22.7, null, null, null],
+          "3000-3500": [0, 3.0, 3.6, 13.0, null, null, null, null, null],
+          "3500-4000": [0, null, 4.8, 19.5, null, null, null, null, null],
+          ">4000": [0, null, 6.25, null, null, null, null, null, null]
+        }
+      },
+      "thermal_factor_table": {
+        "Todas las estructuras (salvo las siguientes)": 1.0,
+        "Sobre congelación / techos ventilados (R ≥ 4.4 K·m²/W)": 1.1,
+        "Estructuras no calefaccionadas bajo congelación": 1.2,
+        "Invernaderos (R < 0.4 K·m²/W)": 0.85
+      },
+      "importance_factor_table": {
+        "I": 0.8,
+        "II": 1.0,
+        "III": 1.1,
+        "IV": 1.2
+      },
+      "exposure_factor_table": {
+        "B": {
+          "Totalmente expuesto": 0.9,
+          "Parcialmente expuesto": 1.0,
+          "Protegido": 1.2
+        },
+        "C": {
+          "Totalmente expuesto": 0.9,
+          "Parcialmente expuesto": 1.0,
+          "Protegido": 1.1
+        },
+        "D": {
+          "Totalmente expuesto": 0.8,
+          "Parcialmente expuesto": 0.9,
+          "Protegido": 1.0
+        },
+        "Áreas montañosas": {
+          "Totalmente expuesto": 0.7,
+          "Parcialmente expuesto": 0.8,
+          "Protegido": null
+        }
+      },
+      "Cs_factor_pendiente": {
+        "_nota": "Cs depende de la pendiente del techo y de la condición térmica. Figura 1 de NCh431 es un gráfico; aquí se usa la relación ASCE 7 estándar para cubierta NO resbaladiza. DEBE VALIDARSE los quiebres contra la Figura 1 oficial.",
+        "formula_techo_caliente_Ct_le_1.0": "Cs=1.0 si pend≤30°; lineal 1.0→0 entre 30° y 70°; Cs=0 si pend>70°",
+        "formula_Ct_1.1": "Cs=1.0 si pend≤37.5°; lineal 1.0→0 entre 37.5° y 70°; Cs=0 si pend>70°",
+        "formula_techo_frio_Ct_1.2": "Cs=1.0 si pend≤45°; lineal 1.0→0 entre 45° y 70°; Cs=0 si pend>70°"
+      },
+      "_ejemplo_Valdivia": "Valdivia (~39.8°S, costa ~5–20 m) → banda latitud 38–42°, altitud 0–300 → pg=0.25 kN/m². Con Ce=1.0, Ct=1.0, I=1.0 (cat II), techo plano: pf=0.7·1·1·1·0.25=0.175 kN/m². VALIDAR."
+    },
+    "wind": {
+      "_fuente": "NCh432.Of2010 — codificado desde la norma NCh432.Of2010 (fuente de verdad). Método analítico para edificios de baja altura (equivalente a ASCE 7-05 Fig. 6-4, 6-10 y Tabla 6-2), con velocidades básicas V de estaciones y zonas de latitud chilenas.",
+      "_estado": "codificado",
+      "_unidades": "V en m/s; presiones q,p en N/m² (multiplicar ×0.101972 para kgf/m²). Geometría en m.",
+      "metodo": "analitico_baja_altura_SPRFV",
+      "_aplicacion_PORTICO": "q(h)=0.613·Kz·Kzt·Kd·V²·I [N/m²]. Presión de diseño por zone: p = q·(GCpf − GCpi), evaluando ±GCpi y tomando el caso gobernante. Las presiones de muro (zona 1 barlovento, 4 sotavento, 5 lateral) → cargas lineales horizontales sobre pilares/vigas por ancho tributario; las de techo (zonas 2,3) → cargas normales sobre vigas de techo. Zonas 'E' = franjas de borde (ancho 2a, ver NCh432).",
+      "importance_factor": {
+        "I": 0.87,
+        "II": 1.0,
+        "III": 1.15,
+        "IV": 1.15
+      },
+      "kd_directionality": {
+        "Edificio SPRFV": 0.85,
+        "Edificio elementos secundarios": 0.85,
+        "Techos abovedados en arco": 0.85,
+        "Chimeneas, estanques, similar (cuadrado)": 0.9,
+        "Chimeneas, estanques, similar (otros)": 0.95,
+        "Senaletica solida": 0.95,
+        "Senaletica solida y marco enrejado": 0.85,
+        "Torre enrejada (triangular, cuadrada, rectangular)": 0.85,
+        "Torre enrejada (otros)": 0.95
+      },
+      "gcpi_internal_pressure": {
+        "Abierto": 0.0,
+        "Parcialmente cerrado": 0.55,
+        "Cerrado": 0.18,
+        "_nota": "Se aplica con signo ±; el diseño toma el caso gobernante."
+      },
+      "exposure": {
+        "B": {
+          "alfa": 7.0,
+          "Zg_m": 365.76,
+          "zmin_m": 9.14
+        },
+        "C": {
+          "alfa": 9.5,
+          "Zg_m": 274.32,
+          "zmin_m": 4.57
+        },
+        "D": {
+          "alfa": 11.5,
+          "Zg_m": 213.36,
+          "zmin_m": 2.13
+        }
+      },
+      "Kz_formula": "Kz = 2.01·(z/Zg)^(2/alfa), con z = max(h_techo, 4.6 m). (Para h<4.6 m se usa la forma ASCE estándar.)",
+      "Kzt_topografico": {
+        "formula": "Kzt = (1 + K1·K2·K3)²  (si topografia='No aplica' → Kzt=1)",
+        "_lectura": "Tablas escalón [limite_superior_exclusivo, valor]; el último con limite null = infinito.",
+        "K1_por_HsobreLh": {
+          "Cima 2D": [
+            [0.2, 0.29],
+            [0.25, 0.36],
+            [0.3, 0.43],
+            [0.35, 0.51],
+            [0.4, 0.58],
+            [0.45, 0.65],
+            [0.5, 0.72],
+            [null, 0.72]
+          ],
+          "Escarpe 2D": [
+            [0.2, 0.17],
+            [0.25, 0.21],
+            [0.3, 0.26],
+            [0.35, 0.3],
+            [0.4, 0.34],
+            [0.45, 0.38],
+            [0.5, 0.43],
+            [null, 0.43]
+          ],
+          "Colina Axisim. 3D": [
+            [0.2, 0.21],
+            [0.25, 0.26],
+            [0.3, 0.32],
+            [0.35, 0.37],
+            [0.4, 0.42],
+            [0.45, 0.47],
+            [0.5, 0.53],
+            [null, 0.53]
+          ]
+        },
+        "K2_por_xsobreLh": {
+          "Cima 2D": [
+            [0.5, 1.0],
+            [1.0, 0.88],
+            [1.5, 0.75],
+            [2.0, 0.63],
+            [2.5, 0.5],
+            [3.0, 0.38],
+            [3.5, 0.25],
+            [4.0, 0.13],
+            [null, 0.0]
+          ],
+          "Escarpe 2D / Colina Axisim. 3D": [
+            [0.5, 1.0],
+            [1.0, 0.67],
+            [1.5, 0.33],
+            [null, 0.0]
+          ]
+        },
+        "K3_por_zsobreLh": {
+          "Cima 2D": [
+            [0.1, 1.0],
+            [0.2, 0.74],
+            [0.3, 0.55],
+            [0.4, 0.41],
+            [0.5, 0.3],
+            [0.6, 0.22],
+            [0.7, 0.17],
+            [0.8, 0.12],
+            [0.9, 0.09],
+            [1.0, 0.07],
+            [1.5, 0.05],
+            [2.0, 0.01],
+            [null, 0.0]
+          ],
+          "Escarpe 2D": [
+            [0.1, 1.0],
+            [0.2, 0.78],
+            [0.3, 0.61],
+            [0.4, 0.47],
+            [0.5, 0.37],
+            [0.6, 0.29],
+            [0.7, 0.22],
+            [0.8, 0.17],
+            [0.9, 0.14],
+            [1.0, 0.11],
+            [1.5, 0.08],
+            [2.0, 0.02],
+            [null, 0.0]
+          ],
+          "Colina Axisim. 3D": [
+            [0.1, 1.0],
+            [0.2, 0.67],
+            [0.3, 0.45],
+            [0.4, 0.3],
+            [0.5, 0.2],
+            [0.6, 0.14],
+            [0.7, 0.09],
+            [0.8, 0.06],
+            [0.9, 0.04],
+            [1.0, 0.03],
+            [1.5, 0.02],
+            [null, 0.0]
+          ]
+        }
+      },
+      "basic_speed_m_s": {
+        "by_station": {
+          "Arica": 23,
+          "Iquique": 25.8,
+          "Calama": 36.8,
+          "Antofagasta": 24.3,
+          "La Serena": 32.1,
+          "DGF-Lengua de Vaca": 34.6,
+          "CENMA-Pichidangui": 29.2,
+          "Pudahuel": 30.3,
+          "Torre Entel": 24.1,
+          "La Reina": 22.4,
+          "La Platina": 16.7,
+          "Putu": 29,
+          "Concepcion": 40,
+          "ENAP-Bio Bio": 43.5,
+          "Temuco": 35.2,
+          "Puerto Montt": 33.9,
+          "Chaiten": 49.2,
+          "Quellon": 49.7,
+          "Palena": 38.2,
+          "Coyhaique": 44.8,
+          "Balmaceda": 47.6,
+          "Chile Chico": 41.5,
+          "Cochrane": 38.1,
+          "Punta Arenas": 53.5
+        },
+        "by_latitude": [
+          {
+            "rango": "17°29'–27°",
+            "V": 30
+          },
+          {
+            "rango": "27°–35°",
+            "V": 35
+          },
+          {
+            "rango": "35°–42°",
+            "V": 40
+          },
+          {
+            "rango": "42°–50°",
+            "V": 50
+          },
+          {
+            "rango": "50°–56°32'",
+            "V": 55
+          }
+        ]
+      },
+      "gcpf_external_pressure": {
+        "_tramos_pendiente_grados": "[0,5), [5,20), [20,45), [>=45]",
+        "_zonas": "1=muro barlovento, 2=techo barlovento, 3=techo sotavento, 4=muro sotavento, 5=muro lateral, 6=lateral; sufijo E=franja de borde.",
+        "zonas": {
+          "1": [0.4, 0.53, 0.56, 0.56],
+          "2": [-0.69, -0.69, 0.21, 0.56],
+          "3": [-0.37, -0.48, -0.43, -0.37],
+          "4": [-0.29, -0.43, 0.37, 0.37],
+          "5": [-0.45, -0.45, -0.45, -0.45],
+          "6": [-0.45, -0.45, -0.45, -0.45],
+          "1E": [0.61, 0.8, 0.69, 0.69],
+          "2E": [-1.07, -1.07, 0.27, 0.69],
+          "3E": [-0.53, -0.69, -0.53, -0.48],
+          "4E": [0.43, -0.64, -0.48, -0.48]
+        }
+      },
+      "_verificacion": "Ejemplo (Puerto Montt, V=40, Exp C, Cat II -> I=1, Kd=0.85; topo Escarpe 2D H=3,Lh=4,x=2,z=5 -> Kzt=1.046627; h=6): con Kz exacto=0.898876 da q=784.32 N/m2 y zona1=745.1, zona2=-972.6, zona1E=909.8 N/m2 (parc. cerrado). La referencia con Kz de tabla redondeado=0.90 da q=785.30 (zona1=746.0); la formula exacta (aqui codificada) difiere solo 0.13%."
+    },
+    "seismic": {
+      "_fuente": "NCh433 Of.2009 + DS61/2011 — codificado desde la norma NCh433. Verificado: R* y Sa(0) según la norma. Genera el espectro y lo asigna a casos ESPECTRALES (dir X e Y).",
+      "soil_table": {
+        "_columnas": "S, To(s), Tp(s)=T', n, p",
+        "A": {
+          "S": 0.9,
+          "To": 0.15,
+          "Tp": 0.2,
+          "n": 1.0,
+          "p": 2.0
+        },
+        "B": {
+          "S": 1.0,
+          "To": 0.3,
+          "Tp": 0.35,
+          "n": 1.33,
+          "p": 1.5
+        },
+        "C": {
+          "S": 1.05,
+          "To": 0.4,
+          "Tp": 0.45,
+          "n": 1.4,
+          "p": 1.6
+        },
+        "D": {
+          "S": 1.2,
+          "To": 0.75,
+          "Tp": 0.85,
+          "n": 1.8,
+          "p": 1.0
+        },
+        "E": {
+          "S": 1.3,
+          "To": 1.2,
+          "Tp": 1.35,
+          "n": 1.8,
+          "p": 1.0
+        },
+        "F": "estudio especial (sin tabla)"
+      },
+      "zone_table_Ao_g": {
+        "1": 0.2,
+        "2": 0.3,
+        "3": 0.4
+      },
+      "category_table": {
+        "I": 0.6,
+        "II": 1.0,
+        "III": 1.2,
+        "IV": 1.2
+      },
+      "tabla_R_Cmax": {
+        "2.0": 0.9,
+        "3.0": 0.6,
+        "4.0": 0.55,
+        "5.5": 0.4,
+        "6.0": 0.35,
+        "7.0": 0.35
+      },
+      "formula": {
+        "_nota": "Espectro de diseño NCh433/DS61, por dirección (X, Y). T* = período fundamental de esa dirección (sale del análisis MODAL).",
+        "alpha_de_T": "(1 + 4.5*(T/To)^p) / (1 + (T/To)^3)",
+        "R_estrella": "1 + T*/(0.10*To + T*/Ro)",
+        "Sa_de_T_en_g": "S*Ao*I*alpha(T) / R_estrella",
+        "tope_corte_basal": "el coeficiente de corte basal se limita a Cmax*I*S*Ao (y mínimo según norma); se aplica al ESCALAR el cortante, no al espectro mismo. Verificar."
+      },
+      "flujo_generador": "1) construir modelo y diafragmas; 2) análisis MODAL → T*x, T*y; 3) calcular R*x, R*y; 4) construir Sa(T) por dirección con la fórmula; 5) cargar como espectro en los casos espectrales SismoX/SismoY; 6) (opcional) escalar por Cmin/Cmax.",
+      "default_params": {
+        "damping_zeta": 0.05,
+        "Ro": 11.0,
+        "R": 7.0
+      },
+      "zonificacion_ciudades": {
+        "_fuente": "NCh433.Of1996 Mod.2009 / DS61. Tabla 4.1 (zonificación por comunas, Regiones IV a IX) + Figuras 4.1 a),b),c) para el resto (XV,I,II,III,X,XI,XII,XIV y RM). Zona 3 = costa (Ao=0.4g), Zona 2 = valle central (0.3g), Zona 1 = cordillera (0.2g). Claves normalizadas en minúsculas y sin acentos.",
+        "_nota": "Si la ciudad no está en esta tabla, el generador usa zona 2 e informa que debe verificarse contra la comuna exacta (Tabla 4.1 / Figura 4.1 NCh433).",
+        "tabla": {
+          "arica": 3, "iquique": 3, "alto hospicio": 3, "pozo almonte": 3,
+          "antofagasta": 3, "calama": 2, "tocopilla": 3, "mejillones": 3, "taltal": 3,
+          "copiapo": 3, "vallenar": 3, "chanaral": 3, "caldera": 3, "huasco": 3,
+          "la serena": 3, "coquimbo": 3, "ovalle": 2, "illapel": 3, "los vilos": 3, "andacollo": 3, "vicuna": 2, "salamanca": 2, "combarbala": 2, "monte patria": 2,
+          "valparaiso": 3, "vina del mar": 3, "quilpue": 3, "villa alemana": 3, "concon": 3, "quillota": 3, "san antonio": 3, "casablanca": 3, "san felipe": 3, "la calera": 3, "la ligua": 3, "limache": 3, "quintero": 3, "cartagena": 3, "el quisco": 3, "el tabo": 3, "algarrobo": 3, "papudo": 3, "zapallar": 3, "los andes": 2, "san esteban": 2, "calle larga": 2,
+          "santiago": 2, "puente alto": 2, "maipu": 2, "la florida": 2, "las condes": 2, "providencia": 2, "nunoa": 2, "penalolen": 2, "san bernardo": 2, "talagante": 2, "colina": 2, "buin": 2, "pudahuel": 2, "quilicura": 2, "penaflor": 2, "vitacura": 2, "la reina": 2, "macul": 2, "renca": 2, "melipilla": 3, "curacavi": 3, "lampa": 3, "tiltil": 3, "el monte": 3, "maria pinto": 3,
+          "rancagua": 2, "machali": 2, "rengo": 2, "san fernando": 2, "san vicente": 2, "chimbarongo": 2, "graneros": 2, "pichilemu": 3, "santa cruz": 3, "las cabras": 3, "navidad": 3,
+          "talca": 3, "curico": 2, "linares": 2, "constitucion": 3, "cauquenes": 3, "molina": 2, "san javier": 3, "parral": 2, "san clemente": 2, "maule": 3, "chanco": 3,
+          "concepcion": 3, "talcahuano": 3, "chillan": 3, "chillan viejo": 3, "coronel": 3, "lota": 3, "tome": 3, "chiguayante": 3, "san pedro de la paz": 3, "hualpen": 3, "hualqui": 3, "arauco": 3, "lebu": 3, "canete": 3, "bulnes": 3, "cabrero": 3, "nacimiento": 3, "los angeles": 2, "mulchen": 2, "yungay": 2, "san carlos": 3, "coihueco": 2,
+          "temuco": 2, "padre las casas": 3, "angol": 3, "villarrica": 2, "pucon": 1, "nueva imperial": 3, "lautaro": 2, "victoria": 2, "loncoche": 2, "pitrufquen": 2, "carahue": 3, "traiguen": 3, "collipulli": 2, "curacautin": 2, "curarrehue": 1, "lonquimay": 1, "melipeuco": 1,
+          "valdivia": 3, "corral": 3, "mariquina": 3, "san jose de la mariquina": 3, "la union": 2, "rio bueno": 2, "panguipulli": 2, "los lagos": 2, "lanco": 2, "paillaco": 2, "futrono": 2,
+          "puerto montt": 3, "puerto varas": 2, "osorno": 2, "castro": 3, "ancud": 3, "calbuco": 3, "frutillar": 2, "llanquihue": 2, "quellon": 3, "chonchi": 3, "purranque": 2
+        }
+      }
+    }
+  },
+  "combinations": {
+    "_fuente": "NCh3171 / LRFD (ASCE 7) — 32 combinaciones NCh3171 (factores según la norma).",
+    "_mapa_cargas_a_casos": {
+      "D": "CM (muerta, incl. peso propio)",
+      "L": "CV (sobrecarga de uso)",
+      "Lr": "CV de techo",
+      "W": "Viento",
+      "S": "Nieve",
+      "E": "Sismo (espectral; Ex/Ey por direccion)",
+      "R": "Lluvia"
+    },
+    "_uso": "El boton/generador crea solo las combinaciones cuyos casos existen en el modelo. El asistente las invoca al pedir 'cargas eventuales'.",
+    "lista": [
+      {
+        "nombre": "1.4D",
+        "factores": {
+          "D": 1.4
+        }
+      },
+      {
+        "nombre": "1.2D+1.6L+0.5Lr",
+        "factores": {
+          "D": 1.2,
+          "L": 1.6,
+          "Lr": 0.5
+        }
+      },
+      {
+        "nombre": "1.2D+1.6L+0.5S",
+        "factores": {
+          "D": 1.2,
+          "L": 1.6,
+          "S": 0.5
+        }
+      },
+      {
+        "nombre": "1.2D+1.6L+0.5R",
+        "factores": {
+          "D": 1.2,
+          "L": 1.6,
+          "R": 0.5
+        }
+      },
+      {
+        "nombre": "1.2D+1.6Lr+L",
+        "factores": {
+          "D": 1.2,
+          "Lr": 1.6,
+          "L": 1.0
+        }
+      },
+      {
+        "nombre": "1.2D+1.6S+L",
+        "factores": {
+          "D": 1.2,
+          "S": 1.6,
+          "L": 1.0
+        }
+      },
+      {
+        "nombre": "1.2D+1.6R+L",
+        "factores": {
+          "D": 1.2,
+          "R": 1.6,
+          "L": 1.0
+        }
+      },
+      {
+        "nombre": "1.2D+1.6Lr+0.8W",
+        "factores": {
+          "D": 1.2,
+          "Lr": 1.6,
+          "W": 0.8
+        }
+      },
+      {
+        "nombre": "1.2D+1.6S+0.8W",
+        "factores": {
+          "D": 1.2,
+          "S": 1.6,
+          "W": 0.8
+        }
+      },
+      {
+        "nombre": "1.2D+1.6R+0.8W",
+        "factores": {
+          "D": 1.2,
+          "R": 1.6,
+          "W": 0.8
+        }
+      },
+      {
+        "nombre": "1.2D+1.6W+L+0.5Lr",
+        "factores": {
+          "D": 1.2,
+          "W": 1.6,
+          "L": 1.0,
+          "Lr": 0.5
+        }
+      },
+      {
+        "nombre": "1.2D+1.6W+L+0.5S",
+        "factores": {
+          "D": 1.2,
+          "W": 1.6,
+          "L": 1.0,
+          "S": 0.5
+        }
+      },
+      {
+        "nombre": "1.2D+1.6W+L+0.5R",
+        "factores": {
+          "D": 1.2,
+          "W": 1.6,
+          "L": 1.0,
+          "R": 0.5
+        }
+      },
+      {
+        "nombre": "1.2D+1.4E+L+0.2S",
+        "factores": {
+          "D": 1.2,
+          "E": 1.4,
+          "L": 1.0,
+          "S": 0.2
+        }
+      },
+      {
+        "nombre": "0.8D+1.6W",
+        "factores": {
+          "D": 0.8,
+          "W": 1.6
+        }
+      },
+      {
+        "nombre": "0.9D+1.4E",
+        "factores": {
+          "D": 0.9,
+          "E": 1.4
+        }
+      },
+      {
+        "nombre": "D",
+        "factores": {
+          "D": 1.0
+        }
+      },
+      {
+        "nombre": "D+L",
+        "factores": {
+          "D": 1.0,
+          "L": 1.0
+        }
+      },
+      {
+        "nombre": "D+Lr",
+        "factores": {
+          "D": 1.0,
+          "Lr": 1.0
+        }
+      },
+      {
+        "nombre": "D+S",
+        "factores": {
+          "D": 1.0,
+          "S": 1.0
+        }
+      },
+      {
+        "nombre": "D+R",
+        "factores": {
+          "D": 1.0,
+          "R": 1.0
+        }
+      },
+      {
+        "nombre": "D+0.75L+0.75Lr",
+        "factores": {
+          "D": 1.0,
+          "L": 0.75,
+          "Lr": 0.75
+        }
+      },
+      {
+        "nombre": "D+0.75L+0.75S",
+        "factores": {
+          "D": 1.0,
+          "L": 0.75,
+          "S": 0.75
+        }
+      },
+      {
+        "nombre": "D+0.75L+0.75R",
+        "factores": {
+          "D": 1.0,
+          "L": 0.75,
+          "R": 0.75
+        }
+      },
+      {
+        "nombre": "D+W",
+        "factores": {
+          "D": 1.0,
+          "W": 1.0
+        }
+      },
+      {
+        "nombre": "D+E",
+        "factores": {
+          "D": 1.0,
+          "E": 1.0
+        }
+      },
+      {
+        "nombre": "D+0.75W+0.75L+0.75Lr",
+        "factores": {
+          "D": 1.0,
+          "W": 0.75,
+          "L": 0.75,
+          "Lr": 0.75
+        }
+      },
+      {
+        "nombre": "D+0.75W+0.75L+0.75S",
+        "factores": {
+          "D": 1.0,
+          "W": 0.75,
+          "L": 0.75,
+          "S": 0.75
+        }
+      },
+      {
+        "nombre": "D+0.75W+0.75L+0.75R",
+        "factores": {
+          "D": 1.0,
+          "W": 0.75,
+          "L": 0.75,
+          "R": 0.75
+        }
+      },
+      {
+        "nombre": "D+0.75E+0.75L+0.75S",
+        "factores": {
+          "D": 1.0,
+          "E": 0.75,
+          "L": 0.75,
+          "S": 0.75
+        }
+      },
+      {
+        "nombre": "0.6D+W",
+        "factores": {
+          "D": 0.6,
+          "W": 1.0
+        }
+      },
+      {
+        "nombre": "0.6D+E",
+        "factores": {
+          "D": 0.6,
+          "E": 1.0
+        }
+      }
+    ],
+    "_verificar": true
+  }
+}

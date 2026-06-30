@@ -1,0 +1,142 @@
+{
+  "_meta": {
+    "version": "0.5-example",
+    "_EJEMPLO": "PLANTILLA DE EJEMPLO, AGNÓSTICA. Este archivo NO contiene la normativa real de ninguna jurisdicción: trae tablas de EJEMPLO genéricas para que el generador y loads.js funcionen de forma demostrativa. Si quieres cargas normativas reales (nieve/viento/sísmica, cargas de uso, zonificación por ciudad), reemplaza estas tablas con las de tu propio código. El motor (generator.js + loads.js) es agnóstico; solo estos datos definen la jurisdicción.",
+    "proposito": "Reglas de modelado + tablas de cargas (ejemplo) para el generador del asistente. El asistente extrae una 'ficha' estructurada desde el texto; este archivo + las bibliotecas CSV aportan los datos que el generador combina para producir el modelo .s3d.",
+    "como_personalizar": "Reemplaza cargas.nieve_*, cargas.viento_* y cargas.sismica_* con las tablas de tu código. Mantén las MISMAS claves (las lee assistant/loads.js). reglas_modelado y bibliotecas son agnósticas y puedes dejarlas."
+  },
+
+  "libraries": {
+    "profiles_csv": "profiles.csv",
+    "materials_csv": "materials.csv",
+    "_nota_perfiles": "Perfiles I (IPE/HEA/HEB/HEM, dataset EN 10365). Columnas en mm (h,b,tw,tf,r) y unidades de tabla (A_cm2, I_cm4, Iw_cm6, Av_cm2, W_cm3, i_cm). Iy=eje fuerte; Iz=eje débil (convención Eurocode). Ampliable agregando filas.",
+    "_conversion_a_PORTICO": "A: cm2 ×1e-4 → m2. I, It: cm4 ×1e-8 → m4. El generador mapea Iy(mayor)→plano fuerte y asigna Avy/Avz/kappa desde Av_y/Av_z del CSV.",
+    "live_loads_csv": "live_loads.csv"
+  },
+
+  "modeling_rules": {
+    "base_support": "fixed",
+    "_apoyo_base_opciones": ["fixed", "pinned"],
+    "columns": "una en cada intersección de ejes de grilla",
+    "beams": "una por cada tramo entre ejes contiguos, en cada nivel",
+    "max_span_m": 6,
+    "_separacion_nota": "Si un lado de la planta supera esta luz, el generador agrega ejes intermedios (y por tanto columnas/vigas). Así se decide automáticamente la cantidad de vigas y pilares.",
+    "rigid_diaphragm_per_level": true,
+    "analysis_subdivision": 10,
+    "plan_transition": "interpolar linealmente las dimensiones entre nivel inferior y superior cuando la planta cambia (p.ej. 10×10 en base → 10×8 en techo)",
+    "default_beam": "IPE300",
+    "default_column": "HEB200"
+  },
+
+  "loads": {
+    "_modelo": "Las cargas de ÁREA (kN/m²) se reparten a las vigas según ancho tributario: w[kN/m] = q[kN/m²] × ancho_tributario[m]. Las cargas gravitacionales de área también definen la MASA SÍSMICA (CM + fracción de CV) en los diafragmas, que alimenta el caso espectral.",
+
+    "seismic_mass": {
+      "live_load_fraction": 0.25,
+      "_EJEMPLO": "Fracción de la sobrecarga de uso que participa como masa sísmica. Valor de ejemplo; ajusta al de tu código."
+    },
+
+    "live_load_use": {
+      "_EJEMPLO": "Cargas de uso de EJEMPLO. La tabla real (por tipo de edificio) va en live_loads.csv; reemplázala con la de tu código.",
+      "_csv": "live_loads.csv",
+      "_columnas": "id, tipo_edificio, descripcion, Lo_kNm2 (sobrecarga uniforme), Qk_kN (carga concentrada)",
+      "_ejemplo": "Aulas ≈ 3.0 kN/m² ; Pasillos ≈ 4.0 kN/m² ; Vivienda ≈ 2.0 kN/m² (valores de ejemplo, NO normativos)."
+    },
+
+    "snow": {
+      "_EJEMPLO": "PLANTILLA DE EJEMPLO de carga de nieve. pg constante de ejemplo (1.0 kN/m²) para cualquier ubicación. Reemplaza pg_carga_basica_terreno_Tabla1 y los factores con las tablas de tu código (por latitud/altitud, exposición, térmico, importancia).",
+      "_unidad": "kN/m²",
+      "formula_techo_plano": "pf = 0.7·Ce·Ct·I·pg",
+      "formula_techo_inclinado": "ps = Cs·pf",
+      "_coef_forma_techo_plano": 0.7,
+      "ground_snow_table": {
+        "_nota": "Ejemplo: una sola banda de latitud y de altitud → pg=1.0 kN/m² siempre.",
+        "latitudes": ["0-90"],
+        "by_altitude_masl": { "0-99999": [1.0] }
+      },
+      "thermal_factor_table": { "Todas las estructuras (salvo las siguientes)": 1.0 },
+      "importance_factor_table": { "I": 0.8, "II": 1.0, "III": 1.1, "IV": 1.2 },
+      "exposure_factor_table": {
+        "B": { "Totalmente expuesto": 0.9, "Parcialmente expuesto": 1.0, "Protegido": 1.2 },
+        "C": { "Totalmente expuesto": 0.9, "Parcialmente expuesto": 1.0, "Protegido": 1.1 },
+        "D": { "Totalmente expuesto": 0.8, "Parcialmente expuesto": 0.9, "Protegido": 1.0 }
+      }
+    },
+
+    "wind": {
+      "_EJEMPLO": "PLANTILLA DE EJEMPLO de carga de viento. Velocidad básica constante de ejemplo (35 m/s). Los coeficientes de exposición y de presión externa (GCpf) son los de ASCE 7 (referencia internacional). Reemplaza V_basica_m_s con las velocidades de tu código.",
+      "_unidades": "V en m/s; presiones q,p en N/m².",
+      "metodo": "analitico_baja_altura_SPRFV",
+      "importance_factor": { "I": 0.87, "II": 1.0, "III": 1.15, "IV": 1.15 },
+      "kd_directionality": { "Edificio SPRFV": 0.85 },
+      "gcpi_internal_pressure": { "Abierto": 0, "Parcialmente cerrado": 0.55, "Cerrado": 0.18 },
+      "exposure": {
+        "B": { "alfa": 7.0, "Zg_m": 365.76, "zmin_m": 9.14 },
+        "C": { "alfa": 9.5, "Zg_m": 274.32, "zmin_m": 4.57 },
+        "D": { "alfa": 11.5, "Zg_m": 213.36, "zmin_m": 2.13 }
+      },
+      "Kz_formula": "Kz = 2.01·(z/Zg)^(2/alfa), con z = max(h_techo, 4.6 m).",
+      "basic_speed_m_s": {
+        "_nota": "Ejemplo: una única velocidad básica para cualquier ubicación.",
+        "by_station": {},
+        "by_latitude": [{ "rango": "todas (ejemplo)", "V": 35 }]
+      },
+      "gcpf_external_pressure": {
+        "_tramos_pendiente_grados": "[0,5), [5,20), [20,45), [>=45]",
+        "_zonas": "1=muro barlovento, 2=techo barlovento, 3=techo sotavento, 4=muro sotavento, 5/6=muro lateral (coef. de ASCE 7, referencia internacional).",
+        "zonas": {
+          "1": [0.40, 0.53, 0.56, 0.56],
+          "2": [-0.69, -0.69, 0.21, 0.56],
+          "3": [-0.37, -0.48, -0.43, -0.37],
+          "4": [-0.29, -0.43, 0.37, 0.37],
+          "5": [-0.45, -0.45, -0.45, -0.45],
+          "6": [-0.45, -0.45, -0.45, -0.45]
+        }
+      }
+    },
+
+    "seismic": {
+      "_EJEMPLO": "PLANTILLA DE EJEMPLO de espectro sísmico. Las clases de sitio (A–E), zonas y categorías son valores GENÉRICOS de ejemplo, NO la normativa de ninguna jurisdicción. La fórmula del espectro es de tipo general. Reemplaza tabla_suelos/tabla_zona/tabla_categoria y la zonificación con los de tu código.",
+      "soil_table": {
+        "_columnas": "S, To(s), Tp(s)=T', n, p (valores de ejemplo por clase de sitio A=roca … E=suelo blando)",
+        "A": { "S": 0.9, "To": 0.15, "Tp": 0.20, "n": 1.0, "p": 2.0 },
+        "B": { "S": 1.0, "To": 0.30, "Tp": 0.35, "n": 1.33, "p": 1.5 },
+        "C": { "S": 1.05, "To": 0.40, "Tp": 0.45, "n": 1.4, "p": 1.6 },
+        "D": { "S": 1.2, "To": 0.75, "Tp": 0.85, "n": 1.8, "p": 1.0 },
+        "E": { "S": 1.3, "To": 1.20, "Tp": 1.35, "n": 1.8, "p": 1.0 }
+      },
+      "zone_table_Ao_g": { "1": 0.20, "2": 0.30, "3": 0.40 },
+      "category_table": { "I": 0.6, "II": 1.0, "III": 1.2, "IV": 1.2 },
+      "tabla_R_Cmax": { "2.0": 0.9, "3.0": 0.6, "4.0": 0.55, "5.5": 0.4, "6.0": 0.35, "7.0": 0.35 },
+      "formula": {
+        "_nota": "Espectro de diseño de ejemplo, por dirección (X, Y). T* = período fundamental de esa dirección (del análisis MODAL).",
+        "alpha_de_T": "(1 + 4.5*(T/To)^p) / (1 + (T/To)^3)",
+        "R_estrella": "1 + T*/(0.10*To + T*/Ro)",
+        "Sa_de_T_en_g": "S*Ao*I*alpha(T) / R_estrella"
+      },
+      "default_params": { "damping_zeta": 0.05, "Ro": 11, "R": 7 },
+      "zonificacion_ciudades": {
+        "_EJEMPLO": "Mapa ciudad→zona de EJEMPLO. Reemplázalo con la zonificación de tu jurisdicción. Si la ciudad de la ficha no está aquí, el generador usa la zona 2 e informa.",
+        "tabla": {
+          "example coastal city": 3,
+          "example valley city": 2,
+          "example mountain city": 1
+        }
+      }
+    }
+  },
+
+  "combinations": {
+    "_EJEMPLO": "Combinaciones de carga de EJEMPLO (estilo LRFD, equivalentes a ASCE 7 — referencia internacional). Ajústalas a tu código. D=muerta, L=viva, Lr=viva de techo, S=nieve, W=viento, E=sismo.",
+    "lista": [
+      { "nombre": "1.4D", "factores": { "D": 1.4 } },
+      { "nombre": "1.2D+1.6L+0.5Lr", "factores": { "D": 1.2, "L": 1.6, "Lr": 0.5 } },
+      { "nombre": "1.2D+1.6Lr+1.0L", "factores": { "D": 1.2, "Lr": 1.6, "L": 1.0 } },
+      { "nombre": "1.2D+1.6S+1.0L", "factores": { "D": 1.2, "S": 1.6, "L": 1.0 } },
+      { "nombre": "1.2D+1.0W+1.0L+0.5Lr", "factores": { "D": 1.2, "W": 1.0, "L": 1.0, "Lr": 0.5 } },
+      { "nombre": "1.2D+1.0E+1.0L", "factores": { "D": 1.2, "E": 1.0, "L": 1.0 } },
+      { "nombre": "0.9D+1.0W", "factores": { "D": 0.9, "W": 1.0 } },
+      { "nombre": "0.9D+1.0E", "factores": { "D": 0.9, "E": 1.0 } }
+    ]
+  }
+}

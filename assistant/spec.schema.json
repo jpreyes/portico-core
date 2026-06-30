@@ -1,0 +1,353 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://portico/assistant/spec.schema.json",
+  "title": "PORTICO structured spec",
+  "description": "Bounded specification the LLM fills in from natural language. It does NOT contain node-by-node geometry or engineering values: the deterministic generator derives those from this spec + rules.json + CSV libraries.",
+  "type": "object",
+  "required": ["mode", "geometry"],
+  "additionalProperties": false,
+  "properties": {
+    "project": { "type": "string", "description": "Project name." },
+    "mode": { "type": "string", "enum": ["2D", "3D"], "description": "2D = planar X–Z frame (no Y axes)." },
+    "typology": {
+      "type": "string",
+      "enum": ["frame", "timber_walls", "truss", "bridge", "warehouse", "torre", "primitives"],
+      "default": "frame",
+      "description": "frame = portal frame of columns and beams. timber_walls = light stud framing (timber or steel). truss = roof truss (Warren/Pratt/Howe). bridge = deck/central beam on piers. warehouse = industrial shed. torre = transmission tower / 3D space lattice (4 tapered legs + crossarms). primitives = FREE STRUCTURE for ANY case without a template: fill 'elements' and 'supports' with coordinates. Use 'primitives' when no template fits."
+    },
+
+    "tower": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Transmission tower / space lattice (typology 'torre').",
+      "properties": {
+        "height_m": { "type": "number", "exclusiveMinimum": 0 },
+        "base_m": { "type": "number", "exclusiveMinimum": 0, "description": "Base width (square plan)." },
+        "top_m": { "type": "number", "minimum": 0, "description": "Top width." },
+        "panels": { "type": "integer", "minimum": 2 },
+        "bracing": { "type": "string", "enum": ["X"], "default": "X" },
+        "pinned": { "type": "boolean", "description": "true = pinned (truss); false = rigid joints." },
+        "chord_profile": { "type": ["string", "object"] },
+        "diagonal_profile": { "type": ["string", "object"] },
+        "crossarms": {
+          "type": "array",
+          "description": "Brackets for the conductors, at ±X.",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "properties": {
+              "z_m": { "type": "number", "exclusiveMinimum": 0 },
+              "length_m": { "type": "number", "exclusiveMinimum": 0 },
+              "vertical_load_kN": { "type": "number", "minimum": 0 },
+              "transverse_load_kN": { "type": "number", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "For location-dependent loads (snow, wind, seismic).",
+      "properties": {
+        "city": { "type": "string" },
+        "latitude_deg": { "type": "number", "minimum": 17, "maximum": 56 },
+        "altitude_masl": { "type": "number", "minimum": 0 },
+        "exposure": { "type": "string", "enum": ["B", "C", "D"], "default": "C" }
+      }
+    },
+
+    "geometry": {
+      "type": "object",
+      "required": ["levels"],
+      "additionalProperties": false,
+      "properties": {
+        "levels": {
+          "type": "array",
+          "minItems": 1,
+          "description": "One object per story, bottom to top. Each level can have a different height and a different use/loads (e.g. level 1 classrooms, level 3 light storage).",
+          "items": {
+            "type": "object",
+            "required": ["height_m"],
+            "additionalProperties": false,
+            "properties": {
+              "height_m": { "type": "number", "exclusiveMinimum": 0 },
+              "use_class": { "type": "string", "description": "Use of THIS level (overrides loads.use_class). E.g. 'Escuelas/Salas de Clases', 'Bodegas/Livianas'." },
+              "live_load_kN_m2": { "type": "number", "minimum": 0, "description": "Explicit override of this level's live load." },
+              "dead_extra_kN_m2": { "type": "number", "minimum": 0, "description": "Area dead load for this level (override)." }
+            }
+          }
+        },
+        "spans_x": {
+          "description": "Spans in X: list of lengths [3,3,3,4] or uniform {count, span_m}. Alternative to base_plan.Lx_m / ejes_x_m.",
+          "oneOf": [
+            { "type": "array", "items": { "type": "number", "exclusiveMinimum": 0 }, "minItems": 1 },
+            { "type": "object", "additionalProperties": false, "required": ["count", "span_m"], "properties": { "count": { "type": "integer", "minimum": 1 }, "span_m": { "type": "number", "exclusiveMinimum": 0 } } }
+          ]
+        },
+        "spans_y": {
+          "description": "Spans in Y (3D): list of lengths or uniform {count, span_m}.",
+          "oneOf": [
+            { "type": "array", "items": { "type": "number", "exclusiveMinimum": 0 }, "minItems": 1 },
+            { "type": "object", "additionalProperties": false, "required": ["count", "span_m"], "properties": { "count": { "type": "integer", "minimum": 1 }, "span_m": { "type": "number", "exclusiveMinimum": 0 } } }
+          ]
+        },
+        "base_plan": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Plan dimensions (alternative to spans_x/spans_y or axes). Define at least one geometry path per direction.",
+          "properties": {
+            "Lx_m": { "type": "number", "exclusiveMinimum": 0 },
+            "Ly_m": { "type": "number", "exclusiveMinimum": 0, "description": "Required in 3D." }
+          }
+        },
+        "top_plan": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "If omitted, equal to the base plan (constant plan). If it differs, the generator interpolates linearly between levels.",
+          "properties": {
+            "Lx_m": { "type": "number", "exclusiveMinimum": 0 },
+            "Ly_m": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        "axes_x_m": { "type": "array", "items": { "type": "number" }, "description": "Axis coordinates in X (optional). If omitted, the generator subdivides Lx by the maximum span separation." },
+        "axes_y_m": { "type": "array", "items": { "type": "number" }, "description": "Axis coordinates in Y (optional, ignored in 2D)." },
+        "tributary_width_m": { "type": "number", "exclusiveMinimum": 0, "description": "2D only: spacing between frames to distribute area loads to lines." },
+        "roof_slope_deg": { "type": "number", "minimum": 0, "maximum": 90, "default": 0, "description": "Roof slope (degrees); affects Cs (snow) and GCpf (wind)." }
+      }
+    },
+
+    "sections": {
+      "type": "object",
+      "required": ["material", "beams", "columns"],
+      "additionalProperties": false,
+      "properties": {
+        "material": { "type": "string", "description": "Steel (S235/S275/S355/A630-420H) or concrete (G20/G25/G30/G40). fc in MPa → G{fc}, e.g. fc=30 → 'G30'." },
+        "beams": { "$ref": "#/$defs/seccion", "description": "Steel profile (string, e.g. 'IPE300') or rectangular concrete section {b_cm,h_cm}." },
+        "columns": { "$ref": "#/$defs/seccion", "description": "Steel profile (string, e.g. 'HEB200') or rectangular concrete section {b_cm,h_cm}." }
+      }
+    },
+
+    "base_support": { "type": "string", "enum": ["fixed", "pinned"], "default": "fixed" },
+    "rigid_diaphragm": { "type": "boolean", "default": true },
+
+    "loads": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dead_extra_kN_m2": { "type": "number", "minimum": 0, "description": "Area dead load in addition to self-weight (slab, finishes)." },
+        "use_class": { "type": "string", "description": "Use description in live_loads.csv (e.g. 'Escuelas/Salas de Clases')." },
+        "live_load_kN_m2": { "type": "number", "minimum": 0, "description": "Explicit override of the use live load (kN/m²); if given, it prevails over the use class." },
+        "wind_enclosure": { "type": "string", "enum": ["Abierto", "Parcialmente cerrado", "Cerrado"], "default": "Cerrado", "description": "Building enclosure condition (wind GCpi)." },
+        "snow_protection": { "type": "string", "enum": ["Totalmente expuesto", "Parcialmente expuesto", "Protegido"], "default": "Parcialmente expuesto", "description": "Roof exposure level (snow Ce)." },
+        "snow": { "type": "boolean", "default": false },
+        "wind": { "type": "boolean", "default": false },
+        "seismic": { "type": "boolean", "default": false }
+      }
+    },
+
+    "seismic": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "NCh433/DS61 parameters for the spectral cases (if loads.seismic = true).",
+      "properties": {
+        "zone": { "type": "integer", "enum": [1, 2, 3] },
+        "soil": { "type": "string", "enum": ["A", "B", "C", "D", "E"] },
+        "category": { "type": "string", "enum": ["I", "II", "III", "IV"] },
+        "R": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+
+    "stud_walls": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "typology = 'timber_walls' only. Stud-wall framing: vertical studs + plates (bottom/top). The plan (geometry.base_plan Lx_m, Ly_m) defines the perimeter.",
+      "properties": {
+        "nominal_size": { "type": "string", "description": "Stud size in inches, e.g. '2x4', '2x6'. Also accepts {b_cm,h_cm} but the commercial size is usual." },
+        "spacing_m": { "type": "number", "exclusiveMinimum": 0, "default": 0.4, "description": "Spacing between studs (e.g. 0.4 = @40 cm)." },
+        "perimeter": { "type": "boolean", "default": true, "description": "Generate the 4 perimeter walls on each level." },
+        "diagonals": { "type": "boolean", "default": true, "description": "Add bracing diagonals (zigzag) to the walls." },
+        "diagonal_bays": { "type": "integer", "minimum": 2, "default": 3, "description": "Number of stud bays each diagonal spans (3 bays = crosses 2 studs)." },
+        "interior": {
+          "type": "array",
+          "description": "Interior partitions. Each is a line in plan with optional openings (doors/windows).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["dir", "pos_m"],
+            "properties": {
+              "level": { "type": "integer", "minimum": 1, "default": 1, "description": "Level the partition sits on (1 = first story)." },
+              "dir": { "type": "string", "enum": ["X", "Y"], "description": "Direction of the partition line in plan." },
+              "pos_m": { "type": "number", "minimum": 0, "description": "Perpendicular coordinate of the partition (if dir=Y it is X; if dir=X it is Y). 'center' ≈ L/2." },
+              "openings": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["width_m"],
+                  "properties": {
+                    "type": { "type": "string", "enum": ["door", "window"], "default": "door" },
+                    "width_m": { "type": "number", "exclusiveMinimum": 0, "description": "Opening width (e.g. 0.8 = 80 cm door)." },
+                    "opening_height_m": { "type": "number", "exclusiveMinimum": 0, "default": 2.0, "description": "Opening (lintel) height from the wall base." },
+                    "center_m": { "type": "number", "minimum": 0, "description": "Position of the opening center along the partition line. If omitted, at the wall center." }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "floors": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "typology = 'timber_walls' only. Floor/roof joists resting on the walls.",
+      "properties": {
+        "nominal_size": { "type": "string", "description": "Joist size in inches, e.g. '2x8', '2x10'." },
+        "spacing_m": { "type": "number", "exclusiveMinimum": 0, "default": 0.6, "description": "Spacing between joists (e.g. 0.6 = @60 cm)." },
+        "dir": { "type": "string", "enum": ["X", "Y"], "default": "X", "description": "Direction the joists run (resting on the perpendicular walls)." }
+      }
+    },
+
+    "roof": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "typology = 'timber_walls' only. Building roof. Flat by default (joists). With type 'truss' it crowns the building with gabled Warren trusses integrated over the walls.",
+      "properties": {
+        "type": { "type": "string", "enum": ["flat", "truss"], "default": "flat", "description": "plano = joist platform; truss = gabled Warren trusses." },
+        "slope_pct": { "type": "number", "minimum": 0, "default": 10, "description": "Roof slope in % (truss type only)." },
+        "ridge_height_m": { "type": "number", "exclusiveMinimum": 0, "description": "Ridge height (overrides slope_pct)." },
+        "spacing_m": { "type": "number", "exclusiveMinimum": 0, "default": 0.6, "description": "Spacing between trusses." },
+        "dir": { "type": "string", "enum": ["X", "Y"], "description": "Direction the trusses span. If omitted, they span the shorter side." },
+        "n_panels": { "type": "integer", "minimum": 2, "description": "Number of panels of each truss (even)." },
+        "truss_type": { "type": "string", "enum": ["warren", "pratt", "howe"], "default": "warren", "description": "Web pattern of the roof trusses." },
+        "chord_size": { "type": "string", "description": "Chord size, e.g. '2x6'." },
+        "diagonal_size": { "type": "string", "description": "Diagonal size, e.g. '2x4'." }
+      }
+    },
+
+    "truss": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "typology = 'truss' only. Gabled Warren roof truss (triangulated lattice, zigzag diagonals). ONE representative planar truss is generated (X–Z plane), loaded by its tributary width (spacing_m).",
+      "properties": {
+        "span_m": { "type": "number", "exclusiveMinimum": 0, "default": 6, "description": "Total span between supports (m)." },
+        "slope_pct": { "type": "number", "minimum": 0, "default": 10, "description": "Roof slope in % (10 = 10%). Alternative: altura_cumbrera_m." },
+        "ridge_height_m": { "type": "number", "exclusiveMinimum": 0, "description": "Ridge height above the supports (overrides slope_pct)." },
+        "n_panels": { "type": "integer", "minimum": 2, "default": 8, "description": "Number of bottom-chord panels (even, so the ridge lines up)." },
+        "spacing_m": { "type": "number", "exclusiveMinimum": 0, "default": 0.6, "description": "Spacing between trusses (tributary load width; e.g. 0.6 = @60 cm)." },
+        "chord_size": { "type": "string", "description": "Chord size (top and bottom), e.g. '2x6'." },
+        "diagonal_size": { "type": "string", "description": "Diagonal/vertical size, e.g. '2x4'." },
+        "truss_type": { "type": "string", "enum": ["warren", "pratt", "howe"], "default": "warren", "description": "Web pattern: warren (zigzag), pratt (verticals + tension diagonals) or howe." }
+      }
+    },
+
+    "bridge": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "typology = 'bridge' only. Deck of length×width. Forms: beam/truss on piers (type tablero/viga_central) or ARCH/CABLE (type arco, arco_atirantado/bowstring, network, atirantado, colgante). For arch/cable use flecha_m, n_pendolas, altura_pilon_m/altura_torre_m, escuadria_arco/escuadria_pilon.",
+      "properties": {
+        "length_m": { "type": "number", "exclusiveMinimum": 0, "default": 30, "description": "Total bridge length." },
+        "width_m": { "type": "number", "exclusiveMinimum": 0, "default": 5, "description": "Deck width." },
+        "pier_height_m": { "type": "number", "exclusiveMinimum": 0, "default": 5, "description": "Pier height (deck level above the base)." },
+        "pier_span_m": { "type": "number", "exclusiveMinimum": 0, "description": "Spacing between piers (e.g. 20 = every 20 m). Alternative: n_pilas." },
+        "n_piers": { "type": "integer", "minimum": 2, "description": "Number of pier lines (alternative to pier_span_m)." },
+        "type": { "type": "string", "enum": ["deck", "central_beam", "arch", "tied_arch", "network", "cable_stayed", "suspension"], "default": "deck", "description": "tablero = 2 longitudinal beams + transverse beams. viga_central = ONE central beam + transverse beams on piers. arco = deck-arch with spandrel posts (Salginatobel type). arco_atirantado = bowstring (arch over the tie-deck, vertical hangers; vertical supports only). network = bowstring with CROSSED inclined hangers. atirantado = central pylon + fan stays (cable-stayed). colgante = parabolic suspension cable + towers + hangers (suspension)." },
+        "rise_m": { "type": "number", "exclusiveMinimum": 0, "description": "Arch rise (arco/bowstring/network) or cable sag (colgante). Default ≈ L/6 (arch) or L/10 (suspension)." },
+        "pylon_height_m": { "type": "number", "exclusiveMinimum": 0, "description": "Pylon height above the deck (cable-stayed). Default ≈ L/4." },
+        "tower_height_m": { "type": "number", "exclusiveMinimum": 0, "description": "Tower height (suspension)." },
+        "n_hangers": { "type": "integer", "minimum": 4, "description": "Number of hangers/stays per plane (arch/cable). Default ≈ L/8." },
+        "arch_section": { "$ref": "#/$defs/seccion", "description": "Arch section (arco/bowstring/network)." },
+        "pylon_section": { "$ref": "#/$defs/seccion", "description": "Pylon/tower section (cable-stayed/suspension)." },
+        "girder_type": { "type": "string", "enum": ["beam", "truss"], "default": "beam", "description": "type=tablero only: beam = continuous longitudinals; truss = lattice girders under the deck." },
+        "truss_type": { "type": "string", "enum": ["warren", "pratt", "howe"], "default": "warren", "description": "Lattice pattern if tipo_viga='truss'." },
+        "depth_m": { "type": "number", "exclusiveMinimum": 0, "description": "Depth of the lattice girder (if tipo_viga='truss')." },
+        "panels_per_span": { "type": "integer", "minimum": 2, "description": "Lattice panels per span between piers." },
+        "central_beam_section": { "$ref": "#/$defs/seccion", "description": "Section of the central longitudinal beam (viga_central), e.g. {b_cm:50,h_cm:200}." },
+        "transverse_section": { "$ref": "#/$defs/seccion", "description": "Section of the transverse beams (viga_central), e.g. {b_cm:30,h_cm:80}." },
+        "pier_section": { "$ref": "#/$defs/seccion", "description": "Section of the piers, e.g. {b_cm:100,h_cm:100}." },
+        "girder_section": { "$ref": "#/$defs/seccion", "description": "Section of the longitudinal beams (type=tablero)." },
+        "diagonal_size": { "$ref": "#/$defs/seccion", "description": "Section of the deck diagonals/transverse beams." },
+        "transverse_spacing_m": { "type": "number", "exclusiveMinimum": 0, "default": 2, "description": "Spacing between transverse beams (viga_central)." },
+        "transverse_load_kN_m": { "type": "number", "minimum": 0, "description": "Uniform line load (kN/m) applied ONLY to the transverse beams (viga_central)." }
+      }
+    },
+
+    "warehouse": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "typology = 'warehouse' only. Industrial shed: frames (columns) spaced along the length + gabled roof trusses (Warren/Pratt/Howe) + purlins.",
+      "properties": {
+        "span_m": { "type": "number", "exclusiveMinimum": 0, "default": 15, "description": "Shed span (width the trusses cover)." },
+        "length_m": { "type": "number", "exclusiveMinimum": 0, "default": 30, "description": "Shed length (frame direction)." },
+        "column_height_m": { "type": "number", "exclusiveMinimum": 0, "default": 6, "description": "Column (eaves) height." },
+        "frame_spacing_m": { "type": "number", "exclusiveMinimum": 0, "default": 5, "description": "Spacing between frames." },
+        "slope_pct": { "type": "number", "minimum": 0, "default": 15, "description": "Roof slope in %." },
+        "ridge_height_m": { "type": "number", "exclusiveMinimum": 0, "description": "Ridge height above the eaves (overrides slope_pct)." },
+        "truss_type": { "type": "string", "enum": ["warren", "pratt", "howe"], "default": "warren", "description": "Roof truss pattern." },
+        "n_panels": { "type": "integer", "minimum": 2, "description": "Number of panels of each truss (even)." },
+        "column_section": { "type": "string", "description": "Column size/profile." },
+        "chord_size": { "type": "string", "description": "Truss chord size/profile." },
+        "diagonal_size": { "type": "string", "description": "Diagonal and purlin size/profile." }
+      }
+    },
+
+    "default_material": { "type": "string", "description": "typology = 'primitives' only. Default material of the elements (e.g. 'G50', 'S275', 'Pino Radiata'). Each element can override with its own 'material'." },
+
+    "elements": {
+      "type": "array",
+      "description": "typology = 'primitives' only. List of bars in [x,y,z] coordinates (m). Bars that share a point are joined automatically (same node). With this you build ANY structure (tower, mast, grillage, N-beam bridge…).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": { "type": "string", "enum": ["beam", "column", "bar", "repeated_beams"], "default": "bar", "description": "barra/beam/column = a bar from 'from' to 'to'. repeated_beams = a base bar repeated along 'step_dir' every 'step'." },
+          "from": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3, "description": "Start point [x,y,z] in m." },
+          "to": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3, "description": "End point [x,y,z] in m." },
+          "section": { "$ref": "#/$defs/seccion", "description": "Section: {b_cm,h_cm}, profile ('IPE300') or size ('2x4')." },
+          "material": { "type": "string", "description": "Override of this bar's material." },
+          "n": { "type": "integer", "minimum": 1, "description": "Bar subdivisions (intermediate nodes). Useful for loads/deflected shape." },
+          "load_kN_m": { "type": "number", "minimum": 0, "description": "Vertical line load (kN/m) on this bar(s) → LL case." },
+          "step_dir": { "type": "string", "enum": ["X", "Y", "Z"], "description": "repeated_beams only: repetition direction." },
+          "step": { "type": "number", "exclusiveMinimum": 0, "description": "repeated_beams only: spacing between copies." },
+          "n_repeat": { "type": "integer", "minimum": 1, "description": "repeated_beams only: how many copies (alternative: to_coord)." },
+          "to_coord": { "type": "number", "description": "repeated_beams only: end coordinate along step_dir (alternative to n_repeat)." }
+        }
+      }
+    },
+
+    "supports": {
+      "type": "array",
+      "description": "typology = 'primitives' only. Supports on existing nodes (must match bar endpoints).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "en": { "type": "array", "items": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }, "description": "List of points [x,y,z] where the support is applied." },
+          "z": { "type": "number", "description": "Apply to ALL nodes at this z level (e.g. z:0 = the whole base)." },
+          "type": { "type": "string", "description": "'fixed' | 'pinned' | 'roller', or an object {ux,uy,uz,rx,ry,rz} with 1=fixed." }
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "section": {
+      "oneOf": [
+        { "type": "string", "description": "Steel profile name in profiles.csv (e.g. 'IPE300', 'HEB200'). Also accepts 'b x h' in cm." },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["b_cm", "h_cm"],
+          "description": "Solid rectangular section (concrete): b = width, h = depth.",
+          "properties": {
+            "b_cm": { "type": "number", "exclusiveMinimum": 0 },
+            "h_cm": { "type": "number", "exclusiveMinimum": 0 },
+            "nombre": { "type": "string" }
+          }
+        }
+      ]
+    }
+  }
+}

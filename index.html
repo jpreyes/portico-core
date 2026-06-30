@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PORTICO · 3D Structural Analysis &amp; Design</title>
+  <meta name="description" content="PORTICO — open source (AGPL) 3D structural analysis and design (FEM) in the browser: bars and areas, modal and spectrum, nonlinear and pushover, multi-code design of steel, concrete, timber and aluminum. No install required.">
+  <meta property="og:title" content="PORTICO · 3D Structural Analysis &amp; Design">
+  <meta property="og:description" content="Open source 3D structural analysis and design (FEM) that runs entirely in the browser.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 21 V8 Q4 5 7 5 H17 Q20 5 20 8 V21' fill='none' stroke='%2338bdf8' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b1018">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PORTICO">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <!-- Early capture of the PWA install event (it may fire before the rest of
+       the scripts run). -->
+  <script>
+    // Tema: claro por defecto; aplica el guardado antes de pintar (sin flash).
+    try { document.documentElement.dataset.theme = localStorage.getItem('portico_theme') || 'light'; } catch (e) {}
+    window.__pwaInstall = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window.__pwaInstall = e;
+      window.dispatchEvent(new Event('pwa-installable'));
+    });
+    window.addEventListener('appinstalled', function () {
+      window.__pwaInstall = null;
+      window.dispatchEvent(new Event('pwa-installed'));
+    });
+  </script>
+  <link rel="stylesheet" href="style.css?v=1">
+  <link rel="stylesheet" href="ui-v2.css?v=1">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./lib/three/three.module.js",
+      "three/addons/": "./lib/three/addons/"
+    }
+  }
+  </script>
+</head>
+<body>
+<div id="app">
+
+  <!-- �?�? MENUBAR �?�? -->
+  <header id="menubar">
+    <div class="brand">
+      <svg class="brand-mark" data-brand-logo viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 21 V8 Q4 5 7 5 H17 Q20 5 20 8 V21" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="4" cy="21" r="2" fill="var(--teal)"/>
+        <circle cx="20" cy="21" r="2" fill="var(--teal)"/>
+      </svg>
+      <span data-brand="appName">PORTICO</span> <span class="brand-sub" data-brand="tagline">Análisis y diseño estructural 3D</span>
+    </div>
+
+    <nav id="menu-nav">
+
+      <div class="menu-root">
+        <span class="menu-label">Archivo</span>
+        <ul class="menu-drop">
+          <li data-action="new">Nuevo <kbd>Ctrl+N</kbd></li>
+          <li data-action="open">Abrir… <kbd>Ctrl+O</kbd></li>
+          <li data-action="save">Guardar <kbd>Ctrl+S</kbd></li>
+          <li data-action="saveas">Guardar Como…</li>
+          <li data-action="manage-autosaves">🧹 Autoguardados temporales…</li>
+          <li class="sep"></li>
+          <li data-action="importcsv">Importar CSV…</li>
+          <li data-action="exportcsv">Exportar CSV</li>
+          <li data-action="template">Descargar Plantilla CSV</li>
+          <li class="sep"></li>
+          <li data-action="import-interop">🔄 Importar de otro motor…</li>
+          <li data-action="export-interop">🔄 Exportar a otro motor…</li>
+          <li data-action="import-ifc">🏗️ Importar IFC…</li>
+          <li data-action="export-ifc">🏗️ Exportar IFC…</li>
+          <li class="sep"></li>
+          <li data-action="export-results">Exportar Resultados Estáticos</li>
+          <li data-action="export-modal">Exportar Resultados Modales</li>
+          <li data-action="export-spectrum">Exportar Resultados Espectrales</li>
+          <li class="sep"></li>
+          <li data-action="bases-calculo">📄 Memoria / Bases de Cálculo (PDF)…</li>
+          <li data-action="memoria-docx">📄 Memoria / Bases de Cálculo (Word)…</li>
+        </ul>
+      </div>
+
+      <div class="menu-root">
+        <span class="menu-label">Editar</span>
+        <ul class="menu-drop">
+          <li data-action="undo">Deshacer <kbd>Ctrl+Z</kbd></li>
+          <li data-action="redo">Rehacer <kbd>Ctrl+Y</kbd></li>
+          <li class="sep"></li>
+          <li data-action="selectall">Selec. Todo <kbd>Ctrl+A</kbd></li>
+          <li data-action="delete">Eliminar <kbd>Del</kbd></li>
+          <li class="sep"></li>
+          <li data-action="disc-all">Discretizar Todo…</li>
+          <li data-action="join-elems">Unir Elementos Seleccionados</li>
+          <li data-action="inter-elems">Unir en Intersección (crear nodo)…</li>
+          <li data-action="crear-area">Crear elemento de área (membrana 3/4 nodos)…</li>
+          <li data-action="mallar-panel">Mallar panel (4 esquinas) — clic en nodos…</li>
+          <li data-action="mallar-region">Mallar región libre — clic en nodos…</li>
+          <li data-action="suavizar-malla">Suavizar malla…</li>
+          <li data-action="crear-link">Crear link / coupling (2 nodos)…</li>
+          <li data-action="muro-relleno">Muro de relleno — puntal diagonal (4 nodos)…</li>
+          <li class="sep"></li>
+          <li data-action="grids">Definir Ejes de Grilla…</li>
+          <li data-action="combos">Combinaciones de Carga… <kbd>F8</kbd></li>
+          <li data-action="combos-norma">Crear casos y combos de norma (NCh3171)…</li>
+        </ul>
+      </div>
+
+      <div class="menu-root">
+        <span class="menu-label">Vista</span>
+        <ul class="menu-drop">
+          <li data-action="view-iso">Isométrica <kbd>I</kbd></li>
+          <li data-action="view-top">Planta XY <kbd>T</kbd></li>
+          <li data-action="view-front">Frente XZ <kbd>F</kbd></li>
+          <li data-action="view-side">Lateral YZ <kbd>L</kbd></li>
+          <li class="sep"></li>
+          <li data-action="toggle-grid">Grilla <kbd>G</kbd></li>
+          <li data-action="toggle-axes">Ejes XYZ</li>
+          <li data-action="zoom-extents">Zoom Extensión <kbd>Home</kbd></li>
+          <li class="sep"></li>
+          <li data-action="hide-sel">Ocultar selección <kbd>H</kbd></li>
+          <li data-action="show-all">Mostrar todo <kbd>Shift+H</kbd></li>
+          <li data-action="toggle-loads">Mostrar/ocultar cargas</li>
+          <li class="sep"></li>
+          <li data-action="res-deformed">Resultado: Deformada <kbd>1</kbd></li>
+          <li data-action="res-N">Resultado: Axial N <kbd>2</kbd></li>
+          <li data-action="res-Vy">Resultado: Cortante Vy <kbd>3</kbd></li>
+          <li data-action="res-Vz">Resultado: Cortante Vz <kbd>4</kbd></li>
+          <li data-action="res-T">Resultado: Torsión T <kbd>5</kbd></li>
+          <li data-action="res-My">Resultado: Momento My <kbd>6</kbd></li>
+          <li data-action="res-Mz">Resultado: Momento Mz <kbd>7</kbd></li>
+          <li data-action="res-vm">Resultado: Tensiones áreas (von Mises) <kbd>8</kbd></li>
+        </ul>
+      </div>
+
+      <div class="menu-root">
+        <span class="menu-label">Análisis</span>
+        <ul class="menu-drop">
+          <li data-action="run">▶ Análisis Estático <kbd>F5</kbd></li>
+          <li data-action="run-force">↻ Recalcular (forzar, ignora resultados guardados)</li>
+          <li class="sep"></li>
+          <li class="menu-sub">
+            <span>Análisis lineales</span><span class="sub-arrow">▸</span>
+            <ul class="menu-flyout">
+              <li data-action="run">▶ Estático — todos los casos y combos <kbd>F5</kbd></li>
+              <li data-action="run-modal">▶ Modal… <kbd>F6</kbd></li>
+              <li data-action="run-spectrum">▶ Espectro de Respuesta… <kbd>F7</kbd></li>
+              <li data-action="run-timehistory">▶ Time-history modal…</li>
+            </ul>
+          </li>
+          <li class="menu-sub">
+            <span>Análisis NL-lite</span><span class="sub-arrow">▸</span>
+            <ul class="menu-flyout">
+              <li data-action="run-nonlinear">▶ No Lineal — cables…</li>
+              <li data-action="run-corotbeam">▶ Gran rotación — viga corotacional 2D…</li>
+              <li data-action="run-pdelta">▶ P-Delta…</li>
+              <li data-action="run-buckling">▶ Pandeo Lineal — factor crítico…</li>
+              <li data-action="run-formfind">▶ Form-finding — densidades de fuerza…</li>
+              <li data-action="run-plastic">▶ Pushover — colapso…</li>
+              <li data-action="run-pushover-dc">▶ Pushover — control de desplazamiento…</li>
+              <li data-action="run-nlth">▶ Time-history NO LINEAL — Modal…</li>
+            </ul>
+          </li>
+          <li class="menu-sub">
+            <span>Puentes</span><span class="sub-arrow">▸</span>
+            <ul class="menu-flyout">
+              <li data-action="run-staged">▶ Etapas constructivas — staged…</li>
+              <li data-action="run-tendon">▶ Pretensado por tendón — cargas equivalentes…</li>
+              <li data-action="run-moving">▶ Cargas móviles / líneas de influencia…</li>
+            </ul>
+          </li>
+          <li class="sep"></li>
+          <li data-action="global-matrices">Ver Matrices Globales K · M…</li>
+          <li data-action="diag-estabilidad">Diagnosticar estabilidad (nodos sueltos)…</li>
+          <li class="sep"></li>
+          <li data-action="clear-results" style="color:#ef4444" title="DESCARTA todos los resultados calculados (estático, modal, espectro, NL, diseño) y revierte la malla auto-discretizada. Pide confirmación. Para sólo volver a ver el modelo sin borrar nada, usa «Vista modelo» en la barra."><span style="color:#ef4444;font-weight:700">✕</span> Limpiar Resultados (descartar)</li>
+        </ul>
+      </div>
+
+      <div class="menu-root">
+        <span class="menu-label">Asistente</span>
+        <ul class="menu-drop">
+          <li data-action="assistant">Generar modelo desde ficha…</li>
+        </ul>
+      </div>
+
+      <div class="menu-root">
+        <span class="menu-label">Ayuda</span>
+        <ul class="menu-drop">
+          <li data-action="help-guia">Guía Rápida <kbd>F1</kbd></li>
+          <li data-action="help-signos">Convenciones de Signos y Ejes</li>
+          <li data-action="help-ejemplos">Ejemplos Guiados</li>
+          <li class="sep"></li>
+          <li data-action="help-acerca">Acerca de PORTICO</li>
+        </ul>
+      </div>
+
+    </nav>
+
+    <div class="menubar-right">
+      <!-- G7: modelos del proyecto → ahora en el árbol lateral izquierdo (#model-tree).
+           Se conserva oculto un <select> para compatibilidad con código existente. -->
+      <div id="project-bar" style="display:none">
+        <select id="project-select"></select>
+        <button id="btn-project" type="button"></button>
+      </div>
+      <!-- Insignias de extensión (capas superiores: Pro / white-label). Las pinta
+           App._initExtensions() desde lo registrado en js/ext/extensions.js. -->
+      <span id="ext-badges"></span>
+      <button id="btn-config" type="button" title="Configuración (memoria, visualización, modificadores de sección)"
+        style="background:var(--bg4);border:1px solid var(--border2);color:var(--text);border-radius:6px;cursor:pointer;font-size:14px;line-height:1;padding:4px 8px;margin-right:6px">⚙</button>
+      <select id="lang-select" data-i18n-skip title="Idioma / Language"
+        style="background:var(--bg4);border:1px solid var(--border2);color:var(--text);border-radius:6px;cursor:pointer;font-size:12px;line-height:1;padding:4px 6px;margin-right:8px">
+        <option value="es">ES</option>
+        <option value="en">EN</option>
+      </select>
+      <button id="btn-theme" type="button" title="Cambiar tema claro/oscuro"
+        style="background:var(--bg4);border:1px solid var(--border2);color:var(--text);border-radius:6px;cursor:pointer;font-size:14px;line-height:1;padding:4px 8px;margin-right:10px">🌙</button>
+      <label class="unit-label" for="unit-select">Unidades</label>
+      <!-- Sistema fijo kN · m · ton · rad. Las otras opciones están deshabilitadas
+           porque la app NO convierte valores (ver Ayuda → Convenciones). -->
+      <select id="unit-select" title="Sistema de unidades fijo: kN, m, ton, rad. Todo el cálculo se hace en estas unidades.">
+        <option value="kN-m">kN – m</option>
+        <option value="ton-m" disabled>ton – m (no disponible)</option>
+        <option value="kip-ft" disabled>kip – ft (no disponible)</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- �?�? MAIN CONTENT �?�? -->
+  <div id="main">
+
+    <!-- ÁRBOL LATERAL: modelos del proyecto + autoguardados temporales (G7) -->
+    <aside id="model-tree">
+      <div class="mt-section">
+        <div class="mt-head"><span>🗂 Modelos del proyecto</span>
+          <button id="mt-add" title="Agregar modelo nuevo al proyecto">＋</button></div>
+        <div id="mt-models" class="mt-body"></div>
+      </div>
+      <div class="mt-section">
+        <div class="mt-head"><span>🧹 Temporales</span>
+          <button id="mt-temp-clear" title="Limpiar todos los autoguardados">🧹</button></div>
+        <div id="mt-temporales" class="mt-body"></div>
+      </div>
+    </aside>
+
+    <!-- LEFT TOOLBAR -->
+    <aside id="toolbar">
+      <button class="tool" id="btn-tree-toggle" title="Modelos del proyecto y temporales (árbol lateral)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+          <line x1="4" y1="6" x2="7" y2="6"/><line x1="10" y1="6" x2="20" y2="6"/>
+          <line x1="7" y1="12" x2="10" y2="12"/><line x1="13" y1="12" x2="20" y2="12"/>
+          <line x1="7" y1="18" x2="10" y2="18"/><line x1="13" y1="18" x2="20" y2="18"/>
+          <circle cx="5.5" cy="12" r="1.3" fill="currentColor" stroke="none"/>
+          <circle cx="11.5" cy="18" r="1.3" fill="currentColor" stroke="none"/>
+        </svg>
+        <span>Árbol</span>
+      </button>
+      <div class="tool-sep"></div>
+      <button class="tool active" data-mode="select" title="Seleccionar  S">
+        <svg viewBox="0 0 24 24"><polygon points="5,2 5,18 9,14 12,21 14,20 11,13 17,13" fill="currentColor"/></svg>
+        <span>Sel.</span>
+      </button>
+      <button class="tool" data-mode="boxselect" title="Selección por cuadro: arrastra con la izquierda para dibujar un recuadro y seleccionar nodos y elementos dentro (sin tener que apretar Alt). Ctrl al soltar añade a la selección.">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="1.5" stroke-dasharray="3 2.5"/><circle cx="9" cy="9" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.4" fill="currentColor" stroke="none"/></svg>
+        <span>Cuadro</span>
+      </button>
+      <button class="tool" data-mode="pan" title="Mover vista — PAN  (arrastrar con la izquierda)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V10m0 0V4.5a1.5 1.5 0 0 1 3 0V11m0-1.5a1.5 1.5 0 0 1 3 0V14c0 3.3-2.2 6-6 6-2 0-3.4-.7-4.6-2L7 14.2c-.6-.9-.3-1.8.5-2.2.7-.4 1.6-.2 2 .5L11 14"/>
+        </svg>
+        <span>Pan</span>
+      </button>
+      <button class="tool" data-mode="addnode" title="Agregar Nodo  N">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/>
+          <line x1="12" y1="2" x2="12" y2="7.5"/>
+          <line x1="12" y1="16.5" x2="12" y2="22"/>
+          <line x1="2" y1="12" x2="7.5" y2="12"/>
+          <line x1="16.5" y1="12" x2="22" y2="12"/>
+        </svg>
+        <span>Nodo</span>
+      </button>
+      <button class="tool" data-mode="addelem" title="Agregar Elemento  E">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="4.5" cy="19.5" r="3" fill="currentColor" stroke="none"/>
+          <circle cx="19.5" cy="4.5" r="3" fill="currentColor" stroke="none"/>
+          <line x1="7" y1="17" x2="17" y2="7"/>
+        </svg>
+        <span>Elem.</span>
+      </button>
+      <button class="tool" data-mode="addarea" title="Agregar Área (membrana/placa/shell): clic en 3–4 nodos, Enter para crear">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <polygon points="4,6 20,5 19,18 5,19" fill="currentColor" fill-opacity="0.18"/>
+          <circle cx="4" cy="6" r="1.8" fill="currentColor" stroke="none"/>
+          <circle cx="20" cy="5" r="1.8" fill="currentColor" stroke="none"/>
+          <circle cx="19" cy="18" r="1.8" fill="currentColor" stroke="none"/>
+          <circle cx="5" cy="19" r="1.8" fill="currentColor" stroke="none"/>
+        </svg>
+        <span>Área</span>
+      </button>
+      <button class="tool" data-mode="meshpick" title="Mallar región: activa el modo y luego haz clic en los nodos del contorno → Enter para mallar (Esc reinicia)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+          <rect x="3.5" y="3.5" width="17" height="17" rx="1"/>
+          <line x1="3.5" y1="9.2" x2="20.5" y2="9.2"/><line x1="3.5" y1="14.8" x2="20.5" y2="14.8"/>
+          <line x1="9.2" y1="3.5" x2="9.2" y2="20.5"/><line x1="14.8" y1="3.5" x2="14.8" y2="20.5"/>
+        </svg>
+        <span>Mallar</span>
+      </button>
+      <button class="tool" data-mode="addsupport" title="Asignar Apoyo  R">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="5" r="2.5" fill="currentColor" stroke="none"/>
+          <line x1="12" y1="7.5" x2="12" y2="12" stroke-width="2"/>
+          <polygon points="7,16 17,16 12,11" fill="currentColor" stroke="none"/>
+          <line x1="4" y1="16" x2="20" y2="16" stroke-width="2.5"/>
+          <line x1="4" y1="19.5" x2="7.5" y2="16"/>
+          <line x1="8" y1="19.5" x2="11.5" y2="16"/>
+          <line x1="12.5" y1="19.5" x2="16" y2="16"/>
+          <line x1="17" y1="19.5" x2="20" y2="16"/>
+        </svg>
+        <span>Apoyo</span>
+      </button>
+      <div class="tool-sep"></div>
+      <button class="tool tool-action" id="btn-zoomext" title="Zoom Extensión  Home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15,3 21,3 21,9"/>
+          <polyline points="9,21 3,21 3,15"/>
+          <line x1="21" y1="3" x2="14" y2="10"/>
+          <line x1="3" y1="21" x2="10" y2="14"/>
+        </svg>
+        <span>Ext.</span>
+      </button>
+      <div class="tool-sep"></div>
+      <button class="tool tool-run" id="btn-run" title="Ejecutar Análisis  F5">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="5,3 19,12 5,21" fill="currentColor" stroke="none"/>
+        </svg>
+        <span>Análisis</span>
+      </button>
+      <button class="tool tool-action" id="btn-clear-results" title="Volver a la vista normal del modelo (sale de la deformada/diagramas/contornos CONSERVANDO los resultados). Para descartar los resultados: menú Análisis → Limpiar Resultados." style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M12 3 L21 7.5 V16.5 L12 21 L3 16.5 V7.5 Z"/>
+          <path d="M3 7.5 L12 12 L21 7.5 M12 12 V21"/>
+        </svg>
+        <span>Vista modelo</span>
+      </button>
+      <div style="margin-top:auto"></div>
+      <button class="tool tool-action" id="btn-config-tool" title="Configuración (memoria, visualización, modificadores de sección)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="12" cy="12" r="3.2"/>
+          <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2.1 2.1M16.9 16.9 19 19M19 5l-2.1 2.1M7.1 16.9 5 19"/>
+        </svg>
+        <span>Config.</span>
+      </button>
+    </aside>
+
+    <!-- VIEWPORT AREA -->
+    <div id="viewport-wrap">
+      <!-- Barras superiores del viewport apiladas en COLUMNA: cada barra reflowa con
+           flex-wrap y la columna crece hacia abajo → nunca se montan al angostar la
+           ventana o mover el panel derecho. -->
+      <div id="vp-top-bars">
+      <div id="vp-overlays">
+        <div class="vp-ctrl">
+          <label>Z piso</label>
+          <input type="number" id="floor-z" value="0" step="0.5" title="Plano de inserción de nodos (coordenada Z del piso activo)">
+        </div>
+        <div class="vp-ctrl">
+          <label>Snap</label>
+          <input type="number" id="snap-size" value="0.5" step="0.25" min="0" max="20" title="Tamaño del snap a grilla">
+        </div>
+        <div class="vp-ctrl">
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:var(--text-muted)"
+            title="Imán a nodos: al crear elementos, los extremos se pegan al nodo existente más cercano (lo reutilizan en vez de duplicar). Desactívalo para crear un nodo nuevo aunque haya otro al lado.">
+            <input type="checkbox" id="magnet-snap" checked style="accent-color:var(--accent);cursor:pointer">
+            Imán
+          </label>
+        </div>
+        <!-- Arrastre de nodos: plano de movimiento + seguro «Fijar» (van juntos) -->
+        <div class="vp-ctrl">
+          <label title="Plano de arrastre de nodos: en qué plano se mueve el nodo al arrastrarlo (XY = horizontal, XZ = vertical frontal, YZ = vertical lateral).">Plano</label>
+          <select id="drag-plane" title="Plano de arrastre de nodos" style="max-width:64px">
+            <option value="xy" selected>XY</option>
+            <option value="xz">XZ</option>
+            <option value="yz">YZ</option>
+          </select>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:var(--text-muted);border-left:1px solid var(--border);padding-left:7px;margin-left:3px"
+            title="Fijar nodos: impide mover un nodo al arrastrarlo con el mouse (evita moverlo sin querer). Desmárcalo para poder arrastrar los nodos seleccionados.">
+            <input type="checkbox" id="drag-lock" style="accent-color:var(--accent);cursor:pointer">
+            🔒 Fijar
+          </label>
+        </div>
+        <div class="vp-ctrl">
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:var(--text-muted)"
+            title="Discretización automática: al analizar, cada elemento se subdivide internamente en N tramos (deformadas y diagramas precisos, rótulas visibles en la deformada). Al limpiar resultados el modelo vuelve a su estado original.">
+            <input type="checkbox" id="auto-disc" style="accent-color:var(--accent);cursor:pointer">
+            Disc. auto ×<input type="number" id="auto-disc-n" value="5" min="2" max="50" step="1"
+              title="Nº de tramos por elemento para el análisis"
+              style="width:42px;background:var(--bg-elev,#141b27);color:var(--text,#e6edf3);border:1px solid var(--border,#334);border-radius:4px;padding:1px 3px;font-size:11px">
+          </label>
+        </div>
+        <div class="vp-ctrl">
+          <span id="mode-badge"
+            title="Modo del modelo (se elige en Archivo → Nuevo)"
+            style="font-size:11px;font-weight:700;letter-spacing:0.05em;
+                   color:var(--teal);white-space:nowrap">3D</span>
+        </div>
+        <div class="vp-ctrl">
+          <label id="elev-label">Vista</label>
+          <select id="elev-select"
+            title="Elevación 2D real de un eje estructural: muestra solo ese plano (ortográfico, sin profundidad) y los nodos nuevos caen en él. Defina ejes en Editar → Definir Ejes de Grilla."
+            style="max-width:130px"></select>
+        </div>
+        <!-- P2-6: Toggle node IDs (D) -->
+        <div class="vp-ctrl">
+          <button id="btn-toggle-ids"
+            title="Mostrar/ocultar IDs de nodos  D"
+            style="background:transparent;border:1px solid var(--border2);
+                   color:var(--text-muted);padding:2px 8px;border-radius:3px;
+                   cursor:pointer;font-size:11px;white-space:nowrap">IDs</button>
+        </div>
+        <!-- P4-13: Toggle extruded sections (X) -->
+        <div class="vp-ctrl">
+          <button id="btn-toggle-extrude"
+            title="Vista extruida de secciones  X"
+            style="background:transparent;border:1px solid var(--border2);
+                   color:var(--text-muted);padding:2px 8px;border-radius:3px;
+                   cursor:pointer;font-size:11px;white-space:nowrap">3D</button>
+        </div>
+        <div class="vp-hint" id="vp-hint"></div>
+        <!-- Selector de caso de carga — parte de la barra (reacomoda con flex-wrap) -->
+        <div id="lc-overlay">
+          <div class="vp-ctrl">
+            <label>Caso</label>
+            <select id="lc-select"></select>
+            <button id="btn-add-lc" title="Nuevo caso de carga o combinación" style="background:transparent;border:none;color:var(--accent);cursor:pointer;font-size:16px;padding:0 4px;">＋</button>
+            <button id="btn-edit-lc" title="Editar caso activo: nombre, peso propio, eliminar" style="background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:0 4px;">✎</button>
+            <button id="btn-toggle-loads" title="Mostrar / ocultar las flechas de carga" style="background:transparent;border:none;color:var(--success);cursor:pointer;font-size:13px;padding:0 4px;">⬇ cargas</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results overlay — visible only after analysis -->
+      <div id="results-overlay" class="hidden">
+        <div class="vp-ctrl">
+          <label>Vista</label>
+          <select id="result-type">
+            <option value="deformed">Deformada</option>
+            <option value="N">Axial N</option>
+            <option value="Vy">Cortante Vy</option>
+            <option value="Vz">Cortante Vz</option>
+            <option value="T">Torsión T</option>
+            <option value="My">Momento My</option>
+            <option value="Mz">Momento Mz</option>
+            <option value="vm" hidden disabled>Tensiones áreas (von Mises)</option>
+          </select>
+        </div>
+        <div class="vp-ctrl" title="Factor de escala relativo: 1 = ajuste automático normalizado. Doble clic en el número para volver a 1.">
+          <label>Escala ×</label>
+          <input type="range" id="result-scale-range" min="-1.5" max="1.5" step="0.05" value="0"
+            style="width:70px;cursor:pointer" title="Ajuste fino relativo al tamaño automático (×0.03 … ×31)">
+          <input type="number" id="result-scale" value="1" step="0.1" min="0.01"
+            style="width:62px" title="Factor relativo (1 = automático). Doble clic = volver a 1.">
+        </div>
+        <!-- #103: caso/combinación a mostrar + descarga del caso actual -->
+        <div class="vp-ctrl">
+          <label>Caso</label>
+          <select id="res-case" title="Caso o combinación de resultados a mostrar (X, Y, combos…)"></select>
+          <button id="res-dl" title="Descargar los resultados de este caso (CSV)" style="background:transparent;border:none;color:var(--success);cursor:pointer;font-size:12px;padding:0 6px;">⬇ CSV</button>
+        </div>
+        <div id="result-summary"></div>
+        <!-- P2-4: Colorbar -->
+        <div id="colorbar-wrap" style="display:none;margin-top:4px;padding:4px 8px;
+            background:var(--glass);border:1px solid var(--border);
+            border-radius:var(--radius);backdrop-filter:blur(4px)">
+          <canvas id="colorbar-canvas" width="150" height="14"
+            style="border-radius:3px;display:block"></canvas>
+          <div style="display:flex;justify-content:space-between;
+              font-size:9px;color:var(--text-muted);margin-top:2px;font-family:monospace">
+            <span id="cb-min">0</span><span id="cb-mid">—</span><span id="cb-max">max</span>
+          </div>
+        </div>
+        <!-- Reacciones en apoyos -->
+        <div class="vp-ctrl" style="margin-top:2px">
+          <button id="btn-show-reactions"
+            title="Mostrar/ocultar reacciones en los apoyos (flechas con valores; incluye resortes)"
+            style="background:transparent;border:1px solid var(--warn);
+                   color:var(--warn);padding:2px 8px;border-radius:3px;
+                   cursor:pointer;font-size:11px">⭡ Reacciones</button>
+        </div>
+        <!-- P2-5: Export PNG -->
+        <div class="vp-ctrl" style="margin-top:2px">
+          <button id="btn-export-img"
+            title="Exportar imagen PNG"
+            style="background:transparent;border:1px solid var(--accent);
+                   color:var(--accent);padding:2px 8px;border-radius:3px;
+                   cursor:pointer;font-size:11px">📷 PNG</button>
+        </div>
+      </div>
+
+      <!-- Modal analysis overlay — visible after modal analysis -->
+      <div id="modal-analysis-overlay" class="hidden">
+        <div class="vp-ctrl">
+          <label>Modo</label>
+          <select id="modal-mode-select"></select>
+        </div>
+        <div class="vp-ctrl modal-freq-ctrl">
+          <span class="modal-lbl">f</span>
+          <span id="modal-freq-val" class="modal-val">—</span>
+          <span class="modal-lbl">Hz &nbsp; T</span>
+          <span id="modal-period-val" class="modal-val">—</span>
+          <span class="modal-lbl">s</span>
+        </div>
+        <div class="vp-ctrl">
+          <label>Amp.</label>
+          <input type="number" id="modal-amp" value="1" step="0.5" min="0.1" max="50" style="width:52px">
+          <button id="modal-play-btn" class="modal-play-btn" title="Animar modo">▶</button>
+          <label>Vel.</label>
+          <input type="range"  id="modal-speed" min="0.5" max="4" step="0.5" value="1" style="width:60px">
+        </div>
+        <div class="vp-ctrl" style="gap:6px">
+          <button id="modal-table-btn" class="modal-action-btn">Participación</button>
+          <button id="modal-export-btn" class="modal-action-btn">↓ CSV</button>
+        </div>
+      </div>
+      </div><!-- /#vp-top-bars -->
+
+      <div id="results-banner">MODO RESULTADOS — haga clic sobre nodos y elementos para ver valores</div>
+      <div id="viewport-container"></div>
+    </div>
+
+    <!-- PANEL RESIZE HANDLE -->
+    <div id="panel-resize-handle" title="Arrastrar para redimensionar"></div>
+
+    <!-- SCRIM para cerrar el panel en móvil -->
+    <div id="panel-scrim"></div>
+
+    <!-- RIGHT PANEL -->
+    <aside id="panel">
+      <!-- Vertical super-tabs -->
+      <div id="panel-vtabs">
+        <button class="vtab active" data-vtab="model">Modelo</button>
+        <button class="vtab" data-vtab="assistant">Asistente</button>
+        <button class="vtab" data-vtab="results">Resultados</button>
+        <button class="vtab" data-vtab="design">Diseño</button>
+        <button class="vtab" data-vtab="temp" title="Autoguardados temporales: copias automáticas de las sesiones recientes (reanudar / eliminar)">Temporales</button>
+      </div>
+
+      <div id="panel-content">
+
+        <!-- �?�? MODELO �?�? -->
+        <div id="vpanel-model" class="vpanel-content active">
+          <div id="panel-tabs">
+            <button class="ptab active" data-tab="sel">Sel.</button>
+            <button class="ptab" data-tab="nodos">Nodos</button>
+            <button class="ptab" data-tab="elems">Elem.</button>
+            <button class="ptab" data-tab="mat">Mat.</button>
+            <button class="ptab" data-tab="sec">Sec.</button>
+            <button class="ptab" data-tab="dia">Diaf.</button>
+            <button class="ptab" data-tab="cargas">Casos y combos</button>
+          </div>
+          <div id="panel-body">
+
+            <div id="ptab-sel" class="ptab-content active">
+              <p class="panel-hint">Haga clic en un nodo o elemento para ver y editar sus propiedades.</p>
+            </div>
+
+            <div id="ptab-nodos" class="ptab-content">
+              <div id="nodes-grid-wrap"></div>
+              <button class="btn-add" id="btn-add-node-row" style="margin-top:4px">＋ Nuevo Nodo</button>
+            </div>
+
+            <div id="ptab-elems" class="ptab-content">
+              <div id="elems-grid-wrap"></div>
+            </div>
+
+            <div id="ptab-mat" class="ptab-content">
+              <div id="mat-list"></div>
+              <button class="btn-add" id="btn-add-mat">＋ Agregar Material</button>
+            </div>
+
+            <div id="ptab-sec" class="ptab-content">
+              <div id="sec-list"></div>
+              <button class="btn-add" id="btn-add-sec">＋ Agregar Sección</button>
+              <!-- P3-9: Section calculator -->
+              <button class="btn-add" id="btn-section-calc"
+                style="background:rgba(0,188,212,0.1);color:#00bcd4;border-color:#00838f;margin-top:4px">
+                ⊞ Calculadora de Sección
+              </button>
+            </div>
+
+            <div id="ptab-dia" class="ptab-content">
+              <div id="dia-list"></div>
+              <button class="btn-add" id="btn-detect-dia" style="background:rgba(0,188,212,0.1);color:#00bcd4;border-color:#00838f;">⚡ Auto-detectar Pisos</button>
+              <button class="btn-add" id="btn-add-dia" style="margin-top:4px">＋ Agregar Diafragma</button>
+            </div>
+
+            <div id="ptab-cargas" class="ptab-content">
+              <div class="cargas-sec-title">Casos de carga</div>
+              <div id="lc-list"></div>
+              <button class="btn-add" id="btn-add-lc-panel">＋ Nuevo caso de carga</button>
+              <div class="cargas-sec-title" style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px">Combinaciones</div>
+              <button class="btn-add" id="btn-combos-norma" style="margin-bottom:8px;background:rgba(210,153,34,0.16);border-color:var(--warn);color:var(--warn)" title="Casos D/L y combinaciones LRFD + servicio de la NCh3171">⚙ Crear casos y combos de norma (NCh3171)</button>
+              <div id="combo-list"></div>
+              <button class="btn-add" id="btn-add-combo">＋ Agregar Combinación</button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- �?�? RESULTADOS �?�? -->
+        <div id="vpanel-results" class="vpanel-content">
+          <div id="res-tabs">
+            <button class="rtab active" data-rtab="modal">Modal</button>
+            <button class="rtab" data-rtab="estatico">Estático</button>
+            <button class="rtab" data-rtab="plastico">Pushover (colapso)</button>
+            <button class="rtab" data-rtab="th">Dinámico</button>
+            <button class="rtab" data-rtab="dc">Pushover (DC)</button>
+            <button class="rtab" data-rtab="buck">Pandeo</button>
+            <button class="rtab" data-rtab="nl">No lineal</button>
+            <button class="rtab" data-rtab="ml">Cargas móviles</button>
+            <button class="rtab" data-rtab="nlth">Dinámico NL</button>
+          </div>
+          <div id="res-content">
+            <div id="rtab-modal" class="rtab-content active">
+              <p class="panel-hint" id="res-modal-hint">Ejecute Análisis Modal (F6) para ver resultados.</p>
+              <div id="res-modal-body"></div>
+            </div>
+            <div id="rtab-estatico" class="rtab-content">
+              <p class="panel-hint" id="res-static-hint">Ejecute Análisis Estático (F5) para ver resultados.</p>
+              <div id="res-static-body"></div>
+            </div>
+            <div id="rtab-plastico" class="rtab-content">
+              <p class="panel-hint" id="res-plastic-hint">Ejecute <b>Rótulas plásticas</b> (Análisis → NL-lite) para ver la secuencia de formación de rótulas y el factor de colapso.</p>
+              <div id="res-plastic-body"></div>
+            </div>
+            <div id="rtab-th" class="rtab-content">
+              <p class="panel-hint" id="res-th-hint">Ejecute <b>Dinámico (time-history)</b> (Análisis → NL-lite → Dinámico lineal) para ver la respuesta en el tiempo.</p>
+              <div id="th-panel"></div>
+            </div>
+            <div id="rtab-dc" class="rtab-content">
+              <p class="panel-hint" id="res-dc-hint">Ejecute <b>Pushover (control de desplazamiento)</b> (Análisis → NL-lite) para ver la curva carga–desplazamiento.</p>
+              <div id="dc-panel"></div>
+            </div>
+            <div id="rtab-buck" class="rtab-content">
+              <p class="panel-hint" id="res-buck-hint">Ejecute <b>Pandeo lineal</b> (Análisis → NL-lite) para ver los modos de pandeo y λcr.</p>
+              <div id="buck-panel"></div>
+            </div>
+            <div id="rtab-nl" class="rtab-content">
+              <p class="panel-hint" id="res-nl-hint">Ejecute <b>No lineal</b> o <b>P-Delta</b> (Análisis → NL-lite) para ver la deformada no lineal paso a paso.</p>
+              <div id="nl-panel"></div>
+            </div>
+            <div id="rtab-ml" class="rtab-content">
+              <p class="panel-hint" id="res-ml-hint">Ejecute <b>Cargas móviles</b> (Análisis → Puentes) para ver la línea de influencia / envolvente.</p>
+              <div id="ml-panel"></div>
+            </div>
+            <div id="rtab-nlth" class="rtab-content">
+              <p class="panel-hint" id="res-nlth-hint">Ejecute <b>Dinámico NO lineal</b> (Análisis → NL-lite) para ver la respuesta del edificio de corte paso a paso.</p>
+              <div id="nlth-panel"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DISEÑO -->
+        <div id="vpanel-design" class="vpanel-content">
+          <div style="padding:8px">
+            <p class="panel-hint">Verificación de <b>flexión, corte y axial</b> (razón D/C = demanda/capacidad) por elemento. Acero LRFD (AISC 360), hormigón ACI 318, madera NCh1198 con valores normativos estándar.</p>
+            <button class="btn-add" id="btn-verificar-diseno" style="background:rgba(14,127,192,0.12);color:var(--accent);border-color:var(--accent)">⚙ Verificar diseño</button>
+            <div id="design-body" style="margin-top:8px"></div>
+          </div>
+        </div>
+
+        <!-- ── ASISTENTE ── -->
+        <div id="vpanel-assistant" class="vpanel-content">
+          <div style="padding:8px">
+            <p class="panel-hint">Describe la estructura en palabras y el asistente arma la ficha y genera el modelo (geometría, secciones, cargas NCh y combinaciones).</p>
+            <div class="prop-field">
+              <label>Descripción del modelo</label>
+              <textarea id="asis-nl-side" rows="5" class="sp-textarea" placeholder="Ej.: edificio de 4 niveles de 3 m, 3 vanos de 6 m en X y 2 de 5 m en Y, hormigón G30, vigas 25x50, pilares 35x35, salas de clases, en Valdivia, con sismo zona 2 suelo D"></textarea>
+              <small style="color:var(--text-muted);display:block;margin-top:3px">💡 Vacío: <b>Tab</b> rellena el ejemplo · <b>Enter</b> lo genera (para probar de inmediato).</small>
+            </div>
+            <button class="btn-add" id="btn-asis-side-gen" style="margin-top:8px;background:rgba(14,127,192,0.12);color:var(--accent);border-color:var(--accent)">✦ Generar modelo con el asistente</button>
+            <button class="btn-add" id="btn-asis-side-ficha" style="margin-top:6px">Editar ficha avanzada (JSON)…</button>
+            <small style="color:var(--text-muted);display:block;margin-top:6px">La credencial del asistente vive como secreto del servidor; nunca en el navegador. Reemplaza el modelo actual.</small>
+
+            <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+            <div class="prop-title" style="margin-bottom:4px">Modificar el modelo actual</div>
+            <p class="panel-hint" style="margin-top:0">Pide cambios sobre el modelo ya construido: agregar cargas, anexar un piso encima o un vano lateral, aplicar modificadores de rigidez o masa. Si seleccionas elementos/nodos, las órdenes con "selección" actúan sobre ellos.</p>
+            <div class="prop-field">
+              <label>¿Qué cambio quieres hacer?</label>
+              <textarea id="asis-mod-nl" rows="3" class="sp-textarea" placeholder="Ej.: agrega carga viva de 20 kN/m a todas las vigas · anexa un piso de 3 m encima · agrega un vano de 5 m hacia la derecha · aplica modificador de rigidez 0.5 a la selección"></textarea>
+            </div>
+            <button class="btn-add" id="btn-asis-side-mod" style="margin-top:8px;background:rgba(45,212,191,0.12);color:var(--teal);border-color:var(--teal)">✦ Aplicar cambio</button>
+          </div>
+        </div>
+
+        <!-- ══ TEMPORALES (autoguardados, #82) ══ -->
+        <div id="vpanel-temp" class="vpanel-content">
+          <div style="padding:8px">
+            <div class="prop-title" style="margin-bottom:4px">Autoguardados temporales</div>
+            <p class="panel-hint" style="margin-top:0">Copias automáticas de las sesiones recientes (cada ~5 min). Reanude una (descarta el trabajo actual no guardado), elimine las que no use, o límpielas todas.</p>
+            <div id="temporales-body"></div>
+            <button class="btn-add" id="btn-temp-clear" style="margin-top:8px;background:rgba(210,153,34,0.14);color:var(--warn);border-color:var(--warn)">🧹 Limpiar todos</button>
+          </div>
+        </div>
+
+      </div><!-- /panel-content -->
+    </aside>
+
+  </div><!-- /#main -->
+
+  <!-- �?�? STATUSBAR �?�? -->
+  <footer id="statusbar">
+    <span id="sb-mode">Modo: Seleccionar</span>
+    <progress id="sb-progress" max="100" value="0" class="hidden"></progress>
+    <span id="sb-coords">X: —&nbsp; Y: —&nbsp; Z: —</span>
+    <span id="sb-sel">Sin selección</span>
+    <span id="sb-results" title="Resultados disponibles — clic para abrir el Centro de análisis" style="cursor:pointer">Sin resultados</span>
+    <span id="sb-model">Nodos: 0 | Elem: 0</span>
+    <span id="sb-units">kN — m</span>
+  </footer>
+
+<!-- Botón flotante para abrir/cerrar el panel en móvil -->
+<button id="panel-toggle-btn" title="Panel" aria-label="Abrir panel">⊞</button>
+
+</div><!-- /#app -->
+
+<!-- Modal dialog (genérico) -->
+<div id="modal-overlay" class="hidden">
+  <div id="modal-box">
+    <div id="modal-title"></div>
+    <div id="modal-body"></div>
+    <div id="modal-footer">
+      <button id="modal-ok" class="btn-primary">Aceptar</button>
+      <button id="modal-cancel" class="btn-secondary">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ AYUDA ══ -->
+<div id="help-overlay" class="hidden">
+  <div id="help-box">
+    <header id="help-header">
+      <span class="help-brand">PORTICO — Ayuda</span>
+      <nav id="help-nav">
+        <button class="help-tab active" data-hsec="guia">Guía Rápida</button>
+        <button class="help-tab" data-hsec="signos">Convenciones</button>
+        <button class="help-tab" data-hsec="ejemplos">Ejemplos Guiados</button>
+        <button class="help-tab" data-hsec="acerca">Acerca de</button>
+      </nav>
+      <button id="help-close" title="Cerrar (Esc)">✕</button>
+    </header>
+
+    <div id="help-content">
+
+      <!-- ── GUÍA RÁPIDA ── -->
+      <section id="hsec-guia" class="help-sec active">
+        <h2>Flujo de trabajo</h2>
+        <ol class="help-steps">
+          <li><b>Elija el tipo de modelo</b> en Archivo → Nuevo: <b>Pórtico 2D</b> (plano X–Z real,
+            sin profundidad, GDL fuera del plano restringidos) o <b>Estructura 3D</b>.
+            El modo no se cambia después. Luego defina los <b>ejes de grilla</b>
+            (Editar → Definir Ejes…) con la sintaxis <code>0, 3@5</code>. En 3D puede trabajar
+            cada eje en <b>2D real</b> con el selector <b>Vista → Eje…</b> (elevaciones).</li>
+          <li><b>Modele</b>: herramienta <b>Nodo (N)</b> para insertar nodos (se ajustan a los ejes),
+            <b>Elem. (E)</b> para conectarlos, <b>Apoyo (R)</b> para empotrar/apoyar.
+            En el panel del nodo puede definir <b>apoyos elásticos</b> (resortes).</li>
+          <li><b>Asigne propiedades</b>: material y sección en las pestañas <b>Mat.</b> y <b>Sec.</b>;
+            rótulas (liberaciones) en el panel del elemento.</li>
+          <li><b>Cargue</b>: seleccione un nodo o elemento y asigne cargas en su panel.
+            El caso de carga se elige ahí mismo (cree casos con <b>＋</b>, edítelos con <b>✎</b> —
+            ahí se activa el <b>peso propio</b>, típico del caso CM). Para sismo por espectro,
+            cree un <b>caso espectral</b> (＋ → Caso sísmico, dirección X o Y): no lleva cargas,
+            se calcula con F6+F7 y su envolvente queda asignada al caso. Combinaciones: ＋ → Combinación.</li>
+          <li><b>Analice (F5)</b>: resuelve todos los casos y combos a la vez. Cambie de caso en el
+            desplegable para ver cada resultado. <b>F6</b> modal · <b>F7</b> espectro de respuesta.</li>
+          <li><b>Interprete</b>: deformada y diagramas (teclas 1–7), botón <b>⭡ Reacciones</b>,
+            clic en un elemento para ver sus fuerzas, y en su panel: <b>Σ Matrices</b> y <b>⊟ DCL</b>.</li>
+        </ol>
+        <h2>Atajos de teclado</h2>
+        <table class="help-kbd">
+          <tr><td><kbd>S</kbd> <kbd>N</kbd> <kbd>E</kbd> <kbd>R</kbd></td><td>Modos: Seleccionar · Nodo · Elemento · Apoyo</td></tr>
+          <tr><td><kbd>I</kbd> <kbd>T</kbd> <kbd>F</kbd> <kbd>L</kbd></td><td>Vistas: Isométrica · Planta · Frente · Lateral</td></tr>
+          <tr><td><kbd>F5</kbd> <kbd>F6</kbd> <kbd>F7</kbd> <kbd>F8</kbd></td><td>Análisis estático · Modal · Espectro · Combos</td></tr>
+          <tr><td><kbd>1</kbd>…<kbd>7</kbd></td><td>Resultados: Deformada · N · Vy · Vz · T · My · Mz</td></tr>
+          <tr><td><kbd>G</kbd> <kbd>D</kbd> <kbd>X</kbd> <kbd>Home</kbd></td><td>Grilla · IDs · Vista extruida · Zoom extensión</td></tr>
+          <tr><td><kbd>Ctrl+Z</kbd>/<kbd>Y</kbd> <kbd>Ctrl+S</kbd> <kbd>Del</kbd></td><td>Deshacer/Rehacer · Guardar · Eliminar selección</td></tr>
+          <tr><td><kbd>F1</kbd> <kbd>Esc</kbd></td><td>Esta ayuda · Cerrar diálogos</td></tr>
+        </table>
+        <p class="help-note">💾 Su trabajo se <b>autoguarda</b> en el navegador: al reabrir la app
+          se le ofrecerá recuperar la sesión anterior. Para conservar un modelo use Archivo → Guardar (.s3d).</p>
+        <p class="help-note">📦 <b>Modelos ya corridos:</b> si guarda (Archivo → Guardar) después de
+          analizar, el archivo <code>.s3d</code> incluye los <b>resultados</b> (dice «Guardado con
+          resultados»). Al reabrir ese archivo, los resultados <b>aparecen solos</b>, sin recalcular.
+          Así puede tener una carpeta con varios modelos ya resueltos. Para forzar un nuevo cálculo:
+          Análisis → <b>Recalcular</b>.</p>
+      </section>
+
+      <!-- ── CONVENCIONES ── -->
+      <section id="hsec-signos" class="help-sec">
+        <h2>Ejes globales</h2>
+        <p><b>X</b> este · <b>Y</b> norte · <b>Z</b> arriba (convención SAP2000/ETABS).
+           La gravedad actúa en <b>−Z</b>: una carga con dirección «Gravedad» y w &gt; 0 apunta hacia abajo.</p>
+
+        <h2>Ejes locales del elemento</h2>
+        <p>El eje <b>x local</b> va del nodo 1 al nodo 2. Los ejes y/z se orientan automáticamente:</p>
+        <div class="help-axes">
+          <div class="help-axcard">
+            <svg viewBox="0 0 280 150">
+              <rect x="40" y="68" width="200" height="12" rx="3" fill="var(--bg4)" stroke="var(--border2)"/>
+              <circle cx="40" cy="74" r="6" fill="var(--teal)"/><circle cx="240" cy="74" r="6" fill="var(--teal)"/>
+              <text x="36" y="100" fill="var(--text-muted)" font-size="11">1</text>
+              <text x="236" y="100" fill="var(--text-muted)" font-size="11">2</text>
+              <line x1="140" y1="68" x2="140" y2="22" stroke="#4ade80" stroke-width="2"/>
+              <polygon points="135,26 145,26 140,14" fill="#4ade80"/>
+              <text x="148" y="24" fill="#4ade80" font-size="11">y local → +Z global (↑)</text>
+              <line x1="190" y1="74" x2="232" y2="74" stroke="#38bdf8" stroke-width="2"/>
+              <text x="150" y="62" fill="#38bdf8" font-size="11">x local → nodo 2</text>
+              <text x="40" y="128" fill="#ce93d8" font-size="11">z local → −Y global (sale «hacia usted» en vista frontal)</text>
+            </svg>
+            <p><b>Viga horizontal</b> (según X): la gravedad carga el eje <b>y local</b>
+               ⇒ flexión <b>Mz</b>. Cargas según Y global ⇒ flexión <b>My</b>.</p>
+          </div>
+          <div class="help-axcard">
+            <svg viewBox="0 0 280 150">
+              <rect x="128" y="20" width="12" height="110" rx="3" fill="var(--bg4)" stroke="var(--border2)"/>
+              <circle cx="134" cy="130" r="6" fill="var(--teal)"/><circle cx="134" cy="20" r="6" fill="var(--teal)"/>
+              <text x="146" y="134" fill="var(--text-muted)" font-size="11">1 (base)</text>
+              <text x="146" y="26" fill="var(--text-muted)" font-size="11">2 (tope)</text>
+              <line x1="134" y1="75" x2="190" y2="75" stroke="#4ade80" stroke-width="2"/>
+              <polygon points="186,70 186,80 198,75" fill="#4ade80"/>
+              <text x="160" y="66" fill="#4ade80" font-size="11">y local → +X global</text>
+              <text x="30" y="110" fill="#38bdf8" font-size="11">x local ↑ (+Z)</text>
+              <text x="30" y="126" fill="#ce93d8" font-size="11">z local → +Y global</text>
+            </svg>
+            <p><b>Columna vertical</b>: cargas/sismo según <b>X</b> ⇒ flexión <b>Mz</b>;
+               según <b>Y</b> ⇒ flexión <b>My</b>. La torsión T gira en torno a Z global.</p>
+          </div>
+        </div>
+        <p class="help-note">El panel de cada elemento muestra esta pista automáticamente
+          («Mz = flexión por cargas según … global»).</p>
+
+        <h2>Signos de esfuerzos y resultados</h2>
+        <ul class="help-list">
+          <li><b>N</b> &gt; 0 = <b>tracción</b> · N &lt; 0 = compresión.</li>
+          <li><b>Momentos</b>: positivos antihorarios (regla de la mano derecha sobre el eje local).
+              En el DCL ⟲ = positivo.</li>
+          <li><b>Diagramas M(x)</b>: convención FEM, dM/dx = −V. El extremo de momento dentro
+              del vano coincide con V(x) = 0.</li>
+          <li><b>Reacciones</b>: flechas <span style="color:#ffa726">naranjas</span> = fuerzas,
+              <span style="color:#ce93d8">violetas (doble punta)</span> = momentos. En apoyos
+              elásticos la reacción es −k·u.</li>
+          <li><b>GDL por nodo</b> (orden): [ux, uy, uz, rx, ry, rz] globales;
+              en matrices de elemento: [u, v, w, θx, θy, θz] locales por nodo.</li>
+        </ul>
+
+        <h2>Liberaciones (rótulas)</h2>
+        <ul class="help-list">
+          <li>Liberar un esfuerzo (N, Vy, Vz, T, My, Mz) en un extremo ⇒ ese esfuerzo vale <b>0</b> ahí.</li>
+          <li>En 3D: <span style="color:#4ade80">●</span> círculo verde = giro liberado ·
+              <span style="color:#fbbf24">■</span> cuadrado ámbar = desplazamiento liberado.</li>
+          <li>El botón «Rótula» libera My + Mz (rótula clásica de momento).</li>
+          <li>⚠ Liberar en exceso crea un <b>mecanismo</b>: el análisis lo detecta y avisa.</li>
+        </ul>
+
+        <h2>Unidades</h2>
+        <p>Todo el cálculo se hace en <b>kN, m, ton, rad</b> (E y G en kN/m², ρ en ton/m³,
+           resortes en kN/m y kN·m/rad). El selector de unidades de la barra superior es
+           solo una etiqueta de referencia — <b>no convierte</b> los valores ingresados.</p>
+      </section>
+
+      <!-- ── EJEMPLOS GUIADOS ── -->
+      <section id="hsec-ejemplos" class="help-sec">
+        <h2>Ejemplos guiados</h2>
+        <div id="help-examples-list">
+          <p class="help-note">Cargando…</p>
+        </div>
+        <details class="help-prof">
+          <summary>📋 Cómo agregar ejemplos al proyecto</summary>
+          <ol class="help-steps" style="margin-top:8px">
+            <li>Modele el ejemplo en PORTICO y guárdelo con Archivo → Guardar (ej.: <code>simple_beam.s3d</code>).</li>
+            <li>Copie el archivo a la carpeta <code>examples/</code> del proyecto.</li>
+            <li>Cree o edite <code>examples/index.json</code> con una entrada por ejemplo:</li>
+          </ol>
+<pre>[
+  {
+    "file":        "simple_beam.s3d",
+    "title":       "1. Simply supported beam",
+    "description": "10 kN/m UDL over 6 m. Check M_mid = wL²/8 = 45 kN·m.",
+    "note":        "Toggle the element FBD and compare with the hand calc."
+  }
+]</pre>
+          <p>La lista se actualiza al reabrir esta ayuda. Los ejemplos se abren con un clic
+             (se pedirá confirmación si hay cambios sin guardar).</p>
+        </details>
+      </section>
+
+      <!-- ── ACERCA DE ── -->
+      <section id="hsec-acerca" class="help-sec">
+        <div class="help-about-hero">
+          <svg viewBox="0 0 24 24" width="56" height="56" aria-hidden="true">
+            <path d="M4 21 V8 Q4 5 7 5 H17 Q20 5 20 8 V21" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="4" cy="21" r="2" fill="var(--teal)"/><circle cx="20" cy="21" r="2" fill="var(--teal)"/>
+          </svg>
+          <div>
+            <h2 style="margin:0">PORTICO</h2>
+            <p style="margin:2px 0 0;color:var(--text-muted)">Análisis y diseño estructural 3D
+              · <b id="help-version">versión 87</b> · open source (AGPL-3.0)</p>
+          </div>
+        </div>
+        <p><b>PORTICO</b> — plataforma open source de análisis <b>y diseño</b> estructural 3D (FEM)
+           que corre íntegramente en el navegador. Modelado de barras y áreas, análisis lineal y no
+           lineal, y verificación de diseño multinorma — sin instalar nada y sin enviar datos a
+           ningún servidor.</p>
+        <h2>Capacidades</h2>
+        <ul class="help-list">
+          <li><b>Modelado:</b> barras 3D tipo Timoshenko (12 GDL) y elementos de área (membrana/placa/cáscara); mallado libre y mapeado.</li>
+          <li><b>Apoyos y conexiones:</b> empotrado/rótula, apoyos elásticos (resortes), liberaciones, links, cachos rígidos, diafragmas rígidos y masas nodales.</li>
+          <li><b>Cargas:</b> nodales, distribuidas uniformes y trapeciales, térmicas, peso propio; casos y combinaciones.</li>
+          <li><b>Análisis:</b> estático, modal, espectro de respuesta (CQC/SRSS), P-Δ, pandeo lineal, no lineal (cables, gran rotación), pushover y time-history.</li>
+          <li><b>Diseño multinorma:</b> acero (AISC/EC3/NCh), hormigón (ACI/EC2), madera y aluminio (EC9), con auto-diseño y reporte; verificación de derivas.</li>
+          <li><b>Interoperabilidad:</b> formato <code>.s3d</code> (JSON), importación CSV, IFC/BIM y asistente IA para generar modelos desde texto.</li>
+        </ul>
+        <h2>Alcances y limitaciones</h2>
+        <ul class="help-list">
+          <li>Los resultados de <b>diseño</b> son orientativos: requieren la revisión y el criterio de un ingeniero calculista.</li>
+          <li>Los elementos de área se resuelven en régimen <b>lineal-elástico</b>.</li>
+          <li>La dinámica no lineal de alta fidelidad depende del esquema de integración y del modelo constitutivo elegido.</li>
+          <li>Verifique siempre contra una solución analítica o software de referencia antes de usarlo en proyectos reales.</li>
+        </ul>
+        <p class="help-note">Tecnologías: JavaScript (ES Modules) · Three.js · numeric.js — corre
+          íntegramente en su navegador, sin enviar datos a ningún servidor.</p>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══ PORTADA — pantalla de bienvenida ══ -->
+<div id="landing">
+  <button id="landing-theme" type="button" title="Cambiar tema claro/oscuro"
+    style="position:fixed;top:14px;right:16px;z-index:9100;background:var(--bg4,#e2e8f1);border:1px solid var(--border2,#bcc8d8);color:var(--text,#1b2533);border-radius:8px;cursor:pointer;font-size:17px;line-height:1;padding:6px 10px">🌙</button>
+  <div class="landing-card">
+  <header class="landing-inst">
+    <div class="inst-names">
+      <strong>PORTICO</strong>
+      <span>Análisis y diseño estructural 3D · open source</span>
+    </div>
+  </header>
+
+  <main class="landing-hero">
+    <svg id="hero-frame" viewBox="0 0 360 240" aria-hidden="true">
+      <!-- pórtico sin deformar -->
+      <path class="frame-line" d="M70 210 V60 H290 V210"/>
+      <!-- deformada por sismo/viento (sway). Base articulada: curvatura nula en
+           los apoyos; nudos rígidos viga-pilar (90° conservados) → pilares en
+           curvatura simple y viga en doble curvatura antisimétrica. -->
+      <path class="frame-deformed" d="M70 210 C 82 158, 104 110, 104 60 C 165 66, 261 54, 322 60 C 322 110, 300 158, 290 210"/>
+      <!-- apoyos ARTICULADOS (rótula): triángulo sobre suelo achurado, sin rodillo -->
+      <path class="frame-support" d="M56 226 L84 226 L70 210 Z"/>
+      <path class="frame-support" d="M54 226 H86"/>
+      <path class="frame-support" d="M58 226 L52 233 M66 226 L60 233 M74 226 L68 233 M82 226 L76 233"/>
+      <path class="frame-support" d="M276 226 L304 226 L290 210 Z"/>
+      <path class="frame-support" d="M274 226 H306"/>
+      <path class="frame-support" d="M278 226 L272 233 M286 226 L280 233 M294 226 L288 233 M302 226 L296 233"/>
+      <!-- nudos rígidos (esquinas) ubicados sobre el pórtico DEFORMADO -->
+      <circle class="frame-node" cx="104" cy="60" r="6"/>
+      <circle class="frame-node" cx="322" cy="60" r="6"/>
+    </svg>
+
+    <h1 class="hero-title" data-brand="appName">PORTICO</h1>
+    <p class="hero-tag" data-brand="tagline">Análisis y diseño estructural 3D</p>
+    <p class="hero-desc">Modele barras y áreas en 3D, ejecute análisis estático, modal, de espectro, no lineal y pushover, y verifique el diseño de acero, hormigón, madera y aluminio — directamente en su navegador, sin instalar nada.</p>
+    <div class="hero-chips">
+      <span>Barras + áreas</span><span>Espectro NCh433</span><span>Pandeo · P-Δ</span>
+      <span>No lineal · pushover</span><span>Diseño acero/hormigón/madera</span>
+      <span>Derivas</span><span>IFC / BIM</span><span>Asistente IA</span>
+    </div>
+    <div class="hero-actions">
+      <button id="btn-enter">Entrar al laboratorio (vacío) <span class="arrow">→</span></button>
+      <button id="btn-asistente" type="button">✦ Generar modelo con el asistente <span class="arrow">→</span></button>
+      <button id="btn-manual" type="button">📖 Manual de uso</button>
+      <button id="btn-install" type="button">⤓ Instalar app</button>
+    </div>
+    <div class="hero-kbd">o presione <kbd>Enter</kbd></div>
+    <div id="install-hint" class="install-hint" hidden></div>
+  </main>
+
+  <footer class="landing-credit" data-brand="description">
+    PORTICO — plataforma open source de análisis y diseño estructural 3D.
+  </footer>
+  </div><!-- /.landing-card -->
+
+<script>
+/* Portada: entrar con clic, Enter o Escape; bloquea atajos del app mientras está visible */
+(function () {
+  const landing = document.getElementById('landing');
+  if (!landing) return;
+  function enter() {
+    landing.classList.add('exit');
+    document.removeEventListener('keydown', onKey, true);
+    if (typeof stopIdle === 'function') stopIdle();   // detiene el auto-cierre (#83)
+    setTimeout(function () { landing.remove(); }, 700);
+  }
+  function onKey(e) {
+    // Si el manual (ayuda) está abierto sobre la portada, que él maneje las teclas
+    const help = document.getElementById('help-overlay');
+    if (help && !help.classList.contains('hidden')) return;
+    e.stopPropagation();
+    if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); enter(); }
+  }
+  document.getElementById('btn-enter').addEventListener('click', enter);
+  document.addEventListener('keydown', onKey, true);
+
+  // ── Auto-cierre por inactividad (#83) ──
+  // Si nadie interactúa con la portada en ~8 s, se entra solo al laboratorio
+  // (modelo nuevo vacío) para no bloquear el arranque. Cualquier interacción
+  // reinicia el contador; si el manual está abierto encima, se pospone.
+  var idleEvents = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'];
+  var idleT = null;
+  function stopIdle() {
+    clearTimeout(idleT);
+    idleEvents.forEach(function (ev) { document.removeEventListener(ev, resetIdle, true); });
+  }
+  function idleEnter() {
+    var help = document.getElementById('help-overlay');
+    if (help && !help.classList.contains('hidden')) { resetIdle(); return; }   // leyendo el manual
+    enter();
+  }
+  function resetIdle() {
+    if (landing.classList.contains('exit')) return;   // ya saliendo
+    clearTimeout(idleT);
+    idleT = setTimeout(idleEnter, 8000);
+  }
+  idleEvents.forEach(function (ev) { document.addEventListener(ev, resetIdle, { passive: true, capture: true }); });
+  resetIdle();
+
+  // ── "Generar modelo con el asistente": entra al laboratorio y abre el diálogo
+  //    "Asistente — generar modelo desde ficha". ──
+  // Si la app ya terminó de inicializar (_ready), abrimos el diálogo nosotros; si
+  // aún está inicializando (p.ej. mostrando "¿recuperar sesión?"), dejamos el flag
+  // y la app abre el diálogo al terminar (evita chocar con el modal de arranque).
+  function abrirAsistente() {
+    window.__porticoGoAssistant = true;
+    enter();   // oculta la portada
+    const go = () => {
+      const app = window.app;
+      if (app && app._ready) {
+        if (window.__porticoGoAssistant && typeof app.assistantDialog === 'function') {
+          window.__porticoGoAssistant = false;
+          app.assistantDialog();
+        }
+      } else {
+        setTimeout(go, 120);   // init en curso → la app lo abrirá al terminar
+      }
+    };
+    go();
+  }
+  document.getElementById('btn-asistente')?.addEventListener('click', abrirAsistente);
+
+  // ── Botón "Manual de uso" — abre la Ayuda sin entrar al laboratorio ──
+  document.getElementById('btn-manual')?.addEventListener('click', () => {
+    if (window.app && typeof window.app.openHelp === 'function') {
+      window.app.openHelp('guia');
+    }
+  });
+
+  // ── "Install app" button (PWA) ──
+  const installBtn = document.getElementById('btn-install');
+  const hint = document.getElementById('install-hint');
+  const standalone = window.matchMedia('(display-mode: standalone)').matches ||
+                     window.navigator.standalone === true;
+
+  if (standalone) {
+    // Already installed and opened as an app → don't show the button
+    installBtn.hidden = true;
+  } else {
+    installBtn.classList.toggle('ready', !!window.__pwaInstall);
+    window.addEventListener('pwa-installable', () => installBtn.classList.add('ready'));
+    window.addEventListener('pwa-installed', () => {
+      installBtn.hidden = true;
+      hint.hidden = false;
+      hint.textContent = '✓ App installed. Find it in your applications menu.';
+    });
+
+    installBtn.addEventListener('click', async () => {
+      const dp = window.__pwaInstall;
+      if (dp) {
+        dp.prompt();
+        const choice = await dp.userChoice;
+        window.__pwaInstall = null;
+        if (choice && choice.outcome === 'accepted') {
+          installBtn.hidden = true;
+        }
+      } else {
+        // No native prompt (already installed, Firefox or Safari): show instructions
+        hint.hidden = false;
+        hint.innerHTML = 'To install: use the <b>⊕ / install</b> icon in the address ' +
+          'bar, or the <b>⋮ → Install PORTICO</b> menu. On iPhone/iPad: ' +
+          '<b>Share → Add to Home Screen</b>.';
+      }
+    });
+  }
+})();
+</script>
+
+<!-- Aviso de rotación: banner inferior NO bloqueante. En vertical sugiere girar
+     a horizontal, pero la app sigue siendo usable; se puede cerrar. -->
+<div id="rotate-hint">
+  <span class="rotate-ico">⟲📱</span>
+  <span class="rotate-txt"><b>Mejor en horizontal</b> — PORTICO se ve mejor apaisado, pero puedes seguir usándolo en vertical.</span>
+  <button type="button" class="rotate-close" onclick="this.parentElement.style.display='none'" aria-label="Cerrar aviso">✕</button>
+</div>
+
+<!-- numeric.js para solver (Fase 2+) -->
+<script src="lib/numeric.js"></script>
+<script type="module" src="js/app.js?v=1"></script>
+
+<!-- PWA: registrar el service worker (offline). Solo en contexto seguro
+     (https o localhost); el navegador deja navigator.serviceWorker undefined
+     en orígenes inseguros, así que el guard lo cubre. -->
+<script>
+// No registrar bajo automatización (navigator.webdriver) para no interferir
+// con herramientas de prueba/preview. En uso normal el SW se registra siempre.
+if ('serviceWorker' in navigator && !navigator.webdriver) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err =>
+      console.warn('No se pudo registrar el service worker:', err));
+  });
+}
+</script>
+
+<!-- P2-7: Styled tooltip engine — replaces native browser title tooltips -->
+<div id="sw-tooltip"></div>
+<script>
+(function() {
+  const tip = document.getElementById('sw-tooltip');
+  let hideTimer = null;
+
+  function formatText(raw) {
+    // Split "Label  Shortcut" (2+ spaces) to render shortcut as key badge
+    const m = raw.match(/^(.*?)\s{2,}(\S.*)$/);
+    if (m) {
+      return m[1].trim() + ' <span class="sw-tip-key">' + m[2].trim() + '</span>';
+    }
+    return raw;
+  }
+
+  function show(el, e) {
+    clearTimeout(hideTimer);
+    const text = el._swTip;
+    if (!text) return;
+    tip.innerHTML = formatText(text);
+    tip.classList.add('visible');
+    reposition(e);
+  }
+
+  function reposition(e) {
+    const margin = 12;
+    const tw = tip.offsetWidth  || 180;
+    const th = tip.offsetHeight || 28;
+    let x = e.clientX + 14;
+    let y = e.clientY + 18;
+    if (x + tw + margin > window.innerWidth)  x = e.clientX - tw - 8;
+    if (y + th + margin > window.innerHeight) y = e.clientY - th - 8;
+    tip.style.left = x + 'px';
+    tip.style.top  = y + 'px';
+  }
+
+  function hide() {
+    hideTimer = setTimeout(function() { tip.classList.remove('visible'); }, 60);
+  }
+
+  // First mouseover: strip native title, store as _swTip, mark element
+  document.addEventListener('mouseover', function(e) {
+    const el = e.target.closest('[title]');
+    if (!el) return;
+    el._swTip = el.getAttribute('title');
+    el.removeAttribute('title');
+    el.setAttribute('data-sw-tipped', '1');
+    show(el, e);
+  }, true);
+
+  // Subsequent hovers on already-converted elements
+  document.addEventListener('mouseover', function(e) {
+    const el = e.target.closest('[data-sw-tipped]');
+    if (el) show(el, e);
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (tip.classList.contains('visible')) reposition(e);
+  });
+
+  document.addEventListener('mouseout', function(e) {
+    if (e.target.closest('[data-sw-tipped],[title]')) hide();
+  });
+
+  document.addEventListener('mousedown', function() {
+    tip.classList.remove('visible');
+  });
+})();
+</script>
+</body>
+</html>
+

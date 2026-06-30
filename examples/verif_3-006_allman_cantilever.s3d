@@ -1,0 +1,4199 @@
+{
+  "version": "1.0",
+  "units": "kN-m",
+  "mode": "3D",
+  "nodes": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 2,
+      "x": 0.625,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 3,
+      "x": 1.25,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 4,
+      "x": 1.875,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 5,
+      "x": 2.5,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 6,
+      "x": 3.125,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 7,
+      "x": 3.75,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 8,
+      "x": 4.375,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 9,
+      "x": 5,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 10,
+      "x": 5.625,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 11,
+      "x": 6.25,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 12,
+      "x": 6.875,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 13,
+      "x": 7.5,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 14,
+      "x": 8.125,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 15,
+      "x": 8.75,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 16,
+      "x": 9.375,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 17,
+      "x": 10,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 18,
+      "x": 0,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 19,
+      "x": 0.625,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 20,
+      "x": 1.25,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 21,
+      "x": 1.875,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 22,
+      "x": 2.5,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 23,
+      "x": 3.125,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 24,
+      "x": 3.75,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 25,
+      "x": 4.375,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 26,
+      "x": 5,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 27,
+      "x": 5.625,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 28,
+      "x": 6.25,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 29,
+      "x": 6.875,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 30,
+      "x": 7.5,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 31,
+      "x": 8.125,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 32,
+      "x": 8.75,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 33,
+      "x": 9.375,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 34,
+      "x": 10,
+      "y": 0.25,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 35,
+      "x": 0,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 36,
+      "x": 0.625,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 37,
+      "x": 1.25,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 38,
+      "x": 1.875,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 39,
+      "x": 2.5,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 40,
+      "x": 3.125,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 41,
+      "x": 3.75,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 42,
+      "x": 4.375,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 43,
+      "x": 5,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 44,
+      "x": 5.625,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 45,
+      "x": 6.25,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 46,
+      "x": 6.875,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 47,
+      "x": 7.5,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 48,
+      "x": 8.125,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 49,
+      "x": 8.75,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 50,
+      "x": 9.375,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 51,
+      "x": 10,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 52,
+      "x": 0,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 53,
+      "x": 0.625,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 54,
+      "x": 1.25,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 55,
+      "x": 1.875,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 56,
+      "x": 2.5,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 57,
+      "x": 3.125,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 58,
+      "x": 3.75,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 59,
+      "x": 4.375,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 60,
+      "x": 5,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 61,
+      "x": 5.625,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 62,
+      "x": 6.25,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 63,
+      "x": 6.875,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 64,
+      "x": 7.5,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 65,
+      "x": 8.125,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 66,
+      "x": 8.75,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 67,
+      "x": 9.375,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 68,
+      "x": 10,
+      "y": 0.75,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 69,
+      "x": 0,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 70,
+      "x": 0.625,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 71,
+      "x": 1.25,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 72,
+      "x": 1.875,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 73,
+      "x": 2.5,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 74,
+      "x": 3.125,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 75,
+      "x": 3.75,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 76,
+      "x": 4.375,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 77,
+      "x": 5,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 78,
+      "x": 5.625,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 79,
+      "x": 6.25,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 80,
+      "x": 6.875,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 81,
+      "x": 7.5,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 82,
+      "x": 8.125,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 83,
+      "x": 8.75,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 84,
+      "x": 9.375,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 85,
+      "x": 10,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    }
+  ],
+  "elements": [],
+  "areas": [
+    {
+      "id": 1,
+      "nodes": [
+        1,
+        2,
+        19
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 2,
+      "nodes": [
+        1,
+        19,
+        18
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 3,
+      "nodes": [
+        2,
+        3,
+        20
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 4,
+      "nodes": [
+        2,
+        20,
+        19
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 5,
+      "nodes": [
+        3,
+        4,
+        21
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 6,
+      "nodes": [
+        3,
+        21,
+        20
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 7,
+      "nodes": [
+        4,
+        5,
+        22
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 8,
+      "nodes": [
+        4,
+        22,
+        21
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 9,
+      "nodes": [
+        5,
+        6,
+        23
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 10,
+      "nodes": [
+        5,
+        23,
+        22
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 11,
+      "nodes": [
+        6,
+        7,
+        24
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 12,
+      "nodes": [
+        6,
+        24,
+        23
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 13,
+      "nodes": [
+        7,
+        8,
+        25
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 14,
+      "nodes": [
+        7,
+        25,
+        24
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 15,
+      "nodes": [
+        8,
+        9,
+        26
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 16,
+      "nodes": [
+        8,
+        26,
+        25
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 17,
+      "nodes": [
+        9,
+        10,
+        27
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 18,
+      "nodes": [
+        9,
+        27,
+        26
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 19,
+      "nodes": [
+        10,
+        11,
+        28
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 20,
+      "nodes": [
+        10,
+        28,
+        27
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 21,
+      "nodes": [
+        11,
+        12,
+        29
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 22,
+      "nodes": [
+        11,
+        29,
+        28
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 23,
+      "nodes": [
+        12,
+        13,
+        30
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 24,
+      "nodes": [
+        12,
+        30,
+        29
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 25,
+      "nodes": [
+        13,
+        14,
+        31
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 26,
+      "nodes": [
+        13,
+        31,
+        30
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 27,
+      "nodes": [
+        14,
+        15,
+        32
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 28,
+      "nodes": [
+        14,
+        32,
+        31
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 29,
+      "nodes": [
+        15,
+        16,
+        33
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 30,
+      "nodes": [
+        15,
+        33,
+        32
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 31,
+      "nodes": [
+        16,
+        17,
+        34
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 32,
+      "nodes": [
+        16,
+        34,
+        33
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 33,
+      "nodes": [
+        18,
+        19,
+        36
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 34,
+      "nodes": [
+        18,
+        36,
+        35
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 35,
+      "nodes": [
+        19,
+        20,
+        37
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 36,
+      "nodes": [
+        19,
+        37,
+        36
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 37,
+      "nodes": [
+        20,
+        21,
+        38
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 38,
+      "nodes": [
+        20,
+        38,
+        37
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 39,
+      "nodes": [
+        21,
+        22,
+        39
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 40,
+      "nodes": [
+        21,
+        39,
+        38
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 41,
+      "nodes": [
+        22,
+        23,
+        40
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 42,
+      "nodes": [
+        22,
+        40,
+        39
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 43,
+      "nodes": [
+        23,
+        24,
+        41
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 44,
+      "nodes": [
+        23,
+        41,
+        40
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 45,
+      "nodes": [
+        24,
+        25,
+        42
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 46,
+      "nodes": [
+        24,
+        42,
+        41
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 47,
+      "nodes": [
+        25,
+        26,
+        43
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 48,
+      "nodes": [
+        25,
+        43,
+        42
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 49,
+      "nodes": [
+        26,
+        27,
+        44
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 50,
+      "nodes": [
+        26,
+        44,
+        43
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 51,
+      "nodes": [
+        27,
+        28,
+        45
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 52,
+      "nodes": [
+        27,
+        45,
+        44
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 53,
+      "nodes": [
+        28,
+        29,
+        46
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 54,
+      "nodes": [
+        28,
+        46,
+        45
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 55,
+      "nodes": [
+        29,
+        30,
+        47
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 56,
+      "nodes": [
+        29,
+        47,
+        46
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 57,
+      "nodes": [
+        30,
+        31,
+        48
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 58,
+      "nodes": [
+        30,
+        48,
+        47
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 59,
+      "nodes": [
+        31,
+        32,
+        49
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 60,
+      "nodes": [
+        31,
+        49,
+        48
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 61,
+      "nodes": [
+        32,
+        33,
+        50
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 62,
+      "nodes": [
+        32,
+        50,
+        49
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 63,
+      "nodes": [
+        33,
+        34,
+        51
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 64,
+      "nodes": [
+        33,
+        51,
+        50
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 65,
+      "nodes": [
+        35,
+        36,
+        53
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 66,
+      "nodes": [
+        35,
+        53,
+        52
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 67,
+      "nodes": [
+        36,
+        37,
+        54
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 68,
+      "nodes": [
+        36,
+        54,
+        53
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 69,
+      "nodes": [
+        37,
+        38,
+        55
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 70,
+      "nodes": [
+        37,
+        55,
+        54
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 71,
+      "nodes": [
+        38,
+        39,
+        56
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 72,
+      "nodes": [
+        38,
+        56,
+        55
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 73,
+      "nodes": [
+        39,
+        40,
+        57
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 74,
+      "nodes": [
+        39,
+        57,
+        56
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 75,
+      "nodes": [
+        40,
+        41,
+        58
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 76,
+      "nodes": [
+        40,
+        58,
+        57
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 77,
+      "nodes": [
+        41,
+        42,
+        59
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 78,
+      "nodes": [
+        41,
+        59,
+        58
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 79,
+      "nodes": [
+        42,
+        43,
+        60
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 80,
+      "nodes": [
+        42,
+        60,
+        59
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 81,
+      "nodes": [
+        43,
+        44,
+        61
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 82,
+      "nodes": [
+        43,
+        61,
+        60
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 83,
+      "nodes": [
+        44,
+        45,
+        62
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 84,
+      "nodes": [
+        44,
+        62,
+        61
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 85,
+      "nodes": [
+        45,
+        46,
+        63
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 86,
+      "nodes": [
+        45,
+        63,
+        62
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 87,
+      "nodes": [
+        46,
+        47,
+        64
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 88,
+      "nodes": [
+        46,
+        64,
+        63
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 89,
+      "nodes": [
+        47,
+        48,
+        65
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 90,
+      "nodes": [
+        47,
+        65,
+        64
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 91,
+      "nodes": [
+        48,
+        49,
+        66
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 92,
+      "nodes": [
+        48,
+        66,
+        65
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 93,
+      "nodes": [
+        49,
+        50,
+        67
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 94,
+      "nodes": [
+        49,
+        67,
+        66
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 95,
+      "nodes": [
+        50,
+        51,
+        68
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 96,
+      "nodes": [
+        50,
+        68,
+        67
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 97,
+      "nodes": [
+        52,
+        53,
+        70
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 98,
+      "nodes": [
+        52,
+        70,
+        69
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 99,
+      "nodes": [
+        53,
+        54,
+        71
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 100,
+      "nodes": [
+        53,
+        71,
+        70
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 101,
+      "nodes": [
+        54,
+        55,
+        72
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 102,
+      "nodes": [
+        54,
+        72,
+        71
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 103,
+      "nodes": [
+        55,
+        56,
+        73
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 104,
+      "nodes": [
+        55,
+        73,
+        72
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 105,
+      "nodes": [
+        56,
+        57,
+        74
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 106,
+      "nodes": [
+        56,
+        74,
+        73
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 107,
+      "nodes": [
+        57,
+        58,
+        75
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 108,
+      "nodes": [
+        57,
+        75,
+        74
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 109,
+      "nodes": [
+        58,
+        59,
+        76
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 110,
+      "nodes": [
+        58,
+        76,
+        75
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 111,
+      "nodes": [
+        59,
+        60,
+        77
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 112,
+      "nodes": [
+        59,
+        77,
+        76
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 113,
+      "nodes": [
+        60,
+        61,
+        78
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 114,
+      "nodes": [
+        60,
+        78,
+        77
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 115,
+      "nodes": [
+        61,
+        62,
+        79
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 116,
+      "nodes": [
+        61,
+        79,
+        78
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 117,
+      "nodes": [
+        62,
+        63,
+        80
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 118,
+      "nodes": [
+        62,
+        80,
+        79
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 119,
+      "nodes": [
+        63,
+        64,
+        81
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 120,
+      "nodes": [
+        63,
+        81,
+        80
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 121,
+      "nodes": [
+        64,
+        65,
+        82
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 122,
+      "nodes": [
+        64,
+        82,
+        81
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 123,
+      "nodes": [
+        65,
+        66,
+        83
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 124,
+      "nodes": [
+        65,
+        83,
+        82
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 125,
+      "nodes": [
+        66,
+        67,
+        84
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 126,
+      "nodes": [
+        66,
+        84,
+        83
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 127,
+      "nodes": [
+        67,
+        68,
+        85
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    },
+    {
+      "id": 128,
+      "nodes": [
+        67,
+        85,
+        84
+      ],
+      "matId": 2,
+      "thickness": 1,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "drilling": true,
+      "kind": "CST"
+    }
+  ],
+  "materials": [
+    {
+      "id": 2,
+      "name": "Elastico",
+      "E": 1000,
+      "G": 500,
+      "nu": 0,
+      "rho": 0,
+      "alpha": 0.00001
+    }
+  ],
+  "sections": [],
+  "diaphragms": [],
+  "links": [],
+  "loadCases": [
+    {
+      "id": 1,
+      "name": "Punta",
+      "loads": [
+        {
+          "type": "nodal",
+          "nodeId": 17,
+          "F": [
+            0,
+            -0.125,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "type": "nodal",
+          "nodeId": 34,
+          "F": [
+            0,
+            -0.25,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "type": "nodal",
+          "nodeId": 51,
+          "F": [
+            0,
+            -0.25,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "type": "nodal",
+          "nodeId": 68,
+          "F": [
+            0,
+            -0.25,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "type": "nodal",
+          "nodeId": 85,
+          "F": [
+            0,
+            -0.125,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "selfWeight": false,
+      "type": "static",
+      "specDir": null
+    }
+  ],
+  "combinations": [],
+  "grids": {
+    "x": [],
+    "y": [],
+    "z": []
+  },
+  "_counters": {
+    "nodes": 85,
+    "elements": 0,
+    "areas": 128,
+    "materials": 2,
+    "sections": 1,
+    "diaphragms": 0,
+    "loadCases": 1,
+    "combinations": 0,
+    "links": 0
+  }
+}

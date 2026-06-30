@@ -1,0 +1,13 @@
+nombre,tipo,descripcion,E_kN_m2,G_kN_m2,nu,rho_ton_m3,fy_MPa,fc_MPa
+S235,acero,Acero estructural EN S235,2.1e8,8.08e7,0.3,7.85,235,
+S275,acero,Acero estructural EN S275,2.1e8,8.08e7,0.3,7.85,275,
+S355,acero,Acero estructural EN S355,2.1e8,8.08e7,0.3,7.85,355,
+A270ES,acero,Acero estructural chileno A270ES (~S275),2.1e8,8.08e7,0.3,7.85,270,
+A630-420H,acero,Barra de refuerzo A630-420H,2.0e8,7.69e7,0.3,7.85,420,
+G20,hormigon,"Hormigon grado G20 f'c=20 MPa (Ec=4700 raiz fc; NCh170:2016)",2.10e7,8.75e6,0.2,2.5,,20
+G25,hormigon,Hormigon grado G25 f'c=25 MPa (NCh170:2016),2.35e7,9.79e6,0.2,2.5,,25
+G30,hormigon,Hormigon grado G30 f'c=30 MPa (valor por defecto de PORTICO; NCh170:2016),2.87e7,1.19e7,0.2,2.5,,30
+G40,hormigon,Hormigon grado G40 f'c=40 MPa (NCh170:2016),2.97e7,1.24e7,0.2,2.5,,40
+G50,hormigon,Hormigon grado G50 f'c=50 MPa alta resistencia (NCh170:2016),3.32e7,1.38e7,0.2,2.5,,50
+Pino Radiata,madera,Madera aserrada pino radiata grado estructural (NCh1198; E=10 GPa; G=E/16; rho=450 kg/m3),1.0e7,6.25e5,0.3,0.45,,
+Pino Radiata GS,madera,Pino radiata grado seleccionado estructural (NCh1198; E=11 GPa),1.1e7,6.88e5,0.3,0.46,,

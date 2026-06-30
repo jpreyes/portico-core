@@ -1,0 +1,852 @@
+{
+  "version": "1.0",
+  "units": "kN-m",
+  "mode": "3D",
+  "nodes": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 2,
+      "x": 0,
+      "y": 0.3333333333333333,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      },
+      "prescDisp": {
+        "ux": 0,
+        "uy": -0.000009999999999999999,
+        "uz": 0,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      }
+    },
+    {
+      "id": 3,
+      "x": 0,
+      "y": 0.6666666666666666,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      },
+      "prescDisp": {
+        "ux": 0,
+        "uy": -0.000019999999999999998,
+        "uz": 0,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      }
+    },
+    {
+      "id": 4,
+      "x": 0,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      },
+      "prescDisp": {
+        "ux": 0,
+        "uy": -0.00003,
+        "uz": 0,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      }
+    },
+    {
+      "id": 5,
+      "x": 1,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      },
+      "prescDisp": {
+        "ux": 0.0001,
+        "uy": 0,
+        "uz": 0,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      }
+    },
+    {
+      "id": 6,
+      "x": 1,
+      "y": 0.41666666666666663,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 7,
+      "x": 1,
+      "y": 0.8333333333333333,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 8,
+      "x": 1,
+      "y": 1.25,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      },
+      "prescDisp": {
+        "ux": 0.0001,
+        "uy": -0.000037500000000000003,
+        "uz": 0,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      }
+    },
+    {
+      "id": 9,
+      "x": 2,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      },
+      "prescDisp": {
+        "ux": 0.0002,
+        "uy": 0,
+        "uz": 0,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      }
+    },
+    {
+      "id": 10,
+      "x": 2,
+      "y": 0.5,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 11,
+      "x": 2,
+      "y": 1,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 12,
+      "x": 2,
+      "y": 1.5,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      },
+      "prescDisp": {
+        "ux": 0.0002,
+        "uy": -0.000045,
+        "uz": 0,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      }
+    },
+    {
+      "id": 13,
+      "x": 3,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      },
+      "prescDisp": {
+        "ux": 0.00030000000000000003,
+        "uy": 0,
+        "uz": 0,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      }
+    },
+    {
+      "id": 14,
+      "x": 3,
+      "y": 0.5833333333333331,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 15,
+      "x": 3,
+      "y": 1.1666666666666663,
+      "z": 0,
+      "restraints": {
+        "ux": 0,
+        "uy": 0,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 16,
+      "x": 3,
+      "y": 1.75,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      },
+      "prescDisp": {
+        "ux": 0.00030000000000000003,
+        "uy": -0.0000525,
+        "uz": 0,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      }
+    },
+    {
+      "id": 17,
+      "x": 4,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      },
+      "prescDisp": {
+        "ux": 0.0004,
+        "uy": 0,
+        "uz": 0,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      }
+    },
+    {
+      "id": 18,
+      "x": 4,
+      "y": 0.6666666666666666,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      },
+      "prescDisp": {
+        "ux": 0.0004,
+        "uy": -0.000019999999999999998,
+        "uz": 0,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      }
+    },
+    {
+      "id": 19,
+      "x": 4,
+      "y": 1.3333333333333333,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      },
+      "prescDisp": {
+        "ux": 0.0004,
+        "uy": -0.000039999999999999996,
+        "uz": 0,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      }
+    },
+    {
+      "id": 20,
+      "x": 4,
+      "y": 2,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 1,
+        "ry": 1,
+        "rz": 1
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      },
+      "prescDisp": {
+        "ux": 0.0004,
+        "uy": -0.00006,
+        "uz": 0,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      }
+    }
+  ],
+  "elements": [],
+  "areas": [
+    {
+      "id": 1,
+      "nodes": [
+        1,
+        5,
+        6,
+        2
+      ],
+      "matId": 2,
+      "thickness": 0.01,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "kind": "QUAD"
+    },
+    {
+      "id": 2,
+      "nodes": [
+        2,
+        6,
+        7,
+        3
+      ],
+      "matId": 2,
+      "thickness": 0.01,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "kind": "QUAD"
+    },
+    {
+      "id": 3,
+      "nodes": [
+        3,
+        7,
+        8,
+        4
+      ],
+      "matId": 2,
+      "thickness": 0.01,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "kind": "QUAD"
+    },
+    {
+      "id": 4,
+      "nodes": [
+        5,
+        9,
+        10,
+        6
+      ],
+      "matId": 2,
+      "thickness": 0.01,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "kind": "QUAD"
+    },
+    {
+      "id": 5,
+      "nodes": [
+        6,
+        10,
+        11,
+        7
+      ],
+      "matId": 2,
+      "thickness": 0.01,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "kind": "QUAD"
+    },
+    {
+      "id": 6,
+      "nodes": [
+        7,
+        11,
+        12,
+        8
+      ],
+      "matId": 2,
+      "thickness": 0.01,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "kind": "QUAD"
+    },
+    {
+      "id": 7,
+      "nodes": [
+        9,
+        13,
+        14,
+        10
+      ],
+      "matId": 2,
+      "thickness": 0.01,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "kind": "QUAD"
+    },
+    {
+      "id": 8,
+      "nodes": [
+        10,
+        14,
+        15,
+        11
+      ],
+      "matId": 2,
+      "thickness": 0.01,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "kind": "QUAD"
+    },
+    {
+      "id": 9,
+      "nodes": [
+        11,
+        15,
+        16,
+        12
+      ],
+      "matId": 2,
+      "thickness": 0.01,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "kind": "QUAD"
+    },
+    {
+      "id": 10,
+      "nodes": [
+        13,
+        17,
+        18,
+        14
+      ],
+      "matId": 2,
+      "thickness": 0.01,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "kind": "QUAD"
+    },
+    {
+      "id": 11,
+      "nodes": [
+        14,
+        18,
+        19,
+        15
+      ],
+      "matId": 2,
+      "thickness": 0.01,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "kind": "QUAD"
+    },
+    {
+      "id": 12,
+      "nodes": [
+        15,
+        19,
+        20,
+        16
+      ],
+      "matId": 2,
+      "thickness": 0.01,
+      "planeStrain": false,
+      "behavior": "membrane",
+      "kind": "QUAD"
+    }
+  ],
+  "materials": [
+    {
+      "id": 2,
+      "name": "Acero",
+      "E": 210000000000,
+      "G": 80769230769.23077,
+      "nu": 0.3,
+      "rho": 0,
+      "alpha": 0.00001
+    }
+  ],
+  "sections": [],
+  "diaphragms": [],
+  "loadCases": [],
+  "combinations": [],
+  "grids": {
+    "x": [],
+    "y": [],
+    "z": []
+  },
+  "_counters": {
+    "nodes": 20,
+    "elements": 0,
+    "areas": 12,
+    "materials": 2,
+    "sections": 1,
+    "diaphragms": 0,
+    "loadCases": 0,
+    "combinations": 0
+  }
+}

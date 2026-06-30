@@ -1,0 +1,23 @@
+{
+  "project": "Colegio ejemplo (Valdivia)",
+  "mode": "3D",
+  "location": { "city": "Valdivia", "latitude_deg": 39.8, "altitude_masl": 10, "exposure": "C" },
+  "geometry": {
+    "levels": [ { "height_m": 3.0 }, { "height_m": 3.0 }, { "height_m": 3.0 } ],
+    "base_plan": { "Lx_m": 10, "Ly_m": 10 },
+    "top_plan": { "Lx_m": 10, "Ly_m": 8 },
+    "roof_slope_deg": 0
+  },
+  "sections": { "material": "S275", "beams": "IPE300", "columns": "HEB200" },
+  "base_support": "fixed",
+  "rigid_diaphragm": true,
+  "loads": {
+    "dead_extra_kN_m2": 1.5,
+    "use_class": "Escuelas/Salas de Clases",
+    "wind_enclosure": "Cerrado",
+    "snow": true,
+    "wind": true,
+    "seismic": true
+  },
+  "seismic": { "zone": 2, "soil": "D", "category": "III", "R": 7 }
+}

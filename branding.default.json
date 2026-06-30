@@ -1,0 +1,12 @@
+{
+  "appName": "PORTICO",
+  "tagline": "Análisis y diseño estructural 3D",
+  "description": "PORTICO — plataforma open source de análisis y diseño estructural 3D.",
+  "logos": { "primary": null, "institutional": [] },
+  "showInstitutional": false,
+  "links": {
+    "academic": "",
+    "professional": "",
+    "repo": ""
+  }
+}

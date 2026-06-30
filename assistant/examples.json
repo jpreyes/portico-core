@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "_note": "Generic few-shot corpus (description -> spec) for the AI assistant. When an LLM endpoint is configured, the worker retrieves the closest examples and injects them as few-shot context. Each item is a {desc, ficha} pair: 'desc' = typical user phrasing (keywords); 'ficha' = a valid output spec for the deterministic generator. These are GENERIC starter examples in English — replace or extend them with your own curated corpus for your deployment.",
+  "ejemplos": [
+    {
+      "desc": "reinforced concrete building, several stories, beams and columns, bays in X and Y",
+      "ficha": { "mode": "3D", "typology": "frame", "sections": { "material": "G30", "beams": { "b_cm": 25, "h_cm": 50 }, "columns": { "b_cm": 30, "h_cm": 30 } }, "geometry": { "levels": [{ "height_m": 3 }, { "height_m": 3 }, { "height_m": 3 }], "spans_x": { "count": 3, "span_m": 5 }, "spans_y": { "count": 2, "span_m": 5 } }, "base_support": "fixed" }
+    },
+    {
+      "desc": "structural steel frame, IPE profiles for beams and HEB for columns",
+      "ficha": { "mode": "3D", "typology": "frame", "sections": { "material": "S275", "beams": "IPE300", "columns": "HEB200" }, "geometry": { "levels": [{ "height_m": 3.5 }, { "height_m": 3.5 }], "spans_x": { "count": 2, "span_m": 6 }, "spans_y": { "count": 2, "span_m": 6 } }, "base_support": "fixed" }
+    },
+    {
+      "desc": "two-story timber house, stud walls 2x4 at 40cm, floor joists 2x8 at 60cm, gable truss roof, residential use",
+      "ficha": { "mode": "3D", "typology": "timber_walls", "sections": { "material": "Pino Radiata" }, "geometry": { "base_plan": { "Lx_m": 8, "Ly_m": 6 }, "levels": [{ "height_m": 3 }, { "height_m": 3 }] }, "stud_walls": { "nominal_size": "2x4", "spacing_m": 0.4, "perimeter": true }, "floors": { "nominal_size": "2x8", "spacing_m": 0.6, "dir": "X" }, "roof": { "type": "truss", "slope_pct": 25 } }
+    },
+    {
+      "desc": "single gable roof truss, pratt or howe or warren, given span and slope",
+      "ficha": { "mode": "2D", "typology": "truss", "sections": { "material": "Pino Radiata" }, "truss": { "span_m": 12, "slope_pct": 25, "n_panels": 8, "spacing_m": 0.6, "chord_size": "2x6", "diagonal_size": "2x4", "truss_type": "pratt" } }
+    },
+    {
+      "desc": "industrial warehouse, steel portal frames with roof trusses, column height and frame spacing",
+      "ficha": { "mode": "3D", "typology": "warehouse", "sections": { "material": "acero" }, "warehouse": { "span_m": 20, "length_m": 30, "column_height_m": 6, "frame_spacing_m": 5, "truss_type": "pratt" } }
+    }
+  ]
+}

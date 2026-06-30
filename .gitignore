@@ -1,0 +1,64 @@
+# ── Dependencias / build ──────────────────────────────────────────────
+node_modules/
+dist/
+build/
+
+# ── Sistema operativo ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editores / herramientas locales ───────────────────────────────────
+.vscode/
+.idea/
+.claude/
+*.swp
+#    Instrucciones del agente de IA (guía de desarrollo local): NO se publica.
+#    La arquitectura y convenciones públicas están en docs/EXTENDING.md y al
+#    inicio de cada módulo.
+CLAUDE.md
+
+# ── Logs ──────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+
+# ── Cloudflare Worker: secretos, config de despliegue y caché de build ─
+#    wrangler.jsonc/.assetsignore son la infra de despliegue del worker PRIVADO
+#    (main: worker/asistente.js, KV del log). El core open se corre con serve.py,
+#    así que esta config no se publica (apuntaría a un worker/ ausente).
+.dev.vars
+.wrangler/
+wrangler.jsonc
+.assetsignore
+
+# ── Archivos de conflicto de Dropbox / sincronizadores ────────────────
+*conflicted copy*
+*Copia en conflicto*
+
+# ── Material local NO publicable (normas, referencias, binarios) ──────
+#    Se conservan fuera del repo (ver ../portico-core-local/).
+excel/
+referencias/
+*.docx
+*.xlsx
+*.xls
+*.pdf
+#    Doc interno de triage (referencia referencias/, poppler, IDs G9/#19): no público.
+docs/verifications-available.md
+
+# ── Artefactos pesados / temporales ───────────────────────────────────
+examples/portico_simple_v3.s3d
+assistant/_*_tmp/
+assistant/_sp*/
+assistant/_sp001/
+
+# ── Capa PRIVADA del asistente IA (NO open source) ────────────────────
+#    El backend del asistente (Cloudflare Worker + SYSTEM prompt + cascada
+#    de modelos), el prompt y el flujo n8n son IP propia: viven fuera del
+#    repo público. En core queda SOLO el generador determinista, el esquema,
+#    las bibliotecas (perfiles/materiales) y ejemplos GENÉRICOS en inglés.
+#    El endpoint LLM es "trae tu propio servicio" (BYO): sin él, la app usa
+#    el generador determinista pegando una ficha JSON.
+worker/
+assistant/prompt_llm.md
+assistant/n8n_flow.json

@@ -1,0 +1,296 @@
+{
+  "version": "1.0",
+  "units": "kip-in",
+  "mode": "3D",
+  "nodes": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 2,
+      "x": 0,
+      "y": 0,
+      "z": 120,
+      "restraints": {
+        "ux": 0,
+        "uy": 1,
+        "uz": 0,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 3,
+      "x": 120,
+      "y": 0,
+      "z": 0,
+      "restraints": {
+        "ux": 1,
+        "uy": 1,
+        "uz": 1,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    },
+    {
+      "id": 4,
+      "x": 120,
+      "y": 0,
+      "z": 120,
+      "restraints": {
+        "ux": 0,
+        "uy": 1,
+        "uz": 0,
+        "rx": 0,
+        "ry": 0,
+        "rz": 0
+      },
+      "nodeMass": {
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      },
+      "springs": {
+        "kux": 0,
+        "kuy": 0,
+        "kuz": 0,
+        "krx": 0,
+        "kry": 0,
+        "krz": 0
+      }
+    }
+  ],
+  "elements": [
+    {
+      "id": 1,
+      "n1": 1,
+      "n2": 2,
+      "matId": 2,
+      "secId": 2,
+      "releases": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": 2,
+      "n1": 3,
+      "n2": 4,
+      "matId": 2,
+      "secId": 2,
+      "releases": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": 3,
+      "n1": 2,
+      "n2": 4,
+      "matId": 2,
+      "secId": 2,
+      "releases": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": 4,
+      "n1": 1,
+      "n2": 4,
+      "matId": 2,
+      "secId": 2,
+      "releases": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "compressionOnly": true,
+      "cable": false
+    },
+    {
+      "id": 5,
+      "n1": 2,
+      "n2": 3,
+      "matId": 2,
+      "secId": 2,
+      "releases": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "areas": [],
+  "materials": [
+    {
+      "id": 2,
+      "name": "Acero",
+      "E": 30000,
+      "G": 11538.461538461537,
+      "nu": 0.3,
+      "rho": 0,
+      "alpha": 0.00001
+    }
+  ],
+  "sections": [
+    {
+      "id": 2,
+      "name": "A8",
+      "A": 8,
+      "Iz": 1,
+      "Iy": 1,
+      "J": 1,
+      "Avy": 0,
+      "Avz": 0,
+      "kappay": 1,
+      "kappaz": 1,
+      "mod": {
+        "A": 1,
+        "Iy": 1,
+        "Iz": 1,
+        "J": 1
+      }
+    }
+  ],
+  "diaphragms": [],
+  "loadCases": [
+    {
+      "id": 1,
+      "name": "H",
+      "loads": [
+        {
+          "type": "nodal",
+          "nodeId": 2,
+          "F": [
+            100,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "selfWeight": false,
+      "type": "static",
+      "specDir": null
+    }
+  ],
+  "combinations": [],
+  "grids": {
+    "x": [],
+    "y": [],
+    "z": []
+  },
+  "_counters": {
+    "nodes": 4,
+    "elements": 5,
+    "areas": 0,
+    "materials": 2,
+    "sections": 2,
+    "diaphragms": 0,
+    "loadCases": 1,
+    "combinations": 0
+  }
+}
