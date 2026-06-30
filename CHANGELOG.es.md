@@ -32,6 +32,9 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 - **Validación de material / sección**: propiedades inválidas (E ≤ 0, G ≤ 0, A ≤ 0,
   Iy/Iz ≤ 0, Poisson ν fuera de [0, 0.5], ν = 0.5 con áreas en deformación plana) se reportan
   como un error claro que bloquea el análisis, en vez de aparecer como un "mecanismo" engañoso.
+- **Elementos de área degenerados**: una placa/cáscara colineal o de área cero (nodos
+  coincidentes) ahora se detecta y se omite en el ensamblaje y la recuperación de tensiones
+  (sin NaN), avisando al usuario, en vez de envenenar K/M con NaN en silencio.
 - **Ejemplo `examples/portico_simple.s3d`**: los apoyos de base eran inconsistentes (tres
   rodillos verticales + uno empotrado + uno articulado) y formaban un casi-mecanismo
   lateral que el diafragma rígido enmascaraba (~426 mm de deriva sísmica). Las cuatro bases
