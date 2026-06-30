@@ -774,6 +774,14 @@ export const EN = {
   "del tamaño del modelo": "of the model size",
   "Posible inestabilidad o modelo mal restringido.": "Possible instability or poorly restrained model.",
   "Matriz casi singular: el modelo está cerca de un mecanismo; los resultados pueden ser poco fiables.": "Near-singular matrix: the model is close to a mechanism; results may be unreliable.",
+  // Material / section property validation
+  "el módulo E debe ser > 0": "modulus E must be > 0",
+  "el módulo de corte G debe ser > 0": "shear modulus G must be > 0",
+  "el Poisson ν debe estar en [0, 0.5]": "Poisson's ν must be in [0, 0.5]",
+  "ν=0.5 es singular en deformación plana (use ν<0.5)": "ν=0.5 is singular in plane strain (use ν<0.5)",
+  "el área A debe ser > 0": "area A must be > 0",
+  "la inercia Iy debe ser > 0": "inertia Iy must be > 0",
+  "la inercia Iz debe ser > 0": "inertia Iz must be > 0",
   // Seismic mass source (loads → mass)
   "Fuente de masa sísmica (peso → masa)": "Seismic mass source (weight → mass)",
   "Fuente de masa": "Mass source",
