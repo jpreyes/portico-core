@@ -14,16 +14,19 @@ and the project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-Changes merged to `main` that are not yet part of a tagged version.
+### Fixed
+
+- **Example `examples/portico_simple.s3d`**: the base supports were inconsistent (three
+  vertical rollers + one fixed + one pinned) and formed a lateral near-mechanism that the
+  rigid diaphragm masked (~426 mm seismic drift). All four bases are now fixed — a stable
+  two-story frame.
 
 ---
 
-## [0.1.0] — Unreleased
+## [0.1.0] — 2026-06-30
 
 First open source cut of PORTICO: a clean, professional and reusable base of the
 pre/post-processor + 3D viewer + JS solver.
-
-> The date is set when the `v0.1.0` tag is created in the repository.
 
 ### Added
 
