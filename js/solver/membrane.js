@@ -14,7 +14,7 @@
 // Local DOF convention: [u1,v1, u2,v2, ...] (x,y in the element plane).
 // ──────────────────────────────────────────────────────────────────────────────
 
-import { mitc4Plate, dktPlate, plateMoments, plateCurvatures, plateThermalLoad, plateD } from './plate.js?v=1';
+import { mitc4Plate, dktPlate, plateMoments, plateCurvatures, plateThermalLoad, plateD } from './plate.js?v=2';
 
 // Constitutive plane matrix D (3×3). planeStrain=false → plane stress.
 export function Dmatrix(E, nu, planeStrain = false) {

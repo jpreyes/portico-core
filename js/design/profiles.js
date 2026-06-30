@@ -12,7 +12,7 @@
 // Dimensions in METERS when exposed.
 // ──────────────────────────────────────────────────────────────────────────────
 
-import { fromShape } from './section_props.js?v=1';
+import { fromShape } from './section_props.js?v=2';
 
 // [h, b, tw, tf] en mm.
 const IPE = {

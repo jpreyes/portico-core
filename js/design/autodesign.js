@@ -14,9 +14,9 @@
 //    repeated sections (continuity).
 // ──────────────────────────────────────────────────────────────────────────────
 
-import { checkElement } from './design.js?v=1';
-import { profileToSection, catalogNames } from './profiles.js?v=1';
-import { fromShape } from './section_props.js?v=1';
+import { checkElement } from './design.js?v=2';
+import { profileToSection, catalogNames } from './profiles.js?v=2';
+import { fromShape } from './section_props.js?v=2';
 
 // Weight per meter (kg/m) = A·ρ. ρ may come in t/m³ (model convention, e.g. steel
 // 7.85) or in kg/m³ (7850); it is normalized to kg/m³. Without ρ → 7850 (steel).
