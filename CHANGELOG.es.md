@@ -14,16 +14,19 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
-Cambios fusionados a `main` que aún no forman parte de una versión etiquetada.
+### Corregido
+
+- **Ejemplo `examples/portico_simple.s3d`**: los apoyos de base eran inconsistentes (tres
+  rodillos verticales + uno empotrado + uno articulado) y formaban un casi-mecanismo
+  lateral que el diafragma rígido enmascaraba (~426 mm de deriva sísmica). Las cuatro bases
+  ahora están empotradas — un pórtico de dos pisos estable.
 
 ---
 
-## [0.1.0] — Sin publicar
+## [0.1.0] — 2026-06-30
 
 Primer corte open source de PORTICO: una base limpia, profesional y reutilizable del
 pre/post-procesador + visor 3D + solver JS.
-
-> La fecha se fija al crear la etiqueta `v0.1.0` en el repositorio.
 
 ### Añadido
 
