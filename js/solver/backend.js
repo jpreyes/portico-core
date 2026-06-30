@@ -29,18 +29,18 @@
 //   async solveTendon(model, tendon)             → { loads, P, weq, L }
 //   async solveFormFind(o)                       → { ok, coords, freeIdx, note }
 // ──────────────────────────────────────────────────────────────────────────────
-import { StaticSolver }          from './static_solver.js?v=1';
-import { ModalSolver }           from './modal_solver.js?v=1';
-import { SpectrumSolver }        from './spectrum_solver.js?v=1';
-import { solveBuckling as _solveBuckling }      from './buckling.js?v=1';
+import { StaticSolver }          from './static_solver.js?v=2';
+import { ModalSolver }           from './modal_solver.js?v=2';
+import { SpectrumSolver }        from './spectrum_solver.js?v=2';
+import { solveBuckling as _solveBuckling }      from './buckling.js?v=2';
 import { solveNonlinear as _solveNonlinear,
-         solveNonlinearDC as _solveNonlinearDC } from './nl_lite.js?v=1';
-import { solveCorotBeam as _solveCorotBeam }    from './corotbeam.js?v=1';
-import { modalTimeHistory }      from './timehistory.js?v=1';
-import { StagedSolver }          from './staged.js?v=1';
-import { movingLoadEnvelope }    from './moving_load.js?v=1';
-import { tendonEquivalentLoads } from './tendon.js?v=1';
-import { formFind }              from './formfind.js?v=1';
+         solveNonlinearDC as _solveNonlinearDC } from './nl_lite.js?v=2';
+import { solveCorotBeam as _solveCorotBeam }    from './corotbeam.js?v=2';
+import { modalTimeHistory }      from './timehistory.js?v=2';
+import { StagedSolver }          from './staged.js?v=2';
+import { movingLoadEnvelope }    from './moving_load.js?v=2';
+import { tendonEquivalentLoads } from './tendon.js?v=2';
+import { formFind }              from './formfind.js?v=2';
 
 // ── Abstract base class ─────────────────────────────────────────────────────────
 export class SolverBackend {

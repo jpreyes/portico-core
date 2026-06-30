@@ -6,7 +6,7 @@
 // factor CP (Ylinen). Units: kN, m, kN/m² (reported in MPa).
 // ──────────────────────────────────────────────────────────────────────────────
 
-import { finalize } from './aisc360.js?v=1';
+import { finalize } from './aisc360.js?v=2';
 
 const MPA = 1000;
 const ratObj = (D, C, extra = {}) => ({

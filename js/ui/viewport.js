@@ -7,7 +7,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { i18n } from '../i18n/i18n.js?v=1';
+import { i18n } from '../i18n/i18n.js?v=2';
 
 const COL = {
   BG:          0x0a0e1a,

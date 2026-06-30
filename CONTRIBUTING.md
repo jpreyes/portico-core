@@ -75,10 +75,10 @@ Every internal import carries a `?v=NNN` suffix (global cache version). When you
 any JS or CSS, **bump the version in ALL files at once**:
 
 ```bash
-# Bump from v1 to v2 across the whole repo (adjust the numbers to the current bump).
+# Bump from v2 to v3 across the whole repo (adjust the numbers to the current bump).
 # Anchor on "?v=" (with the ?) so you don't touch math like (v=1) in comments.
-files=$(grep -rlF "?v=1" --include=*.js --include=*.html js index.html sw.js)
-for f in $files; do sed -i 's/?v=1/?v=2/g' "$f"; done
+files=$(grep -rlF "?v=2" --include=*.js --include=*.html js index.html sw.js)
+for f in $files; do sed -i 's/?v=2/?v=3/g' "$f"; done
 ```
 
 Also, `sw.js` (the *network-first* service worker) has its own `CACHE_VERSION` — bump

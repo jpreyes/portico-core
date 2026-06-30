@@ -14,7 +14,7 @@
 // translation if it exists, or the same text (fallback). And call translate() again
 // on the freshly created subtree if needed.
 // ──────────────────────────────────────────────────────────────────────────────
-import { EN } from './dict.en.js?v=1';
+import { EN } from './dict.en.js?v=2';
 
 const LS_KEY = 'portico_lang';
 const SUPPORTED = ['es', 'en'];
