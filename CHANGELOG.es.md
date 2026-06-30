@@ -14,6 +14,16 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Veredicto de estabilidad unificado** (core JS ↔ backend enchufable, p.ej. Nodex):
+  veredicto estructurado de mecanismo / casi-singular en `Results.warnings` y
+  `err.stability`, más una sanity de deriva / desplazamiento agnóstica al backend en el
+  post que caza el casi-mecanismo que "resuelve" con basura (p.ej. bases en rodillo
+  rescatadas por un diafragma rígido). Se muestra en un banner prominente, idéntico sea
+  cual sea el backend activo. Vocabulario compartido en
+  [`NODEX-CONTRACT.md`](NODEX-CONTRACT.md) y `js/solver/stability.js`.
+
 ### Corregido
 
 - **Ejemplo `examples/portico_simple.s3d`**: los apoyos de base eran inconsistentes (tres
