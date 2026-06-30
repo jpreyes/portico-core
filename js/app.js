@@ -10,6 +10,7 @@ import { UndoStack }       from './utils/undo.js?v=1';
 import { esc }             from './utils/escape.js?v=1';
 import { StaticSolver, ensureDefaultLC }   from './solver/static_solver.js?v=1';
 import { Results }                         from './solver/postprocess.js?v=1';
+import { assessStabilitySanity, STABILITY } from './solver/stability.js?v=1';
 import { areaStress, areaBendingStress, vonMises } from './solver/membrane.js?v=1';
 import { ModalSolver, guyanReduce }        from './solver/modal_solver.js?v=1';
 import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './solver/assembler.js?v=1';
@@ -1799,6 +1800,11 @@ class App {
           (nCB ? ` + ${nCB} combo(s)` : '') +
           ` | δmax=${sum.maxU.toExponential(2)}`, 'ok');
 
+        // Unified stability verdict (PART 2): backend-agnostic drift/displacement
+        // sanity + the solver's own warnings, surfaced prominently (same text for any
+        // backend). Catches the near-mechanism the matrix solve alone misses.
+        this._surfaceStabilityWarnings();
+
         document.getElementById('result-type').value = 'deformed';
         this._refreshResultView(true);
         this.refreshLoads();
@@ -1822,6 +1828,48 @@ class App {
         resolve();
       }
     }, 20));
+  }
+
+  // ── Unified stability surfacing (backend-agnostic) ───────────────────────────
+  // After a static run, assess every solved case for excessive drift / displacement
+  // (assessStabilitySanity, works for JS Results AND Nodex WasmResults) plus the
+  // solver's own `warnings`, and show a PROMINENT banner with the SAME text whatever
+  // the active backend. This is what catches a near-mechanism that "solves" with
+  // garbage (e.g. a model rescued by a rigid diaphragm) — invisible to the matrix
+  // solve alone. See js/solver/stability.js + NODEX-CONTRACT.md.
+  _surfaceStabilityWarnings() {
+    if (!this._resultsByCase) return;
+    const lines = [];
+    for (const [key, res] of this._resultsByCase) {
+      if (!res || typeof res.getNodeDisp !== 'function') continue;
+      // post sanity (drift / displacement) — merge into the result's own warnings
+      try {
+        const sanity = assessStabilitySanity(this.model, res);
+        if (sanity.length) res.warnings = [...(res.warnings || []), ...sanity];
+      } catch { /* never block results on the sanity check */ }
+      const ws = res.warnings || [];
+      if (!ws.length) continue;
+      const lc = this.model.loadCases.get(key) ||
+                 (typeof key === 'string' && key[0] === 'C' && this.model.combinations.get(+key.slice(1)));
+      const caseName = (lc && lc.name) || String(key);
+      for (const w of ws) lines.push(`${caseName} — ${this._stabilityMsg(w)}`);
+    }
+    if (!lines.length) return;
+    const uniq = [...new Set(lines)];
+    this.toast('⚠ ' + i18n.t('Aviso de estabilidad:') + ' ' + uniq.slice(0, 3).join('  ·  '), 'warn', 9000);
+  }
+
+  // Localized message for a structured stability warning (shared codes with Nodex).
+  _stabilityMsg(w) {
+    const p = w.params || {};
+    const tail = i18n.t('Posible inestabilidad o modelo mal restringido.');
+    if (w.code === STABILITY.DRIFT)
+      return `${i18n.t('Deriva de entrepiso excesiva:')} ${(p.drift * 1000).toFixed(0)} mm (h=${p.h} m, H/${(1 / p.ratio).toFixed(0)}). ${tail}`;
+    if (w.code === STABILITY.DISPLACEMENT)
+      return `${i18n.t('Desplazamiento máximo desproporcionado:')} ${(p.maxU * 1000).toFixed(0)} mm (${(100 * p.frac).toFixed(0)}% ${i18n.t('del tamaño del modelo')}). ${tail}`;
+    if (w.code === STABILITY.ILL_CONDITIONED)
+      return i18n.t('Matriz casi singular: el modelo está cerca de un mecanismo; los resultados pueden ser poco fiables.');
+    return i18n.t(w.message) || w.message;
   }
 
   // ── Stability diagnosis ──────────────────────────────────────────────────────
@@ -9401,13 +9449,13 @@ ${driftHTML}
   }
 
   // ── Toast notifications ────────────────────────────────────────────────────
-  toast(msg, type = '') {
+  toast(msg, type = '', ms = 3000) {
     const container = document.getElementById('toast-container');
     const el = document.createElement('div');
     el.className = `toast${type ? ' ' + type : ''}`;
     el.textContent = i18n.t(msg);
     container.appendChild(el);
-    setTimeout(() => el.remove(), 3000);
+    setTimeout(() => el.remove(), ms);
   }
 
   // ── Modal helpers ──────────────────────────────────────────────────────────

@@ -257,6 +257,11 @@ export class Results {
     this.lcId       = lcId;
     this.selfWeight = selfWeight;
 
+    // Structured stability warnings (shared vocabulary with Nodex `WasmResults`; see
+    // js/solver/stability.js + NODEX-CONTRACT.md). The solver pushes near-singular /
+    // ill-conditioning here; the app post adds drift/displacement sanity. Default [].
+    this.warnings   = [];
+
     this._elemForces = new Map();
     this._diagCache  = null;   // filled by precomputeDiagrams()
     if (precomputedElemForces) {

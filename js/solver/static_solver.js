@@ -4,6 +4,15 @@
 // ──────────────────────────────────────────────────────────────────────────────
 import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './assembler.js?v=1';
 import { Results } from './postprocess.js?v=1';
+import { STABILITY, nearSingularWarning } from './stability.js?v=1';
+
+// Structured mechanism error (singular matrix). Carries `err.stability` so the UI
+// shows the SAME verdict vocabulary as Nodex (see NODEX-CONTRACT.md).
+function mechanismError(message) {
+  const e = new Error(message);
+  e.stability = { code: STABILITY.MECHANISM, severity: 'error', message };
+  return e;
+}
 
 // Nonlinear soil curve (#4): restoring force and tangent by linear interpolation of
 // the table [[d,F],…] (monotonic in d). Outside the range → ultimate force (saturation).
@@ -109,16 +118,23 @@ export class StaticSolver {
           uni.push({ fi: freeIdx.get(d[i]), k: ks[i], mode: md[i] });
     }
 
+    const warnings = [];
+    let lastPivotRatio = 1;
+    const mechMsg =
+      'Estructura INESTABLE (matriz singular): existe un mecanismo. ' +
+      'Revise apoyos y liberaciones — p.ej. liberar el mismo giro en ambos ' +
+      'extremos de elementos contiguos permite rotación libre' +
+      (uni.length ? ', o un apoyo unilateral que se despegó dejó la estructura sin sustento.' : '.');
     const solveLinear = () => {
+      // LU (instead of num.solve) so we can read the pivots → near-singularity ratio.
+      let LU;
+      try { LU = num.LU(Kff); } catch (e) { throw mechanismError(`Solver falló: ${e.message}. Verifique que el modelo es estable.`); }
+      let mn = Infinity, mx = 0; const Lm = LU.LU;
+      for (let i = 0; i < nF; i++) { const p = Math.abs(Lm[i][i]); if (p < mn) mn = p; if (p > mx) mx = p; }
+      lastPivotRatio = mx > 0 ? mn / mx : 0;
       let x;
-      try { x = num.solve(Kff, Ff); } catch (e) { throw new Error(`Solver falló: ${e.message}. Verifique que el modelo es estable.`); }
-      if (!x || x.some(v => !Number.isFinite(v)))
-        throw new Error(
-          'Estructura INESTABLE (matriz singular): existe un mecanismo. ' +
-          'Revise apoyos y liberaciones — p.ej. liberar el mismo giro en ambos ' +
-          'extremos de elementos contiguos permite rotación libre' +
-          (uni.length ? ', o un apoyo unilateral que se despegó dejó la estructura sin sustento.' : '.')
-        );
+      try { x = num.LUsolve(LU, Ff); } catch (e) { throw mechanismError(`Solver falló: ${e.message}. Verifique que el modelo es estable.`); }
+      if (!x || x.some(v => !Number.isFinite(v))) throw mechanismError(mechMsg);
       return x;
     };
 
@@ -200,7 +216,13 @@ export class StaticSolver {
     // Reaction of the nonlinear soil springs (#4): −R(u) at its free DOF.
     for (const sp of soil) if (freeSet.has(sp.gi)) reactions[sp.gi] = -soilForce(sp.curve, u[sp.gi])[0];
 
-    return new Results(model, nodeIndex, u, reactions, F, lcId, selfWeight);
+    // PART 1 — near-singular (ill-conditioning) warning from the final factorization.
+    const nsw = nearSingularWarning(lastPivotRatio);
+    if (nsw) warnings.push(nsw);
+
+    const res = new Results(model, nodeIndex, u, reactions, F, lcId, selfWeight);
+    res.warnings = warnings;
+    return res;
   }
 }
 

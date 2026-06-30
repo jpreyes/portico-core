@@ -45,6 +45,8 @@ referencias/
 *.pdf
 #    Doc interno de triage (referencia referencias/, poppler, IDs G9/#19): no público.
 docs/verifications-available.md
+#    Auditoría interna de robustez / bordes / seguridad (informe de desarrollo): no público.
+EDGE_CASE_AUDIT.md
 
 # ── Artefactos pesados / temporales ───────────────────────────────────
 examples/portico_simple_v3.s3d
