@@ -6312,6 +6312,25 @@ class App {
                  (n.springs && Object.values(n.springs).some(k => k > 0)));
     if (!hasSupport) warnings.push('⛔ No hay apoyos — el modelo es inestable');
 
+    // Material / section properties (#robustez): invalid values produce Inf/NaN element
+    // matrices that otherwise surface as a misleading "mechanism". Report them clearly.
+    const hasPlaneStrain = [...model.areas.values()].some(a => a.planeStrain);
+    for (const mat of model.materials.values()) {
+      const lbl = `${i18n.t('Material')} "${mat.name || ('#' + mat.id)}"`;
+      if (!(mat.E > 0)) warnings.push(`⛔ ${lbl}: ${i18n.t('el módulo E debe ser > 0')}`);
+      if (!(mat.G > 0)) warnings.push(`⛔ ${lbl}: ${i18n.t('el módulo de corte G debe ser > 0')}`);
+      if (mat.nu != null) {
+        if (mat.nu < 0 || mat.nu > 0.5) warnings.push(`⛔ ${lbl}: ${i18n.t('el Poisson ν debe estar en [0, 0.5]')}`);
+        else if (mat.nu >= 0.5 && hasPlaneStrain) warnings.push(`⛔ ${lbl}: ${i18n.t('ν=0.5 es singular en deformación plana (use ν<0.5)')}`);
+      }
+    }
+    for (const sec of model.sections.values()) {
+      const lbl = `${i18n.t('Sección')} "${sec.name || ('#' + sec.id)}"`;
+      if (!(sec.A > 0))  warnings.push(`⛔ ${lbl}: ${i18n.t('el área A debe ser > 0')}`);
+      if (!(sec.Iy > 0)) warnings.push(`⛔ ${lbl}: ${i18n.t('la inercia Iy debe ser > 0')}`);
+      if (!(sec.Iz > 0)) warnings.push(`⛔ ${lbl}: ${i18n.t('la inercia Iz debe ser > 0')}`);
+    }
+
     return warnings;
   }
 
