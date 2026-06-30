@@ -112,6 +112,21 @@ declares the 13 flags). `NodexBackend.capabilities()` declares its subset + what
 is no need to implement stubs or return `false` in `canSolve` for uncovered methods: just **do not
 declare** the flag.
 
+### 1.4 Stability verdict (backend-agnostic)
+
+Every results object (`Results`, `WasmResults`) exposes a `warnings` array using one **shared
+vocabulary** so the UI shows the same stability verdict whatever backend solved — see
+[`NODEX-CONTRACT.md`](../NODEX-CONTRACT.md) and [`js/solver/stability.js`](../js/solver/stability.js).
+
+- **Solver level** (the backend that owns the factorization): `STABILITY_MECHANISM` (singular →
+  structured `err.stability`) and `STABILITY_ILL_CONDITIONED` (near-singular pivot, best-effort —
+  a penalty diaphragm can mask it).
+- **Post sanity** (in PÓRTICO, identical for any backend): `assessStabilitySanity(model, res)`
+  reads the **results** — inter-story drift (diaphragm floors + heights) and absolute displacement
+  vs the model span — and emits `STABILITY_DRIFT` / `STABILITY_DISPLACEMENT`. This catches a
+  near-mechanism that "solves" with garbage (e.g. roller bases rescued by a rigid diaphragm), which
+  the matrix solve alone never reports. The app surfaces all of them in one prominent banner.
+
 ---
 
 ## Seam 2 — UI and report (`js/ext/extensions.js`)

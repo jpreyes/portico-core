@@ -14,6 +14,15 @@ and the project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Unified stability verdict** (core JS ↔ pluggable backend, e.g. Nodex): a structured
+  mechanism / near-singular verdict on `Results.warnings` and `err.stability`, plus a
+  backend-agnostic drift / displacement sanity in the post that catches a near-mechanism
+  which "solves" with garbage (e.g. roller bases rescued by a rigid diaphragm). Surfaced
+  as one prominent banner, identical whatever the active backend. Shared vocabulary in
+  [`NODEX-CONTRACT.md`](NODEX-CONTRACT.md) and `js/solver/stability.js`.
+
 ### Fixed
 
 - **Example `examples/portico_simple.s3d`**: the base supports were inconsistent (three

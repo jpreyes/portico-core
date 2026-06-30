@@ -116,6 +116,21 @@ implementa (declara los 13 flags). `NodexBackend.capabilities()` declara su subc
 + lo que Nodex suma. No hace falta implementar stubs ni devolver `false` en `canSolve`
 para los métodos no cubiertos: basta con **no declarar** el flag.
 
+### 1.4 Veredicto de estabilidad (agnóstico al backend)
+
+Todo objeto de resultados (`Results`, `WasmResults`) expone un array `warnings` con un **vocabulario
+compartido** para que la UI muestre el mismo veredicto sea cual sea el backend — ver
+[`NODEX-CONTRACT.md`](../NODEX-CONTRACT.md) y [`js/solver/stability.js`](../js/solver/stability.js).
+
+- **Nivel solver** (el backend que factoriza): `STABILITY_MECHANISM` (singular → `err.stability`
+  estructurado) y `STABILITY_ILL_CONDITIONED` (casi-singular por pivote, best-effort — un diafragma
+  por penalti puede enmascararlo).
+- **Sanity en el post** (en PÓRTICO, idéntico para cualquier backend): `assessStabilitySanity(model, res)`
+  lee los **resultados** — deriva de entrepiso (niveles de diafragma + alturas) y desplazamiento
+  absoluto vs el tamaño del modelo — y emite `STABILITY_DRIFT` / `STABILITY_DISPLACEMENT`. Esto caza
+  el casi-mecanismo que "resuelve" con basura (p.ej. bases en rodillo rescatadas por un diafragma
+  rígido), invisible para la sola resolución matricial. La app los muestra todos en un banner prominente.
+
 ---
 
 ## Costura 2 — UI y memoria (`js/ext/extensions.js`)
