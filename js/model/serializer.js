@@ -39,6 +39,17 @@ export class Serializer {
     try { obj = JSON.parse(jsonStr); }
     catch { throw new Error('JSON inválido'); }
 
+    // Robust import: a corrupt / hand-edited .s3d must fail with a CLEAR message, not a
+    // cryptic TypeError ("Cannot create property 'nodeMass' on string …", "X is not
+    // iterable"). Top-level must be a JSON object; each collection present must be a list.
+    if (obj === null || typeof obj !== 'object' || Array.isArray(obj))
+      throw new Error('Archivo .s3d inválido: se esperaba un objeto JSON.');
+    const arr = (v, name) => {
+      if (v == null) return [];
+      if (!Array.isArray(v)) throw new Error(`Archivo .s3d inválido: el campo "${name}" debe ser una lista.`);
+      return v;
+    };
+
     const m = new Model();
     // Clear defaults, we'll load from file
     m.materials.clear(); m.sections.clear();
@@ -47,34 +58,34 @@ export class Serializer {
     m.units = obj.units || 'kN-m';
     m.mode  = obj.mode === '2D' ? '2D' : '3D';
 
-    for (const d of (obj.materials || []))  { m.materials.set(d.id, d); }
-    for (const d of (obj.sections  || []))  { m.sections.set(d.id, d); }
-    for (const d of (obj.nodes     || []))  {
+    for (const d of arr(obj.materials, 'materials'))  { m.materials.set(d.id, d); }
+    for (const d of arr(obj.sections, 'sections'))  { m.sections.set(d.id, d); }
+    for (const d of arr(obj.nodes, 'nodes'))  {
       // backfill de masa nodal incl. inercia rotacional irx/iry/irz (#6, archivos viejos)
       d.nodeMass = { mx: 0, my: 0, mz: 0, irx: 0, iry: 0, irz: 0, ...(d.nodeMass || {}) };
       if (!d.springs)  d.springs  = { kux: 0, kuy: 0, kuz: 0, krx: 0, kry: 0, krz: 0 };
       m.nodes.set(d.id, d);
     }
-    for (const d of (obj.elements  || []))  {
+    for (const d of arr(obj.elements, 'elements'))  {
       if (!d.releases) d.releases = Array(12).fill(0);
       m.elements.set(d.id, d);
     }
-    for (const d of (obj.areas || []))  {
+    for (const d of arr(obj.areas, 'areas'))  {
       if (!d.kind) d.kind = (d.nodes || []).length === 3 ? 'CST' : 'QUAD';
       if (!d.behavior) d.behavior = 'membrane';
       m.areas.set(d.id, d);
     }
-    for (const d of (obj.diaphragms|| []))  { m.diaphragms.set(d.id, d); }
-    for (const d of (obj.links || [])) {
+    for (const d of arr(obj.diaphragms, 'diaphragms'))  { m.diaphragms.set(d.id, d); }
+    for (const d of arr(obj.links, 'links')) {
       if (!d.dofs) d.dofs = { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 };
       if (d.rigid === undefined) d.rigid = true;
       m.links.set(d.id, d);
     }
-    for (const d of (obj.loadCases    || [])) {
+    for (const d of arr(obj.loadCases, 'loadCases')) {
       if (d.type !== 'spectrum') { d.type = 'static'; d.specDir = null; }
       m.loadCases.set(d.id, d);
     }
-    for (const d of (obj.combinations || [])) { m.combinations.set(d.id, d); }
+    for (const d of arr(obj.combinations, 'combinations')) { m.combinations.set(d.id, d); }
     m.grids = obj.grids || { x: [], y: [], z: [] };
     // Datos por proyecto (#41 / #39); ausentes en archivos viejos → null (defaults app).
     m.report        = obj.report || null;

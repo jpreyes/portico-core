@@ -25,6 +25,12 @@ and the project follows [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Import robustness**: a corrupt / hand-edited `.s3d` (a top-level non-object, or a
+  collection like `nodes`/`elements`/`materials`/`areas` that is not a list) now fails with
+  a clear *"Archivo .s3d inválido"* message instead of a cryptic `TypeError`.
+- **Material / section validation**: invalid properties (E ≤ 0, G ≤ 0, A ≤ 0, Iy/Iz ≤ 0,
+  Poisson ν outside [0, 0.5], ν = 0.5 with plane-strain areas) are reported as a clear
+  blocking error before the analysis, instead of surfacing as a misleading "mechanism".
 - **Example `examples/portico_simple.s3d`**: the base supports were inconsistent (three
   vertical rollers + one fixed + one pinned) and formed a lateral near-mechanism that the
   rigid diaphragm masked (~426 mm seismic drift). All four bases are now fixed — a stable
