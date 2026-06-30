@@ -11,7 +11,7 @@ import { esc }             from './utils/escape.js?v=2';
 import { StaticSolver, ensureDefaultLC }   from './solver/static_solver.js?v=2';
 import { Results }                         from './solver/postprocess.js?v=2';
 import { assessStabilitySanity, STABILITY } from './solver/stability.js?v=2';
-import { areaStress, areaBendingStress, vonMises } from './solver/membrane.js?v=2';
+import { areaStress, areaBendingStress, vonMises, areaLocalFrame } from './solver/membrane.js?v=2';
 import { ModalSolver, guyanReduce }        from './solver/modal_solver.js?v=2';
 import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './solver/assembler.js?v=2';
 import { assembleSparseGlobal, extractFreeCSR } from './solver/sparse.js?v=2';
@@ -6329,6 +6329,19 @@ class App {
       if (!(sec.A > 0))  warnings.push(`⛔ ${lbl}: ${i18n.t('el área A debe ser > 0')}`);
       if (!(sec.Iy > 0)) warnings.push(`⛔ ${lbl}: ${i18n.t('la inercia Iy debe ser > 0')}`);
       if (!(sec.Iz > 0)) warnings.push(`⛔ ${lbl}: ${i18n.t('la inercia Iz debe ser > 0')}`);
+    }
+
+    // Degenerate areas (collinear / zero-area): the assembler skips them (NaN-safe), but
+    // a silently-dropped wall/slab gives wrong results — warn so the user knows.
+    const degenAreas = [];
+    for (const a of model.areas.values()) {
+      const c = a.nodes.map(id => model.nodes.get(id));
+      if (c.some(n => !n) || c.length < 3) continue;
+      if (areaLocalFrame(c.map(n => [n.x, n.y, n.z])).degenerate) degenAreas.push(a.id);
+    }
+    if (degenAreas.length) {
+      const list = degenAreas.slice(0, 5).join(', ') + (degenAreas.length > 5 ? '…' : '');
+      warnings.push(`⚠ ${degenAreas.length} ${i18n.t('área(s) degenerada(s) (colineal/área cero), se ignoran:')} [${list}]`);
     }
 
     return warnings;
