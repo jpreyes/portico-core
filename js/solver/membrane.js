@@ -263,12 +263,19 @@ const _nrm = a => Math.sqrt(_dot(a, a));
 export function areaLocalFrame(coords3d) {
   const p0 = coords3d[0];
   const e1 = _sub(coords3d[1], p0);
-  const ex = e1.map(v => v / (_nrm(e1) || 1));
-  let z = _cross(e1, _sub(coords3d[2], p0));
-  const ez = z.map(v => v / (_nrm(z) || 1));
+  const e2 = _sub(coords3d[2], p0);
+  const L1 = _nrm(e1), L2 = _nrm(e2);
+  const ex = e1.map(v => v / (L1 || 1));
+  const z  = _cross(e1, e2);
+  const nz = _nrm(z);                                 // = 2·area of the first triangle
+  // Degenerate: the first three nodes are (near-)collinear / coincident, so the plane
+  // normal vanishes and the element area is ~0. Building it would divide by zero and
+  // poison K/M and the stress recovery with NaN → flag it so consumers skip it.
+  const degenerate = !(nz > 1e-9 * (L1 * L2 || 1));
+  const ez = z.map(v => v / (nz || 1));
   const ey = _cross(ez, ex);
   const local = coords3d.map(p => { const d = _sub(p, p0); return [_dot(d, ex), _dot(d, ey)]; });
-  return { ex, ey, ez, local };
+  return { ex, ey, ez, local, degenerate };
 }
 
 // Builds {D, el(local Ke/fT), ex,ey,ez, gdof, nN} of an area (geometry + material).
@@ -276,7 +283,9 @@ function _areaSetup(area, model, nodeIndex, e0) {
   const coords3d = area.nodes.map(id => { const n = model.nodes.get(id); return n ? [n.x, n.y, n.z] : null; });
   const mat = model.materials.get(area.matId);
   if (coords3d.some(c => !c) || !mat) return null;
-  const { ex, ey, ez, local } = areaLocalFrame(coords3d);
+  const frame = areaLocalFrame(coords3d);
+  if (frame.degenerate) return null;   // collinear / zero-area → skip (no NaN); flagged by _validateModel
+  const { ex, ey, ez, local } = frame;
   const D = Dmatrix(mat.E, mat.nu, area.planeStrain);
   const nN = area.nodes.length;
   // Triangle with rotational DOFs (Allman) if the area requests it and has membrane.
@@ -381,7 +390,9 @@ export function assembleAreasKgInto(writer, model, nodeIndex, uGlobal) {
     const coords3d = area.nodes.map(id => { const n = model.nodes.get(id); return n ? [n.x, n.y, n.z] : null; });
     const mat = model.materials.get(area.matId);
     if (coords3d.some(c => !c) || !mat) continue;
-    const { ex, ey, ez, local } = areaLocalFrame(coords3d);
+    const frame = areaLocalFrame(coords3d);
+    if (frame.degenerate) continue;               // collinear / zero-area → skip (no NaN)
+    const { ex, ey, ez, local } = frame;
     const D = Dmatrix(mat.E, mat.nu, area.planeStrain);
     const nN = area.nodes.length;
     const gdof = area.nodes.map(id => 6 * nodeIndex.get(id));

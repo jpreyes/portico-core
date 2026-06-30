@@ -782,6 +782,7 @@ export const EN = {
   "el área A debe ser > 0": "area A must be > 0",
   "la inercia Iy debe ser > 0": "inertia Iy must be > 0",
   "la inercia Iz debe ser > 0": "inertia Iz must be > 0",
+  "área(s) degenerada(s) (colineal/área cero), se ignoran:": "degenerate area(s) (collinear / zero-area), skipped:",
   // Seismic mass source (loads → mass)
   "Fuente de masa sísmica (peso → masa)": "Seismic mass source (weight → mass)",
   "Fuente de masa": "Mass source",
