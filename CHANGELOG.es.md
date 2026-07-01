@@ -23,6 +23,13 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
   rescatadas por un diafragma rígido). Se muestra en un banner prominente, idéntico sea
   cual sea el backend activo. Vocabulario compartido en
   [`NODEX-CONTRACT.md`](NODEX-CONTRACT.md) y `js/solver/stability.js`.
+- **Exportador `.ndx`** (`js/io/formats/ndx.js`): serializa el modelo al DSL de texto
+  NODEX que consume la capa (privada) nodex-compiler para el análisis complejo — mismo
+  patrón de adaptador *downstream* que OpenSees/Abaqus/SAP2000. Cubre el subconjunto
+  L1/L2 (nodos, apoyos, materiales, secciones, barras con liberaciones, masas nodales,
+  cargas nodales / distribuidas y la intención `solve`), con un *escape hatch* crudo para
+  los `analysis.kind` avanzados. La gramática es provisional a la espera de
+  nodex-compiler. Test de round-trip: `test_ndx.mjs`.
 
 ### Corregido
 
