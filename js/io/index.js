@@ -15,3 +15,4 @@ import './formats/sap2000.js?v=2';
 import './formats/etabs.js?v=2';
 import './formats/opensees.js?v=2';
 import './formats/sofistik.js?v=2';
+import './formats/ndx.js?v=2';

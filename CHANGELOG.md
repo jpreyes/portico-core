@@ -22,6 +22,12 @@ and the project follows [Semantic Versioning](https://semver.org/).
   which "solves" with garbage (e.g. roller bases rescued by a rigid diaphragm). Surfaced
   as one prominent banner, identical whatever the active backend. Shared vocabulary in
   [`NODEX-CONTRACT.md`](NODEX-CONTRACT.md) and `js/solver/stability.js`.
+- **`.ndx` exporter** (`js/io/formats/ndx.js`): serializes the model to the NODEX text
+  DSL consumed by the (private) nodex-compiler layer for complex analysis — same
+  downstream-adapter pattern as OpenSees/Abaqus/SAP2000. Covers the L1/L2 subset (nodes,
+  supports, materials, sections, bars with releases, nodal masses, nodal / distributed
+  loads, and `solve` intent), with a raw escape hatch for advanced `analysis.kind`s. The
+  grammar is provisional pending nodex-compiler. Round-trip test: `test_ndx.mjs`.
 
 ### Fixed
 
