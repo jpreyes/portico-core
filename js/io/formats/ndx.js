@@ -45,20 +45,20 @@ function write(neutral) {
   L.push('model units kN, m');
   L.push('');
 
-  // ── Materials: E (kN/m²), nu, rho (t/m³) ────────────────────────────────────
-  L.push('# materials: E nu rho   (kN/m2, -, t/m3)');
+  // ── Materials: E, G (kN/m²), nu, rho (t/m³) ─────────────────────────────────
+  L.push('# materials: E G nu rho   (kN/m2, kN/m2, -, t/m3)');
   for (const m of neutral.materials) {
-    L.push(`material M${m.id} E=${num(m.E)} nu=${num(m.nu)} rho=${num(m.rho)}${cmt(m.name)}`);
+    const G = (m.G != null) ? m.G : m.E / (2 * (1 + (m.nu != null ? m.nu : 0.3)));
+    L.push(`material M${m.id} E=${num(m.E)} G=${num(G)} nu=${num(m.nu)} rho=${num(m.rho)}${cmt(m.name)}`);
   }
   L.push('');
 
   // ── Sections: A (m²), Iy Iz J (m⁴) ──────────────────────────────────────────
-  L.push('# sections: A Iy Iz J   (m2, m4)');
+  // Shear areas Avy/Avz are NOT emitted — nodex derives them from A·κ (same policy as
+  // the derived G), and the provisional grammar's `section` verb omits them too.
+  L.push('# sections: A Iy Iz J   (m2, m4)   [shear areas derived from A]');
   for (const s of neutral.sections) {
-    let line = `section S${s.id} A=${num(s.A)} Iy=${num(s.Iy)} Iz=${num(s.Iz)} J=${num(s.J)}`;
-    if (s.Avy != null) line += ` Avy=${num(s.Avy)}`;
-    if (s.Avz != null) line += ` Avz=${num(s.Avz)}`;
-    L.push(line + cmt(s.name));
+    L.push(`section S${s.id} A=${num(s.A)} Iy=${num(s.Iy)} Iz=${num(s.Iz)} J=${num(s.J)}${cmt(s.name)}`);
   }
   L.push('');
 
@@ -159,7 +159,7 @@ function read(text) {
 
     if (kw === 'material') {
       const kv = kvPairs(t.slice(2));
-      materials.push({ id: idOf(t[1]), name: t[1], E: +kv.E || 0, nu: +kv.nu || 0.3, rho: +kv.rho || 0, G: undefined, alpha: 1e-5 });
+      materials.push({ id: idOf(t[1]), name: t[1], E: +kv.E || 0, nu: +kv.nu || 0.3, rho: +kv.rho || 0, G: kv.G != null ? +kv.G : undefined, alpha: 1e-5 });
     } else if (kw === 'section') {
       const kv = kvPairs(t.slice(2));
       sections.push({ id: idOf(t[1]), name: t[1], A: +kv.A || 0, Iy: +kv.Iy || 0, Iz: +kv.Iz || 0, J: +kv.J || 0, Avy: kv.Avy != null ? +kv.Avy : undefined, Avz: kv.Avz != null ? +kv.Avz : undefined });
