@@ -27,15 +27,18 @@ function buildModel() {
   const n2 = m.addNode(0, 0, 4);
   const n3 = m.addNode(6, 0, 4);
   const n4 = m.addNode(6, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
-  m.addElement(n1.id, n2.id, conc.id, col.id);           // column (concrete)
-  const vig = m.addElement(n2.id, n3.id, steel.id, beam.id); // beam (steel)
-  m.addElement(n4.id, n3.id, conc.id, col.id);           // column (concrete)
-  const rel = Array(12).fill(0); rel[11] = 1;            // release rz at end j of the beam
+  const col1 = m.addElement(n1.id, n2.id, conc.id, col.id);  // column (concrete)
+  const vig = m.addElement(n2.id, n3.id, steel.id, beam.id);  // beam (steel)
+  m.addElement(n4.id, n3.id, conc.id, col.id);                // column (concrete)
+  const rel = Array(12).fill(0); rel[11] = 1;                 // release rz at end j of the beam
   m.updateElement(vig.id, { releases: rel });
   m.updateNode(n3.id, { nodeMass: { mx: 1.2, my: 1.2, mz: 0 } });
+  // a shell over the (coplanar) frame nodes — exercises the provisional `shell` path
+  m.addArea([n1.id, n2.id, n3.id, n4.id], conc.id, { thickness: 0.2, behavior: 'shell' });
   const lc = m.addLoadCase('Dead', true, 'static');
   m.addLoad(lc.id, { type: 'nodal', nodeId: n2.id, F: [50, 0, -10, 0, 0, 0] });
-  m.addLoad(lc.id, { type: 'dist', elemId: vig.id, w: -10, dir: 'gravity' });
+  m.addLoad(lc.id, { type: 'dist', elemId: vig.id, w: -10, dir: 'gravity' });            // uniform
+  m.addLoad(lc.id, { type: 'dist', elemId: col1.id, w: -8, w2: -4, dir: 'globalX' });    // trapezoidal, non-gravity dir
   m.addLoadCase('Sismo', false, 'spectrum');
   return m;
 }
@@ -51,7 +54,8 @@ console.log('\n── B) tokens de la gramática provisional ──────�
 const { text } = exportModel(buildModel(), 'ndx');
 const has = (t, label) => ok(text.includes(t), `emite «${label}»`);
 has('model units kN, m', 'model units');
-has('material M1 E=', 'material');
+ok(/material M1 E=\S+ G=\S+ nu=\S+ rho=/.test(text), 'material con E, G, ν, ρ (G explícito)');
+ok(!/Avy=|Avz=/.test(text), 'secciones sin Avy/Avz (derivadas por nodex)');
 has('section S1 A=', 'section');
 has('node N1 at (', 'node at (x,y,z)');
 has('fix N1 1 1 1 1 1 1', 'fix (empotrado 6 GDL)');
@@ -60,7 +64,9 @@ ok(/beam B\d+ .*rel 0,0,0,0,0,0,0,0,0,0,0,1/.test(text), 'liberación de extremo
 has('mass N', 'nodal mass');
 has('case "Dead" selfweight', 'case selfweight');
 ok(/load N\d+ F 50 0 -10 0 0 0/.test(text), 'carga nodal F Fx..Mz');
-ok(/line B\d+ w -10 dir gravity/.test(text), 'carga distribuida line w dir');
+ok(/line B\d+ w -10 dir gravity/.test(text), 'carga distribuida uniforme (line w dir)');
+ok(/line B\d+ w -8 w2 -4 dir globalX/.test(text), 'carga trapecial (w≠w2) con dir no-gravedad');
+has('shell A', 'área shell (provisional)');
 has('solve static', 'solve static');
 has('solve modal modes', 'solve modal (por caso spectrum)');
 has('solve spectrum', 'solve spectrum');
@@ -106,12 +112,20 @@ const nm = byXYZ(m1, 6, 0, 4);
 ok(nm && nm.nodeMass && Math.abs(nm.nodeMass.mx - 1.2) < 1e-9 && Math.abs(nm.nodeMass.my - 1.2) < 1e-9, `masa nodal preservada (mx=${nm && nm.nodeMass ? nm.nodeMass.mx : '—'})`);
 
 // loads survive
-let nLoad = 0, dLoad = 0;
-for (const lc of m1.loadCases.values()) for (const l of (lc.loads || [])) { if (l.type === 'nodal') nLoad++; if (l.type === 'dist') dLoad++; }
+let nLoad = 0, dLoad = 0, trap = null;
+for (const lc of m1.loadCases.values()) for (const l of (lc.loads || [])) { if (l.type === 'nodal') nLoad++; if (l.type === 'dist') { dLoad++; if (l.w2 != null) trap = l; } }
 ok(nLoad === 1, `carga nodal preservada (${nLoad})`);
-ok(dLoad === 1, `carga distribuida preservada (${dLoad})`);
+ok(dLoad === 2, `cargas distribuidas preservadas (${dLoad})`);
+ok(trap && Math.abs(trap.w + 8) < 1e-9 && Math.abs(trap.w2 + 4) < 1e-9 && trap.dir === 'globalX', `trapecial + dir no-gravedad preservados (w=${trap ? trap.w : '—'}, w2=${trap ? trap.w2 : '—'}, dir=${trap ? trap.dir : '—'})`);
 const dead = [...m1.loadCases.values()].find(c => c.name === 'Dead');
 ok(dead && dead.selfWeight, 'caso "Dead" conserva self-weight');
+
+// material G survives (emitted explicitly, not re-derived)
+const steelBack = [...m1.materials.values()].find(mm => Math.abs(mm.E - 2.1e8) < 1);
+ok(steelBack && Math.abs(steelBack.G - 2.1e8 / 2.6) < 1e-3 * (2.1e8 / 2.6), `G explícito preservado (G=${steelBack ? steelBack.G.toExponential(3) : '—'})`);
+
+// area (shell) round-trips
+ok(m1.areas.size === 1, `área shell round-trip (${m1.areas.size} área)`);
 
 console.log(fails === 0 ? '\n✔ Todos los asserts pasaron\n' : `\n✗ ${fails} fallaron\n`);
 process.exit(fails ? 1 : 0);
