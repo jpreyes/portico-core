@@ -31,6 +31,12 @@ and the project follows [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Section shear areas scale with A**: `Model.addSection` used to apply a fixed default
+  `Avy = Avz = 0.075` (the base section's value) whenever a section was created from `A`
+  alone, so a custom section's Timoshenko shear stiffness was wrong (e.g. `A = 0.16` kept
+  `0.075` instead of `≈ 0.133`). Shear areas are now derived as `A·κ` when not given
+  explicitly (values passed in — e.g. from the profile catalog — are respected). Verified
+  by `test_shear_area.mjs`.
 - **Import robustness**: a corrupt / hand-edited `.s3d` (a top-level non-object, or a
   collection like `nodes`/`elements`/`materials`/`areas` that is not a list) now fails with
   a clear *"Archivo .s3d inválido"* message instead of a cryptic `TypeError`.
