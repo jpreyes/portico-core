@@ -307,10 +307,16 @@ export class Model {
     const sec = {
       id, name: 'Sección',
       A: 0.09, Iz: 6.75e-4, Iy: 6.75e-4, J: 1.14e-3,   // St. Venant 0.30x0.30 (0.1406 a^4); previously 1.13e-4 (10x low)
-      Avy: 0.075, Avz: 0.075, kappay: 0.833, kappaz: 0.833,
+      kappay: 0.833, kappaz: 0.833,
       mod: { A: 1, Iy: 1, Iz: 1, J: 1 },   // stiffness modifiers (cracked section, etc.)
       ...props
     };
+    // Timoshenko shear areas: when not given explicitly, derive them from A·κ so they
+    // SCALE with the section area. Otherwise a section defined by A alone would keep the
+    // base section's shear area (0.09·0.833 ≈ 0.075) regardless of A, mis-stating the shear
+    // stiffness. Avy/Avz passed in props are respected as-is (e.g. the profile catalog).
+    if (props.Avy === undefined) sec.Avy = sec.A * sec.kappay;
+    if (props.Avz === undefined) sec.Avz = sec.A * sec.kappaz;
     if (!sec.mod) sec.mod = { A: 1, Iy: 1, Iz: 1, J: 1 };
     this.sections.set(id, sec);
     return sec;
