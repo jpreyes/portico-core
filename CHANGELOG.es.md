@@ -33,6 +33,12 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 ### Corregido
 
+- **Áreas de corte que escalan con A**: `Model.addSection` aplicaba un default fijo
+  `Avy = Avz = 0.075` (el valor de la sección base) cuando una sección se creaba solo con
+  `A`, dejando mal la rigidez de corte Timoshenko de secciones a medida (p.ej. `A = 0.16`
+  mantenía `0.075` en vez de `≈ 0.133`). Ahora se derivan como `A·κ` cuando no se dan
+  explícitas (las que sí se pasan —p.ej. desde el catálogo de perfiles— se respetan).
+  Verificado con `test_shear_area.mjs`.
 - **Robustez de importación**: un `.s3d` corrupto / editado a mano (un top-level que no es
   objeto, o una colección como `nodes`/`elements`/`materials`/`areas` que no es lista) ahora
   falla con un mensaje claro *"Archivo .s3d inválido"* en vez de un `TypeError` críptico.
