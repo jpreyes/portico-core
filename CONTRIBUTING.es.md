@@ -163,7 +163,23 @@ i18n (`js/i18n/`) traduce sobre la marcha. Para traducir:
 
 ---
 
-## 8. Licencia de tus contribuciones
+## 8. Licencia de tus contribuciones (CLA)
 
-Al contribuir, aceptas que tu aporte se distribuya bajo la **AGPL-3.0**, la misma
-licencia del proyecto. Ver [`LICENSE`](LICENSE).
+PORTICO es **open-core** y de **licenciamiento dual**: `portico-core` se publica bajo la
+**AGPL-3.0** *y* el mismo código puede ofrecerse bajo términos comerciales separados para
+la edición Pro (ver [`LICENSING.md`](LICENSING.md)). Para que el código aportado pueda
+distribuirse bajo ambos, los contribuyentes aceptan un **Acuerdo de Licencia de
+Contribuyente** liviano ([`CLA.md`](CLA.md)).
+
+- **Conservas el copyright** de tu trabajo — el CLA es una concesión de licencia, no una
+  cesión. Sigues libre de usar tu propia contribución como quieras.
+- **Cómo firmar:** en tu primer pull request, el bot de CLA-assistant te pide confirmar la
+  aceptación una vez (tu identidad de GitHub es tu firma). En [`CLA.md`](CLA.md) se describe
+  una alternativa manual por email.
+- **¿Contribuyes en nombre de una empresa?** Un representante autorizado también debe
+  aceptar un CLA corporativo — escribe a `jpreyes.c@gmail.com`.
+
+Al enviar una contribución también certificas el
+[Developer Certificate of Origin 1.1](https://developercertificate.org): que la escribiste
+(o tienes derecho a enviarla) y que puede distribuirse bajo las licencias del proyecto. Ver
+[`LICENSE`](LICENSE) para el texto de la AGPL.

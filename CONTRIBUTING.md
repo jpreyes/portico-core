@@ -161,7 +161,23 @@ engine (`js/i18n/`) translates on the fly. To translate:
 
 ---
 
-## 8. License of your contributions
+## 8. License of your contributions (CLA)
 
-By contributing, you agree that your contribution is distributed under the **AGPL-3.0**,
-the same license as the project. See [`LICENSE`](LICENSE).
+PORTICO is **open-core** and **dual-licensed**: `portico-core` is published under the
+**AGPL-3.0** *and* the same code may be offered under separate commercial terms for the
+Pro edition (see [`LICENSING.md`](LICENSING.md)). So that contributed code can be carried
+under both, contributors accept a lightweight **Contributor License Agreement**
+([`CLA.md`](CLA.md)).
+
+- **You keep the copyright** to your work — the CLA is a license grant, not an
+  assignment. You stay free to use your own contribution however you like.
+- **How to sign:** on your first pull request, the CLA-assistant bot asks you to confirm
+  acceptance once (your GitHub identity is your signature). A manual email alternative is
+  described in [`CLA.md`](CLA.md).
+- **Contributing on behalf of a company?** An authorized representative should also
+  agree to a Corporate CLA — contact `jpreyes.c@gmail.com`.
+
+By submitting a contribution you also certify the
+[Developer Certificate of Origin 1.1](https://developercertificate.org): that you wrote
+it (or have the right to submit it) and that it may be distributed under the project's
+licenses. See [`LICENSE`](LICENSE) for the AGPL text.
