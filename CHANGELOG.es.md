@@ -30,6 +30,14 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
   cargas nodales / distribuidas y la intención `solve`), con un *escape hatch* crudo para
   los `analysis.kind` avanzados. La gramática es provisional a la espera de
   nodex-compiler. Test de round-trip: `test_ndx.mjs`.
+- **Solver iterativo (PCG) para mallas grandes** (`js/solver/pcg.js`): un Gradiente
+  Conjugado Precondicionado matrix-free (Jacobi / IC0 Cholesky incompleto) para `K·u = F`
+  en CSR, alternativa al Cholesky en banda cuando el factor de banda choca con el muro de
+  memoria/tiempo. El worker estático disperso lo elige automáticamente para **mallas
+  grandes sin restricciones de penalti** (sin diafragmas/links rígidos, cuyo penalti infla
+  el número de condición y ahoga al CG); el resto mantiene el factor directo, y el worker
+  cae a él si PCG se estanca. Verificado contra el solver directo sobre una matriz de
+  rigidez real de marco+shell+diafragma (`test_pcg.mjs`).
 
 ### Corregido
 
