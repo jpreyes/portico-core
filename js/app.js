@@ -1994,7 +1994,14 @@ class App {
       } else {
         const { S } = assembleSparseGlobal(model, nodeIndex, { withMass: false });
         const { csr, cf } = extractFreeCSR(S, freeMap, freeDOF.length);
-        out = await this._staticWorkerSolveSparse(csr, cf, nDOF, Int32Array.from(freeDOF), FlistSolve);
+        // Solver choice: iterative PCG only for LARGE meshes WITHOUT penalty constraints.
+        // Rigid diaphragms/links use a penalty that inflates κ and cripples CG, so those
+        // models keep the direct banded Cholesky (factor once, reuse across load cases).
+        // The worker still falls back to the direct factor if PCG ever stalls.
+        const PCG_MIN_DOF = 5000;
+        const hasPenaltyConstraints = model.diaphragms.size > 0 || model.links.size > 0;
+        const usePcg = freeDOF.length >= PCG_MIN_DOF && !hasPenaltyConstraints;
+        out = await this._staticWorkerSolveSparse(csr, cf, nDOF, Int32Array.from(freeDOF), FlistSolve, usePcg);
       }
     }
     catch (e) {
@@ -2060,7 +2067,7 @@ class App {
 
   // Same as _staticWorkerSolve but via the SPARSE path (CSR): the dense matrix is
   // never transferred, only the non-zeros.
-  _staticWorkerSolveSparse(csr, cf, nDOF, freeDOF, Flist) {
+  _staticWorkerSolveSparse(csr, cf, nDOF, freeDOF, Flist, pcg = false) {
     return new Promise((resolve, reject) => {
       let worker;
       try { worker = new Worker(new URL('./solver/static_worker.js?v=2', import.meta.url), { type: 'module' }); }
@@ -2083,7 +2090,7 @@ class App {
       };
       worker.onerror = (ev) => { try { worker.terminate(); } catch (e) {} this._staticWorker = null; this._hideProgress(); reject(new Error(ev.message || 'error en worker estático')); };
       // Only the non-zeros are transferred (zero-copy); Flist is copied.
-      worker.postMessage({ csr, cf, nDOF, freeDOF, Flist }, [
+      worker.postMessage({ csr, cf, nDOF, freeDOF, Flist, pcg }, [
         csr.rowPtr.buffer, csr.colIdx.buffer, csr.val.buffer,
         cf.rowDof.buffer, cf.ptr.buffer, cf.freeIdx.buffer, cf.val.buffer,
         freeDOF.buffer,

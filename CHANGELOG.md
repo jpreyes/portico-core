@@ -28,6 +28,14 @@ and the project follows [Semantic Versioning](https://semver.org/).
   supports, materials, sections, bars with releases, nodal masses, nodal / distributed
   loads, and `solve` intent), with a raw escape hatch for advanced `analysis.kind`s. The
   grammar is provisional pending nodex-compiler. Round-trip test: `test_ndx.mjs`.
+- **Iterative solver (PCG) for large meshes** (`js/solver/pcg.js`): a matrix-free
+  Preconditioned Conjugate Gradient (Jacobi / IC0 incomplete-Cholesky) for `K·u = F` in
+  CSR, an alternative to the banded Cholesky when the band factor hits the memory/time
+  wall. The static sparse worker auto-selects it for **large meshes without penalty
+  constraints** (no rigid diaphragms/links, whose penalty inflates the condition number
+  and cripples CG); everything else keeps the direct factor, and the worker falls back to
+  it if PCG ever stalls. Verified against the direct solver on a real frame+shell+diaphragm
+  stiffness matrix (`test_pcg.mjs`).
 
 ### Fixed
 
