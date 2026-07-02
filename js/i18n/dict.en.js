@@ -1856,6 +1856,12 @@ export const EN = {
   'La dinámica no lineal de alta fidelidad depende del esquema de integración y del modelo constitutivo elegido.': 'High-fidelity nonlinear dynamics depend on the chosen integration scheme and constitutive model.',
   'Verifique siempre contra una solución analítica o software de referencia antes de usarlo en proyectos reales.': 'Always verify against an analytical solution or reference software before using it in real projects.',
   'Tecnologías: JavaScript (ES Modules) · Three.js · numeric.js — corre íntegramente en su navegador, sin enviar datos a ningún servidor.': 'Technologies: JavaScript (ES Modules) · Three.js · numeric.js — runs entirely in your browser, without sending data to any server.',
+  'Licencia y código fuente': 'License and source code',
+  'PORTICO (edición portico-core) es software libre publicado bajo la GNU Affero General Public License versión 3 o posterior (AGPL-3.0-or-later). Se distribuye con la esperanza de que sea útil, pero SIN NINGUNA GARANTÍA, ni siquiera la garantía implícita de comerciabilidad o idoneidad para un fin particular.': 'PORTICO (portico-core edition) is free software published under the GNU Affero General Public License version 3 or later (AGPL-3.0-or-later). It is distributed in the hope that it will be useful, but WITH NO WARRANTY OF ANY KIND, not even the implied warranty of merchantability or fitness for a particular purpose.',
+  'Conforme a la AGPL, si modifica este programa y permite que otras personas interactúen con él a través de una red, debe ofrecerles también el código fuente correspondiente.': 'Under the AGPL, if you modify this program and let others interact with it over a network, you must also offer them the corresponding source code.',
+  'Código fuente, historial y licencia completa:': 'Source code, history and full license:',
+  'texto íntegro de la AGPL-3.0': 'full AGPL-3.0 text',
+  '© 2026 JP Reyes y contribuyentes de PORTICO.': '© 2026 JP Reyes and PORTICO contributors.',
 
   // ── Status bar (initial static value; setMode() rewrites it with i18n.t after) ─
   'Modo: Seleccionar': 'Mode: Select',

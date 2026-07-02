@@ -47,6 +47,10 @@ referencias/
 docs/verifications-available.md
 #    Auditoría interna de robustez / bordes / seguridad (informe de desarrollo): no público.
 EDGE_CASE_AUDIT.md
+#    Roadmap interno de paridad solver JS ↔ Nodex (estrategia de producto): no público.
+TO_NODEX.md
+#    Pendientes del exportador .ndx (integración open→Pro nodex-compiler): no público.
+NDX_EXPORTER_TODO.md
 
 # ── Artefactos pesados / temporales ───────────────────────────────────
 examples/portico_simple_v3.s3d
