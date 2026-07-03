@@ -99,6 +99,80 @@ function curvePoints(model, curve) {
   return null;
 }
 
+// ── B-rep / SurfaceModel fallback: oriented bounding box → bar or panel ──────────
+// When there is no 'Axis' polyline and no IfcExtrudedAreaSolid (e.g. Archicad's
+// "SurfaceGeometryAddOnView" exports every element as a faceted mesh), the member/section
+// is approximated from the mesh's bounding box, taken in the element's LOCAL frame (tight
+// for the axis-aligned boxes these exporters emit) and mapped to global. Dimensionality
+// decides the kind: one dominant axis → bar; one thin axis → panel; all comparable → 3D
+// block (skipped).
+const K_SLENDER = 3;   // aspect ratio to call an axis "dominant"
+
+// torsion constant of a solid rectangle b×h (Saint-Venant)
+function rectTorsion(b, h) { const a = Math.max(b, h) / 2, c = Math.min(b, h) / 2; return a * c * c * c * (16 / 3 - 3.36 * (c / a) * (1 - (c ** 4) / (12 * a ** 4))); }
+
+// all local-coordinate vertices of the element's Body B-rep / SurfaceModel items
+function bodyBrepVertices(model, element) {
+  const repDef = model.get(element.args[6]);
+  if (!repDef || !Array.isArray(repDef.args[2])) return [];
+  const pts = [];
+  const loop = (ref) => { const l = model.get(ref); if (l && l.type === 'IFCPOLYLOOP') for (const pr of (l.args[0] || [])) { const p = model.get(pr); if (p && p.type === 'IFCCARTESIANPOINT') pts.push(coords3(p)); } };
+  const face = (ref) => { const fc = model.get(ref); if (!fc || fc.type !== 'IFCFACE') return; for (const br of (fc.args[0] || [])) { const b = model.get(br); if (b && (b.type === 'IFCFACEOUTERBOUND' || b.type === 'IFCFACEBOUND')) loop(b.args[0]); } };
+  const shell = (ref) => { const s = model.get(ref); if (!s) return; if (s.type === 'IFCCLOSEDSHELL' || s.type === 'IFCOPENSHELL') for (const f of (s.args[0] || [])) face(f); };
+  for (const r of repDef.args[2]) {
+    const sr = model.get(r);
+    if (!sr || sr.type !== 'IFCSHAPEREPRESENTATION') continue;
+    const ident = (sr.args[1] || '').toString();
+    if (ident === 'Axis' || ident === 'FootPrint' || ident === 'Annotation') continue;   // skip 2D reps
+    for (const it of (sr.args[3] || [])) {
+      const g = model.get(it);
+      if (!g) continue;
+      if (g.type === 'IFCFACETEDBREP') shell(g.args[0]);
+      else if (g.type === 'IFCFACEBASEDSURFACEMODEL' || g.type === 'IFCSHELLBASEDSURFACEMODEL') for (const sh of (g.args[0] || [])) shell(sh);
+      else if (g.type === 'IFCFACE') face(it);
+    }
+  }
+  return pts;
+}
+
+// oriented bounding box of the element's mesh → { shape:'bar'|'panel'|'block', … } in meters
+function brepOBB(model, element, world, factor) {
+  const V = bodyBrepVertices(model, element);
+  if (V.length < 4) return null;
+  const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+  for (const v of V) for (let i = 0; i < 3; i++) { if (v[i] < mn[i]) mn[i] = v[i]; if (v[i] > mx[i]) mx[i] = v[i]; }
+  const extL = [mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]];
+  const cL = [(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2];
+  const axes = [unit(world.x), unit(world.y), unit(world.z)];
+  const center = mul(tpt(world, cL), factor);
+  const order = [0, 1, 2].sort((i, j) => extL[j] - extL[i]);   // descending extent
+  const L = order.map(i => Math.max(extL[i] * factor, 0));       // L[0] ≥ L[1] ≥ L[2]
+  const A = order.map(i => axes[i]);
+  let shape = 'block';
+  if (L[1] > 1e-9 && L[0] / L[1] >= K_SLENDER) shape = 'bar';
+  else if (L[1] > 1e-9 && (L[2] <= 1e-9 || L[1] / L[2] >= K_SLENDER)) shape = 'panel';
+  const out = { shape, L, center };
+  if (shape === 'bar') {
+    const half = mul(A[0], L[0] / 2);
+    out.a = sub(center, half); out.b = add(center, half);
+    out.section = { b: Math.max(L[1], 1e-4), h: Math.max(L[2], 1e-4) };
+  } else if (shape === 'panel') {
+    const h1 = mul(A[0], L[0] / 2), h2 = mul(A[1], L[1] / 2);
+    out.corners = [sub(sub(center, h1), h2), sub(add(center, h1), h2), add(add(center, h1), h2), add(sub(center, h1), h2)];
+    out.thickness = L[2] > 1e-6 ? L[2] : 0.2;
+  }
+  return out;
+}
+
+// PORTICO section from a rectangular (or circular, by name hint) bounding box (meters)
+export function boxSectionProps(b, h, circular) {
+  if (circular) {
+    const d = Math.min(b, h), r = d / 2, I = Math.PI * r ** 4 / 4;
+    return { name: `⌀${(d * 1000).toFixed(0)} (bbox)`, A: Math.PI * r * r, Iy: I, Iz: I, J: 2 * I, approx: true };
+  }
+  return { name: `${(b * 1000).toFixed(0)}×${(h * 1000).toFixed(0)} (bbox)`, A: b * h, Iz: b * h ** 3 / 12, Iy: h * b ** 3 / 12, J: rectTorsion(b, h), approx: true };
+}
+
 /**
  * Axis of an IFC member in GLOBAL coordinates (meters), as straight segments.
  * @returns {{ segments: number[][][], via:string } | null}
@@ -149,6 +223,13 @@ export function memberAxis(model, element, factor, warn) {
         if (len(sub(b, a)) > 1e-9) { warn && warn.add('Eje derivado del sólido extruido (sin representación «Axis»)'); return { segments: [[a, b]], via: 'body' }; }
       }
     }
+  }
+
+  // 3) B-rep / mesh fallback: oriented bounding box → bar
+  const obb = brepOBB(model, element, world, factor);
+  if (obb) {
+    if (obb.shape === 'bar') { warn && warn.add('Eje y sección aproximados por el bounding box de la malla (B-rep)'); return { segments: [[obb.a, obb.b]], via: 'brep-obb', section: obb.section }; }
+    warn && warn.add(obb.shape === 'panel' ? 'Elemento con forma de panel en un tipo de barra: no se importa' : 'Geometría de bloque 3D (no unidimensional): omitida');
   }
   return null;
 }
@@ -278,7 +359,13 @@ export function areaSurface(model, element, kind, factor, warn) {
     for (const it of sr.args[3]) { const s = model.get(it); if (s && s.type === 'IFCEXTRUDEDAREASOLID') { solid = s; break; } }
     if (solid) break;
   }
-  if (!solid) { warn && warn.add('Sin sólido extruido: geometría de área no reconocible'); return null; }
+  if (!solid) {
+    // B-rep / mesh fallback: oriented bounding box → panel (mid-surface + thickness)
+    const obb = brepOBB(model, element, world, factor);
+    if (obb && obb.shape === 'panel') { warn && warn.add('Superficie y espesor aproximados por el bounding box de la malla (B-rep)'); return { corners: obb.corners, thickness: obb.thickness, via: 'brep-obb' }; }
+    warn && warn.add(obb && obb.shape === 'bar' ? 'Elemento con forma de barra en un tipo de área: no se importa como área' : 'Sin geometría de área reconocible: omitida');
+    return null;
+  }
 
   const pos = placementMatrix(model, solid.args[1]);     // profile system
   const depth = +solid.args[3] || 0;                     // extrusion depth

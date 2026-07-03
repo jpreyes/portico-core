@@ -14,7 +14,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 import { parseIFC, lengthUnit } from './ifcLoader.js?v=2';
 import { classify, KIND_LABEL } from './ifcClassifier.js?v=2';
-import { memberAxis, bodyProfile, profileProps, areaSurface } from './ifcGeometrySimplifier.js?v=2';
+import { memberAxis, bodyProfile, profileProps, areaSurface, boxSectionProps } from './ifcGeometrySimplifier.js?v=2';
 import { Warnings } from './ifcWarnings.js?v=2';
 import { neutralToModel } from '../neutral.js?v=2';
 
@@ -126,10 +126,17 @@ export function analyzeIFC(text, opts = {}) {
     // material
     const mat = setMaterial();
 
-    // section: profile of the extruded solid, or the material's, or generic
+    // section: profile of the extruded solid, or the material's; failing that, for a
+    // B-rep mesh, the bounding-box section from the axis fallback (rectangular, or
+    // circular when the name/material hints at it, e.g. "perfil circular").
     let prof = bodyProfile(model, model.get(el.id)) || mat.profile;
     const sp = prof ? profileProps(model, prof, unit.factor, w) : null;
     if (sp) { item.sec = { A: sp.A, Iy: sp.Iy, Iz: sp.Iz, J: sp.J }; item.secName = sp.name; if (sp.approx) item.secApprox = true; }
+    else if (axis.via === 'brep-obb' && axis.section) {
+      const circular = /c[ií]rc|tub|pipe|ø|⌀/i.test(`${item.name} ${item.matName}`);
+      const bx = boxSectionProps(axis.section.b, axis.section.h, circular);
+      item.sec = { A: bx.A, Iy: bx.Iy, Iz: bx.Iz, J: bx.J }; item.secName = bx.name; item.secApprox = true;
+    }
     else { item.secName = 'Genérica'; w.add('Sin sección reconocible: sección genérica'); }
 
     item.status = 'ok';
@@ -192,11 +199,12 @@ export function itemsToNeutral(items, selected = null, opts = {}) {
     let mIdx = matKey.get(mk);
     if (mIdx == null) { mIdx = materials.length + 1; matKey.set(mk, mIdx); materials.push({ id: mIdx, name: it.matName, E: it.E || GENERIC.E, nu: GENERIC.nu, rho: GENERIC.rho, alpha: GENERIC.alpha }); }
 
-    // ── AREA (wall/slab/plate) → shell of 3–4 nodes ──
+    // ── AREA (wall/slab/plate) → membrane (wall) / shell (the rest) of 3–4 nodes ──
     if (it.corners && it.corners.length >= 3) {
       const ids = it.corners.map(p => getNode(p) + 1);
       const uniq = []; for (const id of ids) if (!uniq.includes(id)) uniq.push(id);   // collapses coincident corners
-      if (uniq.length >= 3 && uniq.length <= 4) areas.push({ id: areas.length + 1, nodes: uniq, mat: mIdx, thickness: it.thickness || 0.2, behavior: 'shell' });
+      const behavior = it.kind === 'wall' ? 'membrane' : 'shell';   // wall → in-plane; slab/plate/other → shell
+      if (uniq.length >= 3 && uniq.length <= 4) areas.push({ id: areas.length + 1, nodes: uniq, mat: mIdx, thickness: it.thickness || 0.2, behavior });
       else skippedAreas++;
       continue;
     }
