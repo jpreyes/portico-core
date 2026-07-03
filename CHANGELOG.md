@@ -36,6 +36,14 @@ and the project follows [Semantic Versioning](https://semver.org/).
   and cripples CG); everything else keeps the direct factor, and the worker falls back to
   it if PCG ever stalls. Verified against the direct solver on a real frame+shell+diaphragm
   stiffness matrix (`test_pcg.mjs`).
+- **IFC import: B-rep (mesh) geometry fallback** (`js/io/ifc/ifcGeometrySimplifier.js`):
+  elements exported as faceted meshes (`IfcFacetedBrep`/`SurfaceModel`, e.g. Archicad's
+  "SurfaceGeometryAddOnView") — with no `IfcExtrudedAreaSolid` and no 3D `Axis` — are now
+  imported by approximating each element from its mesh bounding box: one dominant axis →
+  **bar** (axis + rectangular, or circular-by-name, section); one thin axis → **panel**
+  (mid-surface + thickness; `IfcWall` → membrane, slab/plate/other → shell); all-comparable
+  → **3D block**, skipped with a warning. Previously these files imported nothing. Verified
+  with `test_ifc_brep.mjs`.
 
 ### Fixed
 

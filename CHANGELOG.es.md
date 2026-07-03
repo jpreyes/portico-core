@@ -38,6 +38,14 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
   el número de condición y ahoga al CG); el resto mantiene el factor directo, y el worker
   cae a él si PCG se estanca. Verificado contra el solver directo sobre una matriz de
   rigidez real de marco+shell+diafragma (`test_pcg.mjs`).
+- **Importación IFC: fallback de geometría B-rep (malla)** (`js/io/ifc/ifcGeometrySimplifier.js`):
+  los elementos exportados como mallas facetadas (`IfcFacetedBrep`/`SurfaceModel`, p.ej. el
+  "SurfaceGeometryAddOnView" de Archicad) — sin `IfcExtrudedAreaSolid` ni `Axis` 3D — ahora
+  se importan aproximando cada elemento por el bounding box de su malla: un eje dominante →
+  **barra** (eje + sección rectangular, o circular por nombre); un eje delgado → **panel**
+  (superficie media + espesor; `IfcWall` → membrana, losa/placa/otros → shell); las tres
+  dimensiones parecidas → **bloque 3D**, omitido con aviso. Antes estos archivos no importaban
+  nada. Verificado con `test_ifc_brep.mjs`.
 
 ### Corregido
 
