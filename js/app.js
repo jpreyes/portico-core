@@ -8477,23 +8477,26 @@ class App {
 
   // On startup: offer to recover an autosaved session; otherwise, a new model.
   // Once there's a model, offer the saved results if they match.
-  async _restoreOrLoadExample() {
-    let restored = false;
-    try {
-      const list = this._autosaveList();
-      if (list.length) {
-        const choice = await this._autosaveRecoveryDialog(list);
-        if (choice && choice.json) {
-          this._loadJSON(choice.json, choice.name || 'autoguardado', true);   // keepResults
-          this.toast('Trabajo autoguardado recuperado', 'ok');
-          restored = true;
-        }
-      }
-    } catch (e) { console.warn('Autosave: no se pudo recuperar', e); }
-    if (!restored) {
-      // ALWAYS start with a new, empty model (no example is loaded).
-      this._loadJSON(this.serializer.toJSON(this.model), 'nuevo', false);
+  // Colapsa/expande el panel derecho de propiedades (desktop: sólo el riel de
+  // pestañas queda visible; en móvil abre el drawer al expandir). Se expande al
+  // tocar Nodo/Elemento/Área, una pestaña, o al seleccionar en la vista 3D.
+  setPanelCollapsed(collapsed) {
+    document.getElementById('main')?.classList.toggle('panel-collapsed', !!collapsed);
+    if (!collapsed && window.matchMedia('(max-width: 800px)').matches) {
+      document.getElementById('panel')?.classList.add('mobile-open');
+      document.getElementById('panel-scrim')?.classList.add('visible');
+      document.getElementById('panel-toggle-btn')?.classList.add('active');
     }
+  }
+
+  async _restoreOrLoadExample() {
+    // Arranca SIEMPRE con un modelo nuevo vacío. Los autoguardados NO se ofrecen
+    // en un diálogo al inicio; quedan accesibles en el árbol lateral (Temporales).
+    this._loadJSON(this.serializer.toJSON(this.model), 'nuevo', false);
+    // Layout por defecto: árbol lateral abierto (pequeño) y panel derecho colapsado
+    // (sólo el riel de pestañas). El panel se despliega al editar o elegir una pestaña.
+    const main = document.getElementById('main');
+    if (main) { main.classList.add('tree-open'); main.classList.add('panel-collapsed'); }
     this.viewport.applyProjectMode();   // badge + camera per the model's mode
     // If entered from the cover page with "Generate model with the assistant", open
     // NOW the "Assistant — generate model from spec" dialog (after recovering the

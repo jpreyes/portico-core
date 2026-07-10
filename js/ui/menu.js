@@ -36,9 +36,18 @@ export class MenuBar {
     });
 
     // ── Left toolbar ──────────────────────────────────────────────────────────
+    // Al pulsar un modo de EDICIÓN (Nodo/Elemento/Área) se despliega el panel
+    // derecho y se salta a la pestaña correspondiente (el panel arranca colapsado).
+    const EDIT_TAB = { addnode: 'nodos', addelem: 'elems', addarea: 'sel' };
     document.querySelectorAll('.tool[data-mode]').forEach(btn => {
       btn.addEventListener('click', () => {
         this.app.viewport.setMode(btn.dataset.mode);
+        const tab = EDIT_TAB[btn.dataset.mode];
+        if (tab && this.app.panel) {
+          this.app.setPanelCollapsed(false);
+          this.app.panel._switchVTab('model');
+          this.app.panel._switchTab(tab);
+        }
       });
     });
 
