@@ -547,6 +547,7 @@ export class Viewport {
     const model = this.app.model;
     if (!model.areas || model.areas.size === 0 || !results || typeof results.getNodalAreaVM !== 'function') return;
     const nodal = results.getNodalAreaVM();
+    this._areaVMnodal = nodal;   // #36: cached for the hover min/max tooltip
     let mn = Infinity, mx = -Infinity;
     for (const v of nodal.values()) { if (v < mn) mn = v; if (v > mx) mx = v; }
     if (!isFinite(mn)) return;
@@ -592,6 +593,7 @@ export class Viewport {
     const model = this.app.model;
     if (model.areas) for (const a of model.areas.values()) this.addAreaMesh(a);
     this._areaVMrange = null;
+    this._areaVMnodal = null;
   }
 
   removeElemLine(elemId) {
@@ -1324,10 +1326,10 @@ export class Viewport {
     }
 
     switch (this.mode) {
-      case 'select':     this._hoverUpdate(); break;
+      case 'select':     this._hoverUpdate(e); break;
       case 'addnode':    this._previewAddNode(fp); break;
       case 'addelem':    this._previewAddElem(fp); break;
-      case 'addsupport': this._hoverUpdate(); break;
+      case 'addsupport': this._hoverUpdate(e); break;
     }
   }
 
@@ -1457,7 +1459,7 @@ export class Viewport {
     return best ? [best] : [];
   }
 
-  _hoverUpdate() {
+  _hoverUpdate(e = null) {
     const prev = this._hovered;
     const nodeHits = this._pickNodes();
     const elemHits = this._raycaster.intersectObjects([...this._elemLines.values()].filter(l => l.visible));
@@ -1488,7 +1490,104 @@ export class Viewport {
     }
     this._hovered = next;
     this._renderer.domElement.style.cursor = next ? 'pointer' : 'default';
+
+    // #36: en modo resultados, tooltip con mín/máx del resultado activo al hover.
+    if (this._inResultsMode && e && next &&
+        (next.type === 'elem' || next.type === 'node' || next.type === 'area')) {
+      const key = `${next.type}:${next.id}:${this._currentDiagramType}`;
+      if (key !== this._tipKey) { this._tipKey = key; this._tipHtml = this._buildResultTip(next.type, next.id); }
+      if (this._tipHtml) this._showResultTip(this._tipHtml, e.clientX, e.clientY);
+      else this._hideResultTip();
+    } else {
+      this._tipKey = null;
+      this._hideResultTip();
+    }
   }
+
+  // ── Results hover tooltip (#36) ───────────────────────────────────────────────
+  // Lightweight min/max readout of the ACTIVE result under the cursor.
+  _buildResultTip(type, id) {
+    if (!this._inResultsMode || !this._results) return '';
+    const model = this.app.model;
+    const [fU = 'kN', lU = 'm'] = (model.units || 'kN-m').split('-');
+    const unitFor = t => (t === 'N' || t === 'Vy' || t === 'Vz') ? fU
+      : (t === 'T' || t === 'My' || t === 'Mz') ? `${fU}·${lU}` : lU;
+
+    if (type === 'elem') {
+      const t = this._currentDiagramType;
+      const FORCE = ['N', 'Vy', 'Vz', 'T', 'My', 'Mz'];
+      if (FORCE.includes(t) && typeof this._results.getDiagramData === 'function') {
+        const d = this._results.getDiagramData(id, t, 20) || {};
+        let mn = d.minVal, mx = d.maxVal;
+        if (mn == null || mx == null) {
+          mn = Infinity; mx = -Infinity;
+          for (const p of (d.pts || []))      { if (p.val < mn) mn = p.val; if (p.val > mx) mx = p.val; }
+          for (const e of (d.extremes || [])) { if (e.val < mn) mn = e.val; if (e.val > mx) mx = e.val; }
+        }
+        if (isFinite(mn) && isFinite(mx))
+          return `<b>Elem #${id}</b> · ${t}<br>mín <b>${_fmt(mn)}</b> · máx <b>${_fmt(mx)}</b> ${unitFor(t)}`;
+      }
+      // Deformada / tensiones: rango de δ entre los extremos del elemento.
+      const elem = model.elements.get(id);
+      if (elem && typeof this._results.getNodeDisp === 'function') {
+        const mag = nid => { const u = this._results.getNodeDisp(nid) || [0, 0, 0]; return Math.hypot(u[0], u[1], u[2]); };
+        const a = mag(elem.n1), b = mag(elem.n2);
+        return `<b>Elem #${id}</b> · δ<br>mín <b>${_fmt(Math.min(a, b))}</b> · máx <b>${_fmt(Math.max(a, b))}</b> ${lU}`;
+      }
+      return '';
+    }
+
+    if (type === 'node') {
+      if (typeof this._results.getNodeDisp !== 'function') return '';
+      const u = this._results.getNodeDisp(id) || [0, 0, 0];
+      const mag = Math.hypot(u[0], u[1], u[2]);
+      let html = `<b>Nodo #${id}</b> · δ = <b>${_fmt(mag)}</b> ${lU}<br>`
+               + `δx ${_fmt(u[0])} · δy ${_fmt(u[1])} · δz ${_fmt(u[2])}`;
+      const node = model.nodes.get(id);
+      const isSup = node && node.restraints && Object.values(node.restraints).some(Boolean);
+      if (isSup && typeof this._results.getReaction === 'function') {
+        const r = this._results.getReaction(id) || [0, 0, 0, 0, 0, 0];
+        html += `<br>R = <b>${_fmt(Math.hypot(r[0], r[1], r[2]))}</b> ${fU}`;
+      }
+      return html;
+    }
+
+    if (type === 'area' && this._areaVMnodal) {
+      const area = model.areas.get(id);
+      if (!area) return '';
+      let mn = Infinity, mx = -Infinity;
+      for (const nid of area.nodes) { const v = this._areaVMnodal.get(nid); if (v == null) continue; if (v < mn) mn = v; if (v > mx) mx = v; }
+      if (isFinite(mn)) return `<b>Área #${id}</b> · σVM<br>mín <b>${_fmt(mn)}</b> · máx <b>${_fmt(mx)}</b> ${fU}/${lU}²`;
+    }
+    return '';
+  }
+
+  _ensureResultTip() {
+    if (this._resultTip) return this._resultTip;
+    const d = document.createElement('div');
+    d.className = 'result-hover-tip';
+    d.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;display:none;'
+      + 'background:rgba(15,20,30,0.92);color:#e6edf3;border:1px solid #33415a;'
+      + 'border-radius:6px;padding:5px 8px;font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;'
+      + 'white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,0.45)';
+    document.body.appendChild(d);
+    this._resultTip = d;
+    return d;
+  }
+
+  _showResultTip(html, x, y) {
+    const d = this._ensureResultTip();
+    d.innerHTML = html;
+    d.style.display = 'block';
+    const pad = 16, w = d.offsetWidth, h = d.offsetHeight;
+    let left = x + pad, top = y + pad;
+    if (left + w > window.innerWidth  - 4) left = x - w - pad;
+    if (top  + h > window.innerHeight - 4) top  = y - h - pad;
+    d.style.left = Math.max(4, left) + 'px';
+    d.style.top  = Math.max(4, top)  + 'px';
+  }
+
+  _hideResultTip() { if (this._resultTip) this._resultTip.style.display = 'none'; }
 
   _clickSelect(ctrlHeld = false) {
     const nodeHits = this._pickNodes();
@@ -2581,6 +2680,7 @@ export class Viewport {
     this._results = null;
     this._currentDiagramType = null;
     this._hideInspector();
+    this._hideResultTip();   // #36: quitar el tooltip de mín/máx del hover
     document.getElementById('results-banner').classList.remove('visible');
     document.getElementById('results-overlay').classList.add('hidden');
     document.getElementById('modal-analysis-overlay')?.classList.add('hidden');
