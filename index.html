@@ -928,6 +928,10 @@
               · <b id="help-version">versión 87</b> · open source (AGPL-3.0)</p>
           </div>
         </div>
+        <div style="margin:4px 0 12px">
+          <button class="btn-add" id="btn-install" style="background:rgba(14,127,192,0.12);color:var(--accent);border-color:var(--accent)">⤓ Instalar app</button>
+          <div id="install-hint" class="install-hint" hidden style="margin-top:6px;font-size:12px;color:var(--text-muted)"></div>
+        </div>
         <p><b>PORTICO</b> — plataforma open source de análisis <b>y diseño</b> estructural 3D (FEM)
            que corre íntegramente en el navegador. Modelado de barras y áreas, análisis lineal y no
            lineal, y verificación de diseño multinorma — sin instalar nada y sin enviar datos a
@@ -1075,6 +1079,34 @@ if ('serviceWorker' in navigator && !navigator.webdriver) {
   };
   new MutationObserver(() => { if (about.classList.contains('active')) replay(); })
     .observe(about, { attributes: true, attributeFilter: ['class'] });
+})();
+
+/* Botón «Instalar app» en Ayuda → «Acerca de» (reubicado tras quitar la portada).
+   Usa el prompt diferido window.__pwaInstall capturado en el <head>. */
+(function () {
+  const btn = document.getElementById('btn-install');
+  const hint = document.getElementById('install-hint');
+  if (!btn) return;
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  if (standalone) { btn.hidden = true; return; }
+  btn.classList.toggle('ready', !!window.__pwaInstall);
+  window.addEventListener('pwa-installable', () => btn.classList.add('ready'));
+  window.addEventListener('pwa-installed', () => {
+    btn.hidden = true;
+    if (hint) { hint.hidden = false; hint.textContent = '✓ App instalada. Búscala en el menú de aplicaciones.'; }
+  });
+  btn.addEventListener('click', async () => {
+    const dp = window.__pwaInstall;
+    if (dp) {
+      dp.prompt();
+      const choice = await dp.userChoice;
+      window.__pwaInstall = null;
+      if (choice && choice.outcome === 'accepted') btn.hidden = true;
+    } else if (hint) {
+      hint.hidden = false;
+      hint.innerHTML = 'Para instalar: usa el icono <b>⊕ / instalar</b> de la barra de direcciones, o el menú <b>⋮ → Instalar PÓRTICO</b>. En iPhone/iPad: <b>Compartir → Añadir a pantalla de inicio</b>.';
+    }
+  });
 })();
 </script>
 </body>
