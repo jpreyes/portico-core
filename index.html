@@ -368,8 +368,8 @@
       <div id="vp-top-bars">
       <div id="vp-overlays">
         <div class="vp-ctrl">
-          <label>Z piso</label>
-          <input type="number" id="floor-z" value="0" step="0.5" title="Plano de inserción de nodos (coordenada Z del piso activo)">
+          <label id="floor-z-label">Z piso</label>
+          <input type="number" id="floor-z" value="0" step="0.5" title="Plano de trabajo horizontal XY (Planta): los nodos nuevos caen en la coordenada Z = este valor.">
         </div>
         <div class="vp-ctrl">
           <label>Snap</label>
@@ -382,18 +382,25 @@
             Imán
           </label>
         </div>
-        <!-- Arrastre de nodos: plano de movimiento + seguro «Fijar» (van juntos) -->
+        <!-- Plano de trabajo (#28): dónde caen los nodos/barras nuevos + arrastre.
+             «Fijar» bloquea la cámara al plano (2D real); «No mover» es el seguro
+             anti-arrastre de nodos existentes. -->
         <div class="vp-ctrl">
-          <label title="Plano de arrastre de nodos: en qué plano se mueve el nodo al arrastrarlo (XY = horizontal, XZ = vertical frontal, YZ = vertical lateral).">Plano</label>
-          <select id="drag-plane" title="Plano de arrastre de nodos" style="max-width:64px">
+          <label title="Plano de trabajo: en qué plano caen los nodos y barras nuevos, y en qué plano se mueven los nodos al arrastrarlos (XY = horizontal/planta, XZ = vertical frontal, YZ = vertical lateral).">Plano</label>
+          <select id="drag-plane" title="Plano de trabajo (dónde se crean los nodos/barras nuevos)" style="max-width:64px">
             <option value="xy" selected>XY</option>
             <option value="xz">XZ</option>
             <option value="yz">YZ</option>
           </select>
           <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:var(--text-muted);border-left:1px solid var(--border);padding-left:7px;margin-left:3px"
-            title="Fijar nodos: impide mover un nodo al arrastrarlo con el mouse (evita moverlo sin querer). Desmárcalo para poder arrastrar los nodos seleccionados.">
-            <input type="checkbox" id="drag-lock" style="accent-color:var(--accent);cursor:pointer">
+            title="Fijar cámara al plano: congela la vista en 2D real sobre el plano elegido (no orbita), para dibujar cómodo «solo en ese plano». Desmárcalo para volver a 3D libre (los nodos siguen cayendo en el plano). Equivale a elegir Vista → Planta/Frente/Lateral.">
+            <input type="checkbox" id="plane-lock" style="accent-color:var(--accent);cursor:pointer">
             🔒 Fijar
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:var(--text-muted);padding-left:5px"
+            title="No mover nodos: impide mover un nodo al arrastrarlo con el mouse (evita moverlo sin querer). Desmárcalo para poder arrastrar los nodos seleccionados.">
+            <input type="checkbox" id="drag-lock" style="accent-color:var(--accent);cursor:pointer">
+            No mover
           </label>
         </div>
         <div class="vp-ctrl">
