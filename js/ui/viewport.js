@@ -2137,8 +2137,15 @@ export class Viewport {
     const g = this._areaMeshes.get(id); if (!g) return;
     const fill = g.children.find(c => c.type === 'Mesh');
     const edge = g.children.find(c => c.type === 'Line');
-    if (fill) { fill.material.color.set(col ?? COL.AREA); fill.material.opacity = col ? 0.42 : 0.22; }
-    if (edge) { edge.material.color.set(col ?? 0x60a5fa); edge.material.opacity = col ? 1 : 0.7; }
+    // Results contour (von Mises) meshes paint the face with PER-VERTEX colors:
+    // touching material.color/opacity there would tint away the contour on hover or
+    // selection (#34). In that case keep the fill intact and highlight only the edge.
+    const isContour = !!(fill && fill.material && fill.material.vertexColors);
+    if (fill && !isContour) { fill.material.color.set(col ?? COL.AREA); fill.material.opacity = col ? 0.42 : 0.22; }
+    if (edge) {
+      if (isContour) { edge.material.color.set(col ?? 0x334155); edge.material.opacity = col ? 1 : 0.5; }
+      else           { edge.material.color.set(col ?? 0x60a5fa); edge.material.opacity = col ? 1 : 0.7; }
+    }
   }
 
   // Fill meshes of the areas (for selection raycasting).
