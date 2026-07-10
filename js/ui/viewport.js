@@ -39,9 +39,15 @@ export class Viewport {
     this.app = app;
     this.mode = 'select';
 
-    // Node dragging (#79): drag plane (xy|xz|yz) and lock (don't move).
+    // Node dragging (#79) + work plane (#28): the "Plano" selector (xy|xz|yz) is
+    // both the drag plane AND the plane where new nodes/bars land in 3D.
     this._dragPlane = 'xy';
-    this._dragLock  = false;
+    this._dragLock  = false;   // #79 anti-drag safety (kept as its own checkbox)
+    // Work-plane offset along the plane normal (grid-free modeling, #28):
+    //   xy → model Z (= _floorZ),  xz → model Y,  yz → model X.
+    this._planeYOff = 0;       // offset for the XZ work plane (model Y)
+    this._planeXOff = 0;       // offset for the YZ work plane (model X)
+    this._planeLock = false;   // "Fijar": lock camera to the work plane (true 2D)
     // Meshing by mode (#78): outline nodes in progress + type (free|panel).
     this._meshPick  = [];
     this._meshKind  = 'free';
@@ -183,11 +189,18 @@ export class Viewport {
     }
     this._onResize();
 
-    // Floor-Z and snap inputs
+    // Offset field (#28): reused as the offset of the ACTIVE work plane. Its value
+    // means model Z when the plane is XY, model Y when XZ, model X when YZ.
     document.getElementById('floor-z').addEventListener('input', e => {
-      this._floorZ = parseFloat(e.target.value) || 0;
-      this._floorMesh.position.y = this._floorZ;
-      if (this._grid) this._grid.position.y = this._floorZ;
+      const v = parseFloat(e.target.value) || 0;
+      const p = this._dragPlane || 'xy';
+      if (p === 'xz')      this._planeYOff = v;
+      else if (p === 'yz') this._planeXOff = v;
+      else {
+        this._floorZ = v;
+        this._floorMesh.position.y = this._floorZ;
+        if (this._grid) this._grid.position.y = this._floorZ;
+      }
     });
     document.getElementById('snap-size').addEventListener('input', e => {
       this._snapSize = Math.max(0, parseFloat(e.target.value) || 0);
@@ -197,13 +210,19 @@ export class Viewport {
     document.getElementById('magnet-snap')?.addEventListener('change', e => {
       this._magnetSnap = e.target.checked;
     });
-    // Node dragging (#79): lock (fix) + drag plane.
+    // Anti-drag safety (#79): impede mover nodos al arrastrarlos.
     document.getElementById('drag-lock')?.addEventListener('change', e => {
       this._dragLock = e.target.checked;
     });
+    // Work plane (#28): the "Plano" selector drives both drag and node insertion.
     document.getElementById('drag-plane')?.addEventListener('change', e => {
-      this._dragPlane = e.target.value;   // 'xy' | 'xz' | 'yz'
+      this.setWorkPlane(e.target.value);   // 'xy' | 'xz' | 'yz'
     });
+    // "Fijar" (#28): lock the camera to the work plane → draw in true 2D on it.
+    document.getElementById('plane-lock')?.addEventListener('change', e => {
+      this._applyPlaneLock(e.target.checked);
+    });
+    this._updatePlaneOffsetLabel();
 
     // Escape cancels addelem
     document.addEventListener('keydown', e => {
@@ -945,6 +964,34 @@ export class Viewport {
       return pt;
     }
 
+    // ── Work plane (#28): free 3D modeling on a chosen plane (no grid axes) ──────
+    // The "Plano" selector picks where new nodes/bars land. Offset along the plane
+    // normal comes from the reused "Z piso" field.
+    const wp = this._dragPlane || 'xy';
+    if (wp === 'xz') {
+      // Model X–Z plane at model Y = offset (three z = model y).
+      const off = this._planeYOff || 0;
+      const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -off);
+      this._raycaster.ray.intersectPlane(plane, pt);
+      if (!pt || isNaN(pt.x)) return null;
+      pt.x = this._snapCoord(pt.x, grids.x);   // three X = model X
+      pt.y = this._snapCoord(pt.y, grids.z);   // three Y = model Z (levels)
+      pt.z = off;                              // three Z = model Y (fixed to plane)
+      return pt;
+    }
+    if (wp === 'yz') {
+      // Model Y–Z plane at model X = offset (three x = model x).
+      const off = this._planeXOff || 0;
+      const plane = new THREE.Plane(new THREE.Vector3(1, 0, 0), -off);
+      this._raycaster.ray.intersectPlane(plane, pt);
+      if (!pt || isNaN(pt.x)) return null;
+      pt.x = off;                              // three X = model X (fixed to plane)
+      pt.y = this._snapCoord(pt.y, grids.z);   // three Y = model Z (levels)
+      pt.z = this._snapCoord(pt.z, grids.y);   // three Z = model Y
+      return pt;
+    }
+
+    // Default: horizontal XY plane at floor Z.
     const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this._floorZ);
     this._raycaster.ray.intersectPlane(plane, pt);
     if (!pt || isNaN(pt.x)) return null;
@@ -971,7 +1018,8 @@ export class Viewport {
 
   // Frames the orthographic camera looking at the given plane.
   // axis: 'y' → looks along model −Y (X–Z elevation, the view of a planar frame);
-  //       'x' → looks along model −X (Y–Z elevation).
+  //       'x' → looks along model −X (Y–Z elevation);
+  //       'z' → looks DOWN model +Z (plan / top view, X–Y).
   _fitOrtho(axis, coord = 0) {
     const b = this.app.model.getBounds();
     const dx = b.max.x - b.min.x, dy = b.max.y - b.min.y, dz = b.max.z - b.min.z;
@@ -981,8 +1029,8 @@ export class Viewport {
     // Fit to the REAL bounding box in the view plane (width × height), not to a
     // max(span) cube: this way a flat/wide structure (truss, bridge) fills the
     // screen instead of looking like a line.
-    const W = (axis === 'x' ? dy : dx);   // horizontal width in the plane
-    const H = dz;                          // height (Z) of the plane
+    const W = (axis === 'x' ? dy : dx);        // horizontal width in the plane
+    const H = (axis === 'z' ? dy : dz);        // vertical height in the plane
     const margin = 1.12;
     const half = Math.max((W / aspect) / 2, H / 2, 1) * margin;
     cam.left = -half * aspect; cam.right = half * aspect;
@@ -993,6 +1041,11 @@ export class Viewport {
       // look at the Y–Z plane from +X
       cam.position.set(c.x + d, c.y, c.z);
       cam.up.set(0, 1, 0);
+    } else if (axis === 'z') {
+      // plan/top view: look straight down (model +Z = three +Y); model X to the
+      // right, model Y up on screen.
+      cam.position.set(c.x, c.y + d, c.z);
+      cam.up.set(0, 0, -1);
     } else {
       // look at the X–Z plane from model +Y (= three +Z): front view with global
       // X to the RIGHT and Z (height) up — same as "Frente XZ".
@@ -2111,7 +2164,7 @@ export class Viewport {
     if (mode === 'pan') {
       this._controls.enableRotate = false;
       this._controls.mouseButtons = this._MB_2D;
-    } else if (this.app.model.mode !== '2D' && !this._elevation) {
+    } else if (this.app.model.mode !== '2D' && !this._elevation && !this._planeLock) {
       this._controls.enableRotate = true;
       this._controls.mouseButtons = this._MB_3D;
     }
@@ -2182,6 +2235,74 @@ export class Viewport {
   }
 
   zoomExtents() { this.setView('iso'); }
+
+  // ── Work plane (#28) ─────────────────────────────────────────────────────────
+  // The "Plano" selector (xy|xz|yz) sets where new nodes/bars land in 3D and the
+  // drag plane. Sets the descriptive offset label and re-frames if locked.
+  setWorkPlane(plane) {
+    if (plane !== 'xy' && plane !== 'xz' && plane !== 'yz') return;
+    this._dragPlane = plane;
+    const sel = document.getElementById('drag-plane');
+    if (sel && sel.value !== plane) sel.value = plane;
+    this._updatePlaneOffsetLabel();
+    if (this._planeLock) this._applyPlaneLock(true);
+  }
+
+  // Re-label + reload the shared offset field so it always reflects the active
+  // work plane: Z piso (XY), Y plano (XZ), X plano (YZ).
+  _updatePlaneOffsetLabel() {
+    const p   = this._dragPlane || 'xy';
+    const lbl = document.getElementById('floor-z-label');
+    const inp = document.getElementById('floor-z');
+    if (p === 'xz') {
+      if (lbl) lbl.textContent = 'Y plano';
+      if (inp) { inp.value = this._planeYOff || 0;
+        inp.title = 'Plano de trabajo vertical XZ (Frente): los nodos nuevos caen en la coordenada Y = este valor.'; }
+    } else if (p === 'yz') {
+      if (lbl) lbl.textContent = 'X plano';
+      if (inp) { inp.value = this._planeXOff || 0;
+        inp.title = 'Plano de trabajo vertical YZ (Lateral): los nodos nuevos caen en la coordenada X = este valor.'; }
+    } else {
+      if (lbl) lbl.textContent = 'Z piso';
+      if (inp) { inp.value = this._floorZ || 0;
+        inp.title = 'Plano de trabajo horizontal XY (Planta): los nodos nuevos caen en la coordenada Z = este valor.'; }
+    }
+  }
+
+  // "Fijar": lock the camera to the work plane (true 2D drawing, no orbit). Off →
+  // free 3D orbit (nodes still land on the work plane). 2D projects and active
+  // elevations own the camera, so this is a no-op there.
+  _applyPlaneLock(on) {
+    this._planeLock = on;
+    const chk = document.getElementById('plane-lock');
+    if (chk && chk.checked !== on) chk.checked = on;
+    if (this.app.model.mode === '2D' || this._elevation) return;
+    if (on) {
+      const axis = this._dragPlane === 'yz' ? 'x' : this._dragPlane === 'xz' ? 'y' : 'z';
+      this._setProjection('ortho');
+      this._fitOrtho(axis);
+      this._controls.enableRotate = false;
+      this._controls.mouseButtons = this._MB_2D;   // left drag = pan
+    } else {
+      this._setProjection('persp');
+      this._controls.enableRotate = true;
+      this._controls.mouseButtons = this._MB_3D;
+      this.setView('iso');
+    }
+  }
+
+  // Menú Vista: preset de cámara que además fija el plano de trabajo.
+  //   top→XY, front→XZ, side→YZ (con "Fijar" activado)  ·  iso→3D libre.
+  setStandardView(view) {
+    // In a 2D project or active elevation, keep the legacy re-frame behavior.
+    if (this.app.model.mode === '2D' || this._elevation) { this.setView(view); return; }
+    if (view === 'iso') { this._applyPlaneLock(false); return; }
+    const PLANE = { top: 'xy', front: 'xz', side: 'yz' };
+    const plane = PLANE[view];
+    if (!plane) { this.setView(view); return; }
+    this.setWorkPlane(plane);
+    this._applyPlaneLock(true);
+  }
 
   // Render the current scene and return it as a PNG data URL (for the calc report).
   snapshot() {
