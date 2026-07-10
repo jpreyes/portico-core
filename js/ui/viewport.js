@@ -371,6 +371,27 @@ export class Viewport {
 
   // ── Model rendering ────────────────────────────────────────────────────────
   renderModel(model) {
+    // Model swap must not leave the PREVIOUS model's results overlay (deformed
+    // shape / diagrams / contours) floating on screen (#32). Some load paths
+    // (newFile, openFile) call renderModel without a prior clearResults(), so we
+    // drop that layer here — stop the animation and exit results mode defensively.
+    if (this._resultObjects && this._resultObjects.length) {
+      for (const obj of this._resultObjects) this._scene.remove(obj);
+    }
+    this._resultObjects = [];
+    this._animFn = null;
+    this._animMeshNodes = [];
+    this._animLineElems = [];
+    if (this._inResultsMode) {
+      this._inResultsMode = false;
+      this._currentDiagramType = null;
+      document.getElementById('results-banner')?.classList.remove('visible');
+      document.getElementById('results-overlay')?.classList.add('hidden');
+      document.getElementById('modal-analysis-overlay')?.classList.add('hidden');
+      const cbw = document.getElementById('colorbar-wrap');
+      if (cbw) cbw.style.display = 'none';
+    }
+
     // Clear all model objects
     for (const m of this._nodeMeshes.values()) this._scene.remove(m);
     for (const l of this._elemLines.values())  this._scene.remove(l);
