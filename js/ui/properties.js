@@ -954,11 +954,8 @@ export class PropertiesPanel {
     return rows;
   }
 
-  async pasteNodes() {
-    const text = await this.app._promptTextarea('Pegar nodos desde Excel',
-      'Una fila por nodo: <b>X&nbsp;&nbsp;Y&nbsp;&nbsp;Z</b> (opcional <b>Ux Uy Uz Rx Ry Rz</b> con 0/1). Copie las celdas en Excel y pegue aquí (Ctrl+V).',
-      'Ej.\n0\t0\t0\n6\t0\t0\n6\t4\t0');
-    if (!text) return;
+  // Alta en bloque de nodos desde texto tabular (pegado directo o lista). Sin diálogo.
+  _bulkAddNodes(text) {
     const rows = this._parseGrid(text);
     const dof = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
     let added = 0, bad = 0;
@@ -970,20 +967,19 @@ export class PropertiesPanel {
       for (let i = 0; i < 6; i++) if (r[3 + i] != null && r[3 + i] !== '') restraints[dof[i]] = this._numCell(r[3 + i]) ? 1 : 0;
       this.app.model.addNode(x, y, z, restraints); added++;
     }
-    this.app.viewport.renderModel(this.app.model);
-    this.app.markDirty(); this.app._updateStats?.(); this.app.viewport.zoomExtents?.();
-    this.renderNodesGrid();
-    this.app.toast(`${added} nodo(s) pegado(s)${bad ? ` · ${bad} fila(s) inválida(s)` : ''}`, bad ? 'warn' : 'ok');
+    if (added) {
+      this.app.viewport.renderModel(this.app.model);
+      this.app.markDirty(); this.app._updateStats?.(); this.app.viewport.zoomExtents?.();
+      this.renderNodesGrid();
+    }
+    this.app.toast(`${added} nodo(s) creado(s)${bad ? ` · ${bad} fila(s) inválida(s)` : ''}`, bad ? 'warn' : 'ok');
   }
 
-  async pasteElements() {
+  // Alta en bloque de elementos desde texto tabular. Material/sección por nombre o número.
+  _bulkAddElements(text) {
     if (this.app.model.materials.size === 0 || this.app.model.sections.size === 0) {
       this.app.toast('Cree al menos un material y una sección antes de pegar elementos', 'warn'); return;
     }
-    const text = await this.app._promptTextarea('Pegar elementos desde Excel',
-      'Una fila por barra: <b>N1&nbsp;&nbsp;N2</b> (opcional <b>Material&nbsp;&nbsp;Sección</b>, por nombre o número). N1/N2 son los números de nodo de la columna «#».',
-      'Ej.\n1\t2\n2\t3\n3\t4\tAcero\tIPE300');
-    if (!text) return;
     const rows = this._parseGrid(text);
     const mats = [...this.app.model.materials.values()];
     const secs = [...this.app.model.sections.values()];
@@ -999,37 +995,37 @@ export class PropertiesPanel {
       const n1 = Math.round(this._numCell(r[0])), n2 = Math.round(this._numCell(r[1]));
       if (!isFinite(n1) || !isFinite(n2)) { bad++; continue; }
       const el = this.app.model.addElement(n1, n2, refId(mats, r[2]), refId(secs, r[3]));
-      el ? added++ : bad++;   // addElement returns null si un nodo no existe o n1===n2
+      el ? added++ : bad++;
     }
-    this.app.viewport.renderModel(this.app.model);
-    this.app.markDirty(); this.app._updateStats?.();
-    this.renderElemsGrid();
-    this.app.toast(`${added} elemento(s) pegado(s)${bad ? ` · ${bad} fila(s) inválida(s)/omitida(s)` : ''}`, bad ? 'warn' : 'ok');
+    if (added) {
+      this.app.viewport.renderModel(this.app.model);
+      this.app.markDirty(); this.app._updateStats?.();
+      this.renderElemsGrid();
+    }
+    this.app.toast(`${added} elemento(s) creado(s)${bad ? ` · ${bad} fila(s) inválida(s)/omitida(s)` : ''}`, bad ? 'warn' : 'ok');
   }
 
-  // Barra de herramientas del grid (botón «Pegar de Excel»).
-  _gridToolbar(cls) {
-    return `<div class="grid-toolbar" style="margin-bottom:6px"><button type="button" class="btn-add ${cls}" style="background:rgba(33,150,243,0.12);color:var(--accent,#4af);border-color:var(--accent,#4af)">📋 Pegar de Excel</button></div>`;
+  // Pegado TSV/CSV multi-fila directo en el grid (Ctrl+V), sin diálogo. Un valor
+  // simple (sin TAB ni salto de línea) deja el pegado normal dentro de la celda.
+  _wireGridPaste(wrap, bulk) {
+    wrap.addEventListener('paste', (e) => {
+      const txt = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+      if (!/[\t\n]/.test(txt)) return;
+      e.preventDefault();
+      bulk(txt);
+    });
   }
 
   renderNodesGrid() {
     const wrap = document.getElementById('nodes-grid-wrap');
     if (!wrap) return;
     const model = this.app.model;
+    const dofs = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
 
-    if (model.nodes.size === 0) {
-      wrap.innerHTML = this._gridToolbar('ng-paste') + '<p class="panel-hint">No hay nodos. Créelos en la vista 3D (tecla N), con el botón de abajo, o pegue una lista desde Excel.</p>';
-      wrap.querySelector('.ng-paste')?.addEventListener('click', () => this.pasteNodes());
-      return;
-    }
-
-    const dofs = ['ux','uy','uz','rx','ry','rz'];
     let tbody = '';
     for (const node of model.nodes.values()) {
       const r = node.restraints;
-      const cbs = dofs.map(d =>
-        `<td class="ng-cb"><input type="checkbox" data-nid="${node.id}" data-dof="${d}" ${r[d] ? 'checked' : ''}></td>`
-      ).join('');
+      const cbs = dofs.map(d => `<td class="ng-cb"><input type="checkbox" data-nid="${node.id}" data-dof="${d}" ${r[d] ? 'checked' : ''}></td>`).join('');
       tbody += `<tr data-nid="${node.id}">
         <td class="ng-id">${node.id}</td>
         <td class="ng-coord"><input class="ng-x" type="number" value="${+node.x.toFixed(4)}" step="0.1" data-nid="${node.id}" data-f="x"></td>
@@ -1039,22 +1035,30 @@ export class PropertiesPanel {
         <td class="ng-del"><button data-nid="${node.id}" title="Eliminar">×</button></td>
       </tr>`;
     }
+    // Fila NUEVA: escribe X Y Z (+ apoyos) y Enter/salir → crea el nodo al instante.
+    const newCbs = dofs.map(d => `<td class="ng-cb"><input type="checkbox" data-dof="${d}"></td>`).join('');
+    tbody += `<tr class="ng-new">
+      <td class="ng-id">＋</td>
+      <td class="ng-coord"><input class="ng-nx" type="number" step="0.1" placeholder="X"></td>
+      <td class="ng-coord"><input class="ng-ny" type="number" step="0.1" placeholder="Y"></td>
+      <td class="ng-coord"><input class="ng-nz" type="number" step="0.1" placeholder="Z"></td>
+      ${newCbs}
+      <td></td>
+    </tr>`;
 
-    wrap.innerHTML = this._gridToolbar('ng-paste') + `<table class="nodes-grid">
+    wrap.innerHTML = `<table class="nodes-grid">
       <thead><tr>
         <th>#</th><th>X</th><th>Y</th><th>Z</th>
         <th>Ux</th><th>Uy</th><th>Uz</th><th>Rx</th><th>Ry</th><th>Rz</th><th></th>
       </tr></thead>
       <tbody>${tbody}</tbody>
-    </table>`;
-    wrap.querySelector('.ng-paste')?.addEventListener('click', () => this.pasteNodes());
+    </table>
+    <p class="panel-hint" style="margin:6px 2px 0">Escribe <b>X Y Z</b> en la última fila y <b>Enter</b> para crear un nodo; o <b>pega</b> una lista desde Excel (Ctrl+V). Apoyos con las casillas.</p>`;
 
-    // Bind coordinate inputs
-    wrap.querySelectorAll('input[data-f]').forEach(inp => {
+    // Editar coordenadas de filas existentes
+    wrap.querySelectorAll('input[data-f][data-nid]').forEach(inp => {
       inp.addEventListener('change', () => {
-        const id = +inp.dataset.nid;
-        const field = inp.dataset.f;
-        const val = parseFloat(inp.value) || 0;
+        const id = +inp.dataset.nid, field = inp.dataset.f, val = this._numCell(inp.value) || 0;
         this.app.snapshot();
         this.app.model.updateNode(id, { [field]: val });
         const node = this.app.model.nodes.get(id);
@@ -1062,29 +1066,40 @@ export class PropertiesPanel {
         this.app.markDirty();
       });
     });
-
-    // Bind restraint checkboxes
-    wrap.querySelectorAll('input[data-dof]').forEach(cb => {
+    // Apoyos de filas existentes
+    wrap.querySelectorAll('input[data-dof][data-nid]').forEach(cb => {
       cb.addEventListener('change', () => {
-        const id = +cb.dataset.nid;
-        const dof = cb.dataset.dof;
+        const id = +cb.dataset.nid, dof = cb.dataset.dof;
         this.app.snapshot();
         const node = this.app.model.nodes.get(id);
-        if (node) {
-          node.restraints[dof] = cb.checked ? 1 : 0;
-          this.app.viewport.refreshNode(node);
-          this.app.markDirty();
-        }
+        if (node) { node.restraints[dof] = cb.checked ? 1 : 0; this.app.viewport.refreshNode(node); this.app.markDirty(); }
       });
+    });
+    // Eliminar
+    wrap.querySelectorAll('.ng-del button').forEach(btn => {
+      btn.addEventListener('click', () => { this.app.deleteNode(+btn.dataset.nid); this.renderNodesGrid(); });
     });
 
-    // Bind delete buttons
-    wrap.querySelectorAll('.ng-del button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.app.deleteNode(+btn.dataset.nid);
-        this.renderNodesGrid();
-      });
-    });
+    // Fila nueva: commit al presionar Enter o al salir de la fila con X,Y,Z válidos.
+    const newRow = wrap.querySelector('tr.ng-new');
+    const commitNew = () => {
+      const x = this._numCell(newRow.querySelector('.ng-nx').value);
+      const y = this._numCell(newRow.querySelector('.ng-ny').value);
+      const z = this._numCell(newRow.querySelector('.ng-nz').value);
+      if (![x, y, z].every(isFinite)) return false;
+      const restraints = {};
+      newRow.querySelectorAll('input[data-dof]').forEach(cb => { if (cb.checked) restraints[cb.dataset.dof] = 1; });
+      this.app.snapshot();
+      const node = this.app.model.addNode(x, y, z, restraints);
+      this.app.viewport.addNodeMesh(node); this.app.markDirty(); this.app._updateStats?.();
+      this.renderNodesGrid();
+      setTimeout(() => document.querySelector('#nodes-grid-wrap tr.ng-new .ng-nx')?.focus(), 0);
+      return true;
+    };
+    newRow.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commitNew(); } });
+    newRow.addEventListener('focusout', (e) => { if (!newRow.contains(e.relatedTarget)) commitNew(); });
+
+    this._wireGridPaste(wrap, (t) => this._bulkAddNodes(t));
   }
 
   _addNodeRow() {
@@ -1108,23 +1123,16 @@ export class PropertiesPanel {
     const model = this.app.model;
     const res   = this.app._results;
 
-    if (model.elements.size === 0) {
-      wrap.innerHTML = this._gridToolbar('eg-paste') + '<p class="panel-hint">No hay elementos. Créelos en la vista 3D (tecla E) o pegue una lista desde Excel.</p>';
-      wrap.querySelector('.eg-paste')?.addEventListener('click', () => this.pasteElements());
+    const mats = [...model.materials.values()];
+    const secs = [...model.sections.values()];
+    if (mats.length === 0 || secs.length === 0) {
+      wrap.innerHTML = '<p class="panel-hint">Cree al menos un material y una sección (pestañas Mat. y Sec.) para agregar elementos.</p>';
       return;
     }
 
-    const mats = [...model.materials.values()];
-    const secs = [...model.sections.values()];
+    const matOpts = id => mats.map(m => `<option value="${m.id}" ${m.id === id ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
+    const secOpts = id => secs.map(s => `<option value="${s.id}" ${s.id === id ? 'selected' : ''}>${esc(s.name)}</option>`).join('');
 
-    const matOpts = id => mats.map(m =>
-      `<option value="${m.id}" ${m.id === id ? 'selected' : ''}>${esc(m.name)}</option>`
-    ).join('');
-    const secOpts = id => secs.map(s =>
-      `<option value="${s.id}" ${s.id === id ? 'selected' : ''}>${esc(s.name)}</option>`
-    ).join('');
-
-    // Force column (max abs value at either end)
     const fCol = (f, key1, key2 = null) => {
       if (!f) return '<td class="eg-f">—</td>';
       const v = key2 ? (Math.abs(f[key1]) > Math.abs(f[key2]) ? f[key1] : f[key2]) : f[key1];
@@ -1132,11 +1140,9 @@ export class PropertiesPanel {
       return `<td class="eg-f"${col}>${Math.abs(v) < 1e-10 ? '—' : v.toExponential(2)}</td>`;
     };
 
-    let hasRes = false;
     let tbody = '';
     for (const el of model.elements.values()) {
       const f = res ? res.getElemForces(el.id) : null;
-      if (f) hasRes = true;
       tbody += `<tr data-eid="${el.id}">
         <td class="eg-id">${el.id}</td>
         <td class="eg-node"><input type="number" class="eg-n1" value="${el.n1}" min="1" data-eid="${el.id}" data-f="n1"></td>
@@ -1147,57 +1153,66 @@ export class PropertiesPanel {
         <td class="ng-del"><button data-eid="${el.id}" title="Eliminar">×</button></td>
       </tr>`;
     }
+    // Fila NUEVA: escribe N1 N2 (Mat/Sec por defecto) y Enter → crea la barra.
+    tbody += `<tr class="eg-new">
+      <td class="eg-id">＋</td>
+      <td class="eg-node"><input type="number" class="eg-nn1" min="1" placeholder="N1"></td>
+      <td class="eg-node"><input type="number" class="eg-nn2" min="1" placeholder="N2"></td>
+      <td class="eg-sel"><select class="eg-nmat">${matOpts(mats[0].id)}</select></td>
+      <td class="eg-sel"><select class="eg-nsec">${secOpts(secs[0].id)}</select></td>
+      ${res ? '<td></td><td></td><td></td><td></td>' : ''}
+      <td></td>
+    </tr>`;
 
-    const resHeader = res
-      ? '<th class="eg-f">N</th><th class="eg-f">Vy</th><th class="eg-f">My</th><th class="eg-f">Mz</th>'
-      : '';
-
-    wrap.innerHTML = this._gridToolbar('eg-paste') + `<table class="elems-grid">
+    const resHeader = res ? '<th class="eg-f">N</th><th class="eg-f">Vy</th><th class="eg-f">My</th><th class="eg-f">Mz</th>' : '';
+    wrap.innerHTML = `<table class="elems-grid">
       <thead><tr>
         <th>#</th><th>N1</th><th>N2</th><th>Mat.</th><th>Sec.</th>${resHeader}<th></th>
       </tr></thead>
       <tbody>${tbody}</tbody>
-    </table>`;
-    wrap.querySelector('.eg-paste')?.addEventListener('click', () => this.pasteElements());
+    </table>
+    <p class="panel-hint" style="margin:6px 2px 0">Escribe <b>N1 N2</b> en la última fila y <b>Enter</b> para crear una barra; o <b>pega</b> una lista (Ctrl+V). N1/N2 = números de la columna «#».</p>`;
 
-    // Bind node inputs
-    wrap.querySelectorAll('input[data-f]').forEach(inp => {
+    // Editar filas existentes (nodos)
+    wrap.querySelectorAll('input[data-f][data-eid]').forEach(inp => {
       inp.addEventListener('change', () => {
-        const id = +inp.dataset.eid;
-        const field = inp.dataset.f;
-        const val = parseInt(inp.value) || 1;
+        const id = +inp.dataset.eid, field = inp.dataset.f, val = parseInt(inp.value) || 1;
         this.app.snapshot();
         this.app.model.updateElement(id, { [field]: val });
         this.app.viewport.refreshElem(this.app.model.elements.get(id));
         this.app.markDirty();
       });
     });
-
-    // Bind material/section selects
-    wrap.querySelectorAll('.eg-mat').forEach(sel => {
-      sel.addEventListener('change', () => {
-        const id = +sel.dataset.eid;
-        this.app.snapshot();
-        this.app.model.updateElement(id, { matId: +sel.value });
-        this.app.markDirty();
-      });
+    wrap.querySelectorAll('.eg-mat[data-eid]').forEach(sel => {
+      sel.addEventListener('change', () => { const id = +sel.dataset.eid; this.app.snapshot(); this.app.model.updateElement(id, { matId: +sel.value }); this.app.markDirty(); });
     });
-    wrap.querySelectorAll('.eg-sec').forEach(sel => {
-      sel.addEventListener('change', () => {
-        const id = +sel.dataset.eid;
-        this.app.snapshot();
-        this.app.model.updateElement(id, { secId: +sel.value });
-        this.app.markDirty();
-      });
+    wrap.querySelectorAll('.eg-sec[data-eid]').forEach(sel => {
+      sel.addEventListener('change', () => { const id = +sel.dataset.eid; this.app.snapshot(); this.app.model.updateElement(id, { secId: +sel.value }); this.app.markDirty(); });
     });
-
-    // Bind delete buttons
     wrap.querySelectorAll('.ng-del button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.app.deleteElement(+btn.dataset.eid);
-        this.renderElemsGrid();
-      });
+      btn.addEventListener('click', () => { this.app.deleteElement(+btn.dataset.eid); this.renderElemsGrid(); });
     });
+
+    // Fila nueva de elemento
+    const newRow = wrap.querySelector('tr.eg-new');
+    const commitNew = () => {
+      const n1 = Math.round(this._numCell(newRow.querySelector('.eg-nn1').value));
+      const n2 = Math.round(this._numCell(newRow.querySelector('.eg-nn2').value));
+      if (!isFinite(n1) || !isFinite(n2)) return false;
+      const matId = +newRow.querySelector('.eg-nmat').value || undefined;
+      const secId = +newRow.querySelector('.eg-nsec').value || undefined;
+      this.app.snapshot();
+      const el = this.app.model.addElement(n1, n2, matId, secId);
+      if (!el) { this.app.toast(`No se pudo crear la barra ${n1}–${n2} (¿nodo inexistente o N1=N2?)`, 'warn'); return false; }
+      this.app.viewport.renderModel(this.app.model); this.app.markDirty(); this.app._updateStats?.();
+      this.renderElemsGrid();
+      setTimeout(() => document.querySelector('#elems-grid-wrap tr.eg-new .eg-nn1')?.focus(), 0);
+      return true;
+    };
+    newRow.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commitNew(); } });
+    newRow.addEventListener('focusout', (e) => { if (!newRow.contains(e.relatedTarget)) commitNew(); });
+
+    this._wireGridPaste(wrap, (t) => this._bulkAddElements(t));
   }
 
   // ── Diaphragm membership + tributary mass for a node ──────────────────────
