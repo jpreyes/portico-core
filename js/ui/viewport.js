@@ -379,6 +379,7 @@ export class Viewport {
       for (const obj of this._resultObjects) this._scene.remove(obj);
     }
     this._resultObjects = [];
+    this._resultNodeMarkers = null;
     this._animFn = null;
     this._animMeshNodes = [];
     this._animLineElems = [];
@@ -1439,8 +1440,17 @@ export class Viewport {
   // first the precise ray against the sphere; if it misses, grab the nearest VISIBLE
   // node to the cursor within a pixel radius. This way the node can be drawn small but
   // still be easy to select.
+  // Pickable node meshes: the model nodes plus (in the deformed view, where the
+  // original meshes are hidden) the deformed node markers (#38).
+  _nodePickList() {
+    const list = [...this._nodeMeshes.values()];
+    if (this._resultNodeMarkers) list.push(...this._resultNodeMarkers.values());
+    return list;
+  }
+
   _pickNodes() {
-    const hits = this._raycaster.intersectObjects([...this._nodeMeshes.values()]);
+    const pool = this._nodePickList();
+    const hits = this._raycaster.intersectObjects(pool);
     if (hits.length) return hits;
     const rect = this._renderer.domElement.getBoundingClientRect();
     const mx = (this._mouse.x + 1) / 2 * rect.width;
@@ -1448,7 +1458,7 @@ export class Viewport {
     const PICK_PX = 13;                       // "magnet" radius in pixels
     let best = null, bestD = PICK_PX * PICK_PX;
     const v = new THREE.Vector3();
-    for (const mesh of this._nodeMeshes.values()) {
+    for (const mesh of pool) {
       if (!mesh.visible) continue;
       v.copy(mesh.position).project(this._camera);
       if (v.z > 1) continue;                  // behind the camera
@@ -2661,6 +2671,7 @@ export class Viewport {
     this._animMeshNodes = [];
     this._animLineElems = [];
 
+    this._resultNodeMarkers = null;   // #38: deformed node pick markers
     if (!this._resultObjects) return;
     for (const obj of this._resultObjects) this._scene.remove(obj);
     this._resultObjects = [];
@@ -2742,6 +2753,9 @@ export class Viewport {
       this._scene.add(line);
       this._resultObjects.push(line);
     }
+    // Deformed node markers. Tagged + tracked so a click/hover in the deformed view
+    // opens the node inspector / tooltip (the original node meshes are hidden) (#38).
+    this._resultNodeMarkers = new Map();
     for (const node of this.app.model.nodes.values()) {
       const dc   = results.getDeformedCoords(node.id, scale);
       const dmag = Math.hypot(...results.getNodeDisp(node.id).slice(0,3));
@@ -2751,8 +2765,10 @@ export class Viewport {
         new THREE.MeshBasicMaterial({ color: _dispColor(t) })
       );
       mesh.position.copy(this.m2t(dc.x, dc.y, dc.z));
+      mesh.userData = { type: 'node', id: node.id };
       this._scene.add(mesh);
       this._resultObjects.push(mesh);
+      this._resultNodeMarkers.set(node.id, mesh);
     }
     this._showResultsUI(`Deformada ×${_fmt(scale)} (factor ×${+f.toPrecision(3)}) | δmax=${_fmt(maxD)}`);
     this._drawColorbar(0, maxD);
@@ -2992,25 +3008,32 @@ export class Viewport {
   // ════════════════════════════════════════════════════════════════════════════
 
   _clickResults(e) {
+    const nodeHits = this._pickNodes();   // magnet, includes the deformed markers (#38)
     const elemHits = this._raycaster.intersectObjects([...this._elemLines.values()].filter(l => l.visible));
-    const nodeHits = this._raycaster.intersectObjects([...this._nodeMeshes.values()]);
     const areaHits = this._raycaster.intersectObjects(this._areaFills());
 
-    if (elemHits.length) {
-      const elemId = elemHits[0].object.userData.id;
-      if (this._results) this._showElemInspector(elemId, e.clientX, e.clientY);
-    } else if (nodeHits.length) {
-      const nodeId = nodeHits[0].object.userData.id;
-      if (this._results) this._showNodeInspector(nodeId, e.clientX, e.clientY);
-    } else if (areaHits.length) {
-      // Areas have no floating inspector: they are shown in the right panel
-      // (stresses, plate moments and nodal displacements).
-      const areaId = areaHits[0].object.userData.id;
-      const area = this.app.model.areas.get(areaId);
+    const showNode = () => { if (this._results) this._showNodeInspector(nodeHits[0].object.userData.id, e.clientX, e.clientY); };
+    const showElem = () => { if (this._results) this._showElemInspector(elemHits[0].object.userData.id, e.clientX, e.clientY); };
+    const showArea = () => {
+      // Areas have no floating inspector: shown in the right panel (stresses, plate
+      // moments and nodal displacements).
+      const area = this.app.model.areas.get(areaHits[0].object.userData.id);
       if (area) { this._hideInspector(); this.app.panel.showArea(area); }
+    };
+
+    // In the DEFORMED view the node markers are the thing to click (the original node
+    // meshes are hidden), so node wins; in force-diagram views the bar is primary, so
+    // element wins (preserves the previous behavior) (#38).
+    const nodeFirst = !!this._resultNodeMarkers;
+    if (nodeFirst) {
+      if (nodeHits.length)      return showNode();
+      if (elemHits.length)      return showElem();
     } else {
-      this._hideInspector();
+      if (elemHits.length)      return showElem();
+      if (nodeHits.length)      return showNode();
     }
+    if (areaHits.length) return showArea();
+    this._hideInspector();
   }
 
   // ── Inspector panel creation (lazy, one panel reused) ─────────────────────
