@@ -929,13 +929,97 @@ export class PropertiesPanel {
   }
 
   // ── Node grid ──────────────────────────────────────────────────────────────
+  // ── Pegar desde Excel (grids tipo hoja de cálculo) ──────────────────────────
+  // Separa una fila en celdas tolerando TAB (copiado de Excel), «;», espacios o «,».
+  _splitRow(line) {
+    if (line.includes('\t')) return line.split('\t');
+    if (line.includes(';'))  return line.split(';');
+    if (/\s/.test(line.trim())) return line.trim().split(/\s+/);
+    return line.split(',');
+  }
+  // Número con coma decimal (locale es-CL) o punto: "6,5" → 6.5, "6.5" → 6.5.
+  _numCell(c) {
+    c = String(c == null ? '' : c).trim();
+    if (/^[-+]?\d*,\d+$/.test(c)) c = c.replace(',', '.');
+    return parseFloat(c);
+  }
+  // Texto pegado → filas de celdas; descarta una fila de encabezado (1ª celda no numérica).
+  _parseGrid(text) {
+    const rows = [];
+    for (const raw of String(text).split(/\r?\n/)) {
+      const line = raw.trim(); if (!line) continue;
+      rows.push(this._splitRow(line).map(c => c.trim()));
+    }
+    if (rows.length && !isFinite(this._numCell(rows[0][0]))) rows.shift();
+    return rows;
+  }
+
+  async pasteNodes() {
+    const text = await this.app._promptTextarea('Pegar nodos desde Excel',
+      'Una fila por nodo: <b>X&nbsp;&nbsp;Y&nbsp;&nbsp;Z</b> (opcional <b>Ux Uy Uz Rx Ry Rz</b> con 0/1). Copie las celdas en Excel y pegue aquí (Ctrl+V).',
+      'Ej.\n0\t0\t0\n6\t0\t0\n6\t4\t0');
+    if (!text) return;
+    const rows = this._parseGrid(text);
+    const dof = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];
+    let added = 0, bad = 0;
+    this.app.snapshot();
+    for (const r of rows) {
+      const x = this._numCell(r[0]), y = this._numCell(r[1]), z = this._numCell(r[2]);
+      if (![x, y, z].every(isFinite)) { bad++; continue; }
+      const restraints = {};
+      for (let i = 0; i < 6; i++) if (r[3 + i] != null && r[3 + i] !== '') restraints[dof[i]] = this._numCell(r[3 + i]) ? 1 : 0;
+      this.app.model.addNode(x, y, z, restraints); added++;
+    }
+    this.app.viewport.renderModel(this.app.model);
+    this.app.markDirty(); this.app._updateStats?.(); this.app.viewport.zoomExtents?.();
+    this.renderNodesGrid();
+    this.app.toast(`${added} nodo(s) pegado(s)${bad ? ` · ${bad} fila(s) inválida(s)` : ''}`, bad ? 'warn' : 'ok');
+  }
+
+  async pasteElements() {
+    if (this.app.model.materials.size === 0 || this.app.model.sections.size === 0) {
+      this.app.toast('Cree al menos un material y una sección antes de pegar elementos', 'warn'); return;
+    }
+    const text = await this.app._promptTextarea('Pegar elementos desde Excel',
+      'Una fila por barra: <b>N1&nbsp;&nbsp;N2</b> (opcional <b>Material&nbsp;&nbsp;Sección</b>, por nombre o número). N1/N2 son los números de nodo de la columna «#».',
+      'Ej.\n1\t2\n2\t3\n3\t4\tAcero\tIPE300');
+    if (!text) return;
+    const rows = this._parseGrid(text);
+    const mats = [...this.app.model.materials.values()];
+    const secs = [...this.app.model.sections.values()];
+    const refId = (list, ref) => {
+      if (ref == null || ref === '') return undefined;
+      const n = this._numCell(ref); if (isFinite(n) && list.some(o => o.id === n)) return n;
+      const o = list.find(o => String(o.name).toLowerCase() === String(ref).toLowerCase());
+      return o ? o.id : undefined;
+    };
+    let added = 0, bad = 0;
+    this.app.snapshot();
+    for (const r of rows) {
+      const n1 = Math.round(this._numCell(r[0])), n2 = Math.round(this._numCell(r[1]));
+      if (!isFinite(n1) || !isFinite(n2)) { bad++; continue; }
+      const el = this.app.model.addElement(n1, n2, refId(mats, r[2]), refId(secs, r[3]));
+      el ? added++ : bad++;   // addElement returns null si un nodo no existe o n1===n2
+    }
+    this.app.viewport.renderModel(this.app.model);
+    this.app.markDirty(); this.app._updateStats?.();
+    this.renderElemsGrid();
+    this.app.toast(`${added} elemento(s) pegado(s)${bad ? ` · ${bad} fila(s) inválida(s)/omitida(s)` : ''}`, bad ? 'warn' : 'ok');
+  }
+
+  // Barra de herramientas del grid (botón «Pegar de Excel»).
+  _gridToolbar(cls) {
+    return `<div class="grid-toolbar" style="margin-bottom:6px"><button type="button" class="btn-add ${cls}" style="background:rgba(33,150,243,0.12);color:var(--accent,#4af);border-color:var(--accent,#4af)">📋 Pegar de Excel</button></div>`;
+  }
+
   renderNodesGrid() {
     const wrap = document.getElementById('nodes-grid-wrap');
     if (!wrap) return;
     const model = this.app.model;
 
     if (model.nodes.size === 0) {
-      wrap.innerHTML = '<p class="panel-hint">No hay nodos. Créelos en la vista 3D (tecla N) o con el botón de abajo.</p>';
+      wrap.innerHTML = this._gridToolbar('ng-paste') + '<p class="panel-hint">No hay nodos. Créelos en la vista 3D (tecla N), con el botón de abajo, o pegue una lista desde Excel.</p>';
+      wrap.querySelector('.ng-paste')?.addEventListener('click', () => this.pasteNodes());
       return;
     }
 
@@ -956,13 +1040,14 @@ export class PropertiesPanel {
       </tr>`;
     }
 
-    wrap.innerHTML = `<table class="nodes-grid">
+    wrap.innerHTML = this._gridToolbar('ng-paste') + `<table class="nodes-grid">
       <thead><tr>
         <th>#</th><th>X</th><th>Y</th><th>Z</th>
         <th>Ux</th><th>Uy</th><th>Uz</th><th>Rx</th><th>Ry</th><th>Rz</th><th></th>
       </tr></thead>
       <tbody>${tbody}</tbody>
     </table>`;
+    wrap.querySelector('.ng-paste')?.addEventListener('click', () => this.pasteNodes());
 
     // Bind coordinate inputs
     wrap.querySelectorAll('input[data-f]').forEach(inp => {
@@ -1024,7 +1109,8 @@ export class PropertiesPanel {
     const res   = this.app._results;
 
     if (model.elements.size === 0) {
-      wrap.innerHTML = '<p class="panel-hint">No hay elementos. Créelos en la vista 3D (tecla E).</p>';
+      wrap.innerHTML = this._gridToolbar('eg-paste') + '<p class="panel-hint">No hay elementos. Créelos en la vista 3D (tecla E) o pegue una lista desde Excel.</p>';
+      wrap.querySelector('.eg-paste')?.addEventListener('click', () => this.pasteElements());
       return;
     }
 
@@ -1066,12 +1152,13 @@ export class PropertiesPanel {
       ? '<th class="eg-f">N</th><th class="eg-f">Vy</th><th class="eg-f">My</th><th class="eg-f">Mz</th>'
       : '';
 
-    wrap.innerHTML = `<table class="elems-grid">
+    wrap.innerHTML = this._gridToolbar('eg-paste') + `<table class="elems-grid">
       <thead><tr>
         <th>#</th><th>N1</th><th>N2</th><th>Mat.</th><th>Sec.</th>${resHeader}<th></th>
       </tr></thead>
       <tbody>${tbody}</tbody>
     </table>`;
+    wrap.querySelector('.eg-paste')?.addEventListener('click', () => this.pasteElements());
 
     // Bind node inputs
     wrap.querySelectorAll('input[data-f]').forEach(inp => {
