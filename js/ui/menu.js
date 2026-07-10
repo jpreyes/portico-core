@@ -97,10 +97,10 @@ export class MenuBar {
       case 'help-signos':   a.openHelp('signos');   break;
       case 'help-ejemplos': a.openHelp('ejemplos'); break;
       case 'help-acerca':   a.openHelp('acerca');   break;
-      case 'view-iso':    a.viewport.setView('iso');   break;
-      case 'view-top':    a.viewport.setView('top');   break;
-      case 'view-front':  a.viewport.setView('front'); break;
-      case 'view-side':   a.viewport.setView('side');  break;
+      case 'view-iso':    a.viewport.setStandardView('iso');   break;
+      case 'view-top':    a.viewport.setStandardView('top');   break;
+      case 'view-front':  a.viewport.setStandardView('front'); break;
+      case 'view-side':   a.viewport.setStandardView('side');  break;
       case 'toggle-grid':    a.viewport.toggleGrid();        break;
       case 'toggle-axes':    a.viewport.toggleAxes();        break;
       case 'zoom-extents':   a.viewport.zoomExtents();       break;

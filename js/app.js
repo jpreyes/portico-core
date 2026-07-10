@@ -9606,10 +9606,10 @@ ${driftHTML}
         case 'delete':
         case 'backspace': this.deleteSelected();            break;
         case 'home':   this.viewport.zoomExtents();         break;
-        case 'i':      this.viewport.setView('iso');        break;
-        case 't':      this.viewport.setView('top');        break;
-        case 'f':      this.viewport.setView('front');      break;
-        case 'l':      this.viewport.setView('side');       break;
+        case 'i':      this.viewport.setStandardView('iso');   break;
+        case 't':      this.viewport.setStandardView('top');   break;
+        case 'f':      this.viewport.setStandardView('front'); break;
+        case 'l':      this.viewport.setStandardView('side');  break;
         case 'g':      this.viewport.toggleGrid();          break;
         case 'h':      if (e.shiftKey) this.showAllElements(); else this.hideSelected(); break;
       }
