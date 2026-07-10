@@ -201,6 +201,7 @@ export class Viewport {
         this._floorMesh.position.y = this._floorZ;
         if (this._grid) this._grid.position.y = this._floorZ;
       }
+      this._orientGrid();   // #40: mover la grilla al nuevo offset del plano fijado
     });
     document.getElementById('snap-size').addEventListener('input', e => {
       this._snapSize = Math.max(0, parseFloat(e.target.value) || 0);
@@ -269,6 +270,7 @@ export class Viewport {
       this._grid.traverse((o) => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
     }
     this._buildGrid(isLight ? 0x8b9cb2 : COL.GRID_CENTER, isLight ? 0xbcc6d5 : COL.GRID_MAIN);
+    this._orientGrid();   // #40: keep the grid on the locked work plane after a rebuild
   }
 
   _buildAxes() {
@@ -2382,7 +2384,26 @@ export class Viewport {
     const sel = document.getElementById('drag-plane');
     if (sel && sel.value !== plane) sel.value = plane;
     this._updatePlaneOffsetLabel();
+    this._orientGrid();
     if (this._planeLock) this._applyPlaneLock(true);
+  }
+
+  // #40: with a LOCKED work plane, lay the reference grid ON that plane so it reads
+  // in Frente/Lateral too (not just planta). In free 3D / isometric it stays the
+  // horizontal floor grid — otherwise the view would be unreadable.
+  _orientGrid() {
+    if (!this._grid) return;
+    const p = this._dragPlane || 'xy';
+    if (!this._planeLock || p === 'xy') {           // planta / libre → piso horizontal
+      this._grid.rotation.set(0, 0, 0);
+      this._grid.position.set(0, this._floorZ || 0, 0);
+    } else if (p === 'xz') {                          // Frente: plano X–Z del modelo
+      this._grid.rotation.set(Math.PI / 2, 0, 0);
+      this._grid.position.set(0, 0, this._planeYOff || 0);   // three.z = modelo Y
+    } else if (p === 'yz') {                          // Lateral: plano Y–Z del modelo
+      this._grid.rotation.set(0, 0, Math.PI / 2);
+      this._grid.position.set(this._planeXOff || 0, 0, 0);   // three.x = modelo X
+    }
   }
 
   // Re-label + reload the shared offset field so it always reflects the active
@@ -2426,6 +2447,7 @@ export class Viewport {
       this._controls.mouseButtons = this._MB_3D;
       this.setView('iso');
     }
+    this._orientGrid();   // #40: grid on the locked plane, or back to the floor
   }
 
   // Menú Vista: preset de cámara que además fija el plano de trabajo.
