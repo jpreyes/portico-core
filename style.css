@@ -23,8 +23,9 @@
   --radius:      8px;
   --radius-sm:   5px;
   --toolbar-w:   68px;
-  --tree-w:      252px;
+  --tree-w:      182px;   /* árbol lateral compacto (siempre abierto) */
   --panel-w:     320px;
+  --panel-rail:  30px;    /* ancho del panel derecho COLAPSADO (sólo el riel de pestañas) */
   --menu-h:      40px;
   --status-h:    26px;
   --font:        'Inter', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
@@ -84,6 +85,19 @@ html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(-
 }
 #main.tree-open {
   grid-template-columns: var(--tree-w) var(--toolbar-w) 1fr 5px var(--panel-w);
+}
+
+/* Panel derecho COLAPSADO (desktop): la última columna queda del ancho del riel de
+   pestañas y el handle de resize desaparece; sólo se ve #panel-vtabs. Se despliega
+   (quitando .panel-collapsed) al editar Nodo/Elemento/Área o elegir una pestaña. */
+@media (min-width: 801px) {
+  /* La última columna (panel) queda del ancho del riel; el handle (col. 4) va a 0.
+     OJO: no usar display:none en el handle — lo sacaría del grid y correría el panel
+     a la columna 0 (mismo motivo que el árbol). En 0px queda invisible igual. */
+  #main.panel-collapsed             { grid-template-columns: 0 var(--toolbar-w) 1fr 0 var(--panel-rail); }
+  #main.tree-open.panel-collapsed   { grid-template-columns: var(--tree-w) var(--toolbar-w) 1fr 0 var(--panel-rail); }
+  #main.panel-collapsed #panel      { min-width: 0; }
+  #main.panel-collapsed #panel-content { display: none; }
 }
 
 /* ── Árbol lateral: modelos del proyecto + temporales ───────────── */

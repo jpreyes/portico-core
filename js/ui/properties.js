@@ -55,7 +55,14 @@ export class PropertiesPanel {
 
   _init() {
     this._vtabBtns.forEach(btn =>
-      btn.addEventListener('click', () => this._switchVTab(btn.dataset.vtab))
+      btn.addEventListener('click', () => {
+        // El panel arranca colapsado (sólo el riel de pestañas). Clic en una pestaña
+        // lo despliega; clic en la pestaña YA activa mientras está desplegado lo colapsa.
+        const collapsed = document.getElementById('main')?.classList.contains('panel-collapsed');
+        if (!collapsed && this._currentVTab === btn.dataset.vtab) { this.app.setPanelCollapsed(true); return; }
+        this.app.setPanelCollapsed(false);
+        this._switchVTab(btn.dataset.vtab);
+      })
     );
     this._tabBtns.forEach(btn =>
       btn.addEventListener('click', () => this._switchTab(btn.dataset.tab))
@@ -319,6 +326,7 @@ export class PropertiesPanel {
   }
 
   showSelection(items) {
+    this.app.setPanelCollapsed(false);   // seleccionar en la vista 3D despliega el panel
     this._switchVTab('model');
     this._switchTab('sel');
     const res  = this.app._results;
