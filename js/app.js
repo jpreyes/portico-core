@@ -2649,6 +2649,26 @@ class App {
     });
   }
 
+  // Like _promptModal but with a multi-line <textarea> — for pasting tabular data
+  // (e.g. a node/element list copied from Excel). Resolves the raw text (or null).
+  _promptTextarea(title, labelHtml, placeholder = '') {
+    return new Promise(resolve => {
+      const overlay = document.getElementById('modal-overlay');
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-cancel').style.display = '';
+      document.getElementById('modal-body').innerHTML = `
+        <div class="prop-field">
+          <label>${labelHtml}</label>
+          <textarea id="modal-paste-inp" rows="10" placeholder="${placeholder}"
+            style="width:100%;margin-top:4px;font-family:ui-monospace,Consolas,monospace;font-size:12px;white-space:pre;overflow:auto"></textarea>
+        </div>`;
+      overlay.classList.remove('hidden');
+      setTimeout(() => document.getElementById('modal-paste-inp')?.focus(), 50);
+      overlay._resolve = () => resolve(document.getElementById('modal-paste-inp')?.value || null);
+      overlay._reject  = () => resolve(null);
+    });
+  }
+
   _setupModalOverlay() {
     const mr  = this._modalResults;
     const sel = document.getElementById('modal-mode-select');
