@@ -904,9 +904,23 @@
       <!-- ── ACERCA DE ── -->
       <section id="hsec-acerca" class="help-sec">
         <div class="help-about-hero">
-          <svg viewBox="0 0 24 24" width="56" height="56" aria-hidden="true">
-            <path d="M4 21 V8 Q4 5 7 5 H17 Q20 5 20 8 V21" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
-            <circle cx="4" cy="21" r="2" fill="var(--teal)"/><circle cx="20" cy="21" r="2" fill="var(--teal)"/>
+          <style>
+            .help-about-hero #hero-frame { width: 132px; margin: 0; flex: 0 0 auto; }
+            @media (max-width: 480px) { .help-about-hero #hero-frame { width: 100px; } }
+          </style>
+          <!-- Banner animado: el pórtico dibuja su deformada sísmica (draw-path). Reproducido
+               al abrir «Acerca de» por el observer al final del body. -->
+          <svg id="hero-frame" viewBox="0 0 360 240" aria-hidden="true">
+            <path class="frame-line" d="M70 210 V60 H290 V210"/>
+            <path class="frame-deformed" d="M70 210 C 82 158, 104 110, 104 60 C 165 66, 261 54, 322 60 C 322 110, 300 158, 290 210"/>
+            <path class="frame-support" d="M56 226 L84 226 L70 210 Z"/>
+            <path class="frame-support" d="M54 226 H86"/>
+            <path class="frame-support" d="M58 226 L52 233 M66 226 L60 233 M74 226 L68 233 M82 226 L76 233"/>
+            <path class="frame-support" d="M276 226 L304 226 L290 210 Z"/>
+            <path class="frame-support" d="M274 226 H306"/>
+            <path class="frame-support" d="M278 226 L272 233 M286 226 L280 233 M294 226 L288 233 M302 226 L296 233"/>
+            <circle class="frame-node" cx="104" cy="60" r="6"/>
+            <circle class="frame-node" cx="322" cy="60" r="6"/>
           </svg>
           <div>
             <h2 style="margin:0">PORTICO</h2>
@@ -952,174 +966,6 @@
     </div>
   </div>
 </div>
-
-<!-- ══ PORTADA — pantalla de bienvenida ══ -->
-<div id="landing">
-  <button id="landing-theme" type="button" title="Cambiar tema claro/oscuro"
-    style="position:fixed;top:14px;right:16px;z-index:9100;background:var(--bg4,#e2e8f1);border:1px solid var(--border2,#bcc8d8);color:var(--text,#1b2533);border-radius:8px;cursor:pointer;font-size:17px;line-height:1;padding:6px 10px">🌙</button>
-  <div class="landing-card">
-  <header class="landing-inst">
-    <div class="inst-names">
-      <strong>PORTICO</strong>
-      <span>Análisis y diseño estructural 3D · open source</span>
-    </div>
-  </header>
-
-  <main class="landing-hero">
-    <svg id="hero-frame" viewBox="0 0 360 240" aria-hidden="true">
-      <!-- pórtico sin deformar -->
-      <path class="frame-line" d="M70 210 V60 H290 V210"/>
-      <!-- deformada por sismo/viento (sway). Base articulada: curvatura nula en
-           los apoyos; nudos rígidos viga-pilar (90° conservados) → pilares en
-           curvatura simple y viga en doble curvatura antisimétrica. -->
-      <path class="frame-deformed" d="M70 210 C 82 158, 104 110, 104 60 C 165 66, 261 54, 322 60 C 322 110, 300 158, 290 210"/>
-      <!-- apoyos ARTICULADOS (rótula): triángulo sobre suelo achurado, sin rodillo -->
-      <path class="frame-support" d="M56 226 L84 226 L70 210 Z"/>
-      <path class="frame-support" d="M54 226 H86"/>
-      <path class="frame-support" d="M58 226 L52 233 M66 226 L60 233 M74 226 L68 233 M82 226 L76 233"/>
-      <path class="frame-support" d="M276 226 L304 226 L290 210 Z"/>
-      <path class="frame-support" d="M274 226 H306"/>
-      <path class="frame-support" d="M278 226 L272 233 M286 226 L280 233 M294 226 L288 233 M302 226 L296 233"/>
-      <!-- nudos rígidos (esquinas) ubicados sobre el pórtico DEFORMADO -->
-      <circle class="frame-node" cx="104" cy="60" r="6"/>
-      <circle class="frame-node" cx="322" cy="60" r="6"/>
-    </svg>
-
-    <h1 class="hero-title" data-brand="appName">PORTICO</h1>
-    <p class="hero-tag" data-brand="tagline">Análisis y diseño estructural 3D</p>
-    <p class="hero-desc">Modele barras y áreas en 3D, ejecute análisis estático, modal, de espectro, no lineal y pushover, y verifique el diseño de acero, hormigón, madera y aluminio — directamente en su navegador, sin instalar nada.</p>
-    <div class="hero-chips">
-      <span>Barras + áreas</span><span>Espectro NCh433</span><span>Pandeo · P-Δ</span>
-      <span>No lineal · pushover</span><span>Diseño acero/hormigón/madera</span>
-      <span>Derivas</span><span>IFC / BIM</span><span>Asistente IA</span>
-    </div>
-    <div class="hero-actions">
-      <button id="btn-enter">Entrar al laboratorio (vacío) <span class="arrow">→</span></button>
-      <button id="btn-asistente" type="button">✦ Generar modelo con el asistente <span class="arrow">→</span></button>
-      <button id="btn-manual" type="button">📖 Manual de uso</button>
-      <button id="btn-install" type="button">⤓ Instalar app</button>
-    </div>
-    <div class="hero-kbd">o presione <kbd>Enter</kbd></div>
-    <div id="install-hint" class="install-hint" hidden></div>
-  </main>
-
-  <footer class="landing-credit" data-brand="description">
-    PORTICO — plataforma open source de análisis y diseño estructural 3D.
-  </footer>
-  </div><!-- /.landing-card -->
-
-<script>
-/* Portada: entrar con clic, Enter o Escape; bloquea atajos del app mientras está visible */
-(function () {
-  const landing = document.getElementById('landing');
-  if (!landing) return;
-  function enter() {
-    landing.classList.add('exit');
-    document.removeEventListener('keydown', onKey, true);
-    if (typeof stopIdle === 'function') stopIdle();   // detiene el auto-cierre (#83)
-    setTimeout(function () { landing.remove(); }, 700);
-  }
-  function onKey(e) {
-    // Si el manual (ayuda) está abierto sobre la portada, que él maneje las teclas
-    const help = document.getElementById('help-overlay');
-    if (help && !help.classList.contains('hidden')) return;
-    e.stopPropagation();
-    if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); enter(); }
-  }
-  document.getElementById('btn-enter').addEventListener('click', enter);
-  document.addEventListener('keydown', onKey, true);
-
-  // ── Auto-cierre por inactividad (#83) ──
-  // Si nadie interactúa con la portada en ~8 s, se entra solo al laboratorio
-  // (modelo nuevo vacío) para no bloquear el arranque. Cualquier interacción
-  // reinicia el contador; si el manual está abierto encima, se pospone.
-  var idleEvents = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'];
-  var idleT = null;
-  function stopIdle() {
-    clearTimeout(idleT);
-    idleEvents.forEach(function (ev) { document.removeEventListener(ev, resetIdle, true); });
-  }
-  function idleEnter() {
-    var help = document.getElementById('help-overlay');
-    if (help && !help.classList.contains('hidden')) { resetIdle(); return; }   // leyendo el manual
-    enter();
-  }
-  function resetIdle() {
-    if (landing.classList.contains('exit')) return;   // ya saliendo
-    clearTimeout(idleT);
-    idleT = setTimeout(idleEnter, 8000);
-  }
-  idleEvents.forEach(function (ev) { document.addEventListener(ev, resetIdle, { passive: true, capture: true }); });
-  resetIdle();
-
-  // ── "Generar modelo con el asistente": entra al laboratorio y abre el diálogo
-  //    "Asistente — generar modelo desde ficha". ──
-  // Si la app ya terminó de inicializar (_ready), abrimos el diálogo nosotros; si
-  // aún está inicializando (p.ej. mostrando "¿recuperar sesión?"), dejamos el flag
-  // y la app abre el diálogo al terminar (evita chocar con el modal de arranque).
-  function abrirAsistente() {
-    window.__porticoGoAssistant = true;
-    enter();   // oculta la portada
-    const go = () => {
-      const app = window.app;
-      if (app && app._ready) {
-        if (window.__porticoGoAssistant && typeof app.assistantDialog === 'function') {
-          window.__porticoGoAssistant = false;
-          app.assistantDialog();
-        }
-      } else {
-        setTimeout(go, 120);   // init en curso → la app lo abrirá al terminar
-      }
-    };
-    go();
-  }
-  document.getElementById('btn-asistente')?.addEventListener('click', abrirAsistente);
-
-  // ── Botón "Manual de uso" — abre la Ayuda sin entrar al laboratorio ──
-  document.getElementById('btn-manual')?.addEventListener('click', () => {
-    if (window.app && typeof window.app.openHelp === 'function') {
-      window.app.openHelp('guia');
-    }
-  });
-
-  // ── "Install app" button (PWA) ──
-  const installBtn = document.getElementById('btn-install');
-  const hint = document.getElementById('install-hint');
-  const standalone = window.matchMedia('(display-mode: standalone)').matches ||
-                     window.navigator.standalone === true;
-
-  if (standalone) {
-    // Already installed and opened as an app → don't show the button
-    installBtn.hidden = true;
-  } else {
-    installBtn.classList.toggle('ready', !!window.__pwaInstall);
-    window.addEventListener('pwa-installable', () => installBtn.classList.add('ready'));
-    window.addEventListener('pwa-installed', () => {
-      installBtn.hidden = true;
-      hint.hidden = false;
-      hint.textContent = '✓ App installed. Find it in your applications menu.';
-    });
-
-    installBtn.addEventListener('click', async () => {
-      const dp = window.__pwaInstall;
-      if (dp) {
-        dp.prompt();
-        const choice = await dp.userChoice;
-        window.__pwaInstall = null;
-        if (choice && choice.outcome === 'accepted') {
-          installBtn.hidden = true;
-        }
-      } else {
-        // No native prompt (already installed, Firefox or Safari): show instructions
-        hint.hidden = false;
-        hint.innerHTML = 'To install: use the <b>⊕ / install</b> icon in the address ' +
-          'bar, or the <b>⋮ → Install PORTICO</b> menu. On iPhone/iPad: ' +
-          '<b>Share → Add to Home Screen</b>.';
-      }
-    });
-  }
-})();
-</script>
 
 <!-- Aviso de rotación: banner inferior NO bloqueante. En vertical sugiere girar
      a horizontal, pero la app sigue siendo usable; se puede cerrar. -->
@@ -1215,6 +1061,20 @@ if ('serviceWorker' in navigator && !navigator.webdriver) {
   document.addEventListener('mousedown', function() {
     tip.classList.remove('visible');
   });
+})();
+</script>
+<script>
+/* Reproduce la animación del banner (deformada sísmica) cada vez que se abre «Acerca de». */
+(function () {
+  const about = document.getElementById('hsec-acerca');
+  if (!about) return;
+  const replay = () => {
+    const el = about.querySelector('.frame-deformed');
+    if (!el) return;
+    el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+  };
+  new MutationObserver(() => { if (about.classList.contains('active')) replay(); })
+    .observe(about, { attributes: true, attributeFilter: ['class'] });
 })();
 </script>
 </body>
