@@ -116,9 +116,13 @@ class App {
       if (this.viewport._inResultsMode) this.exitResultsView();
       else if (this._results) { this._refreshResultView(true); this._updateViewToggleBtn(); }
     });
+    // Panel «Resultados» → botón gemelo del toggle: muestra el resultado activo
+    // (deformada por defecto) sobre el modelo 3D, o vuelve a la vista del modelo.
+    document.getElementById('btn-results-onscreen')?.addEventListener('click', () => this.toggleResultsOnScreen());
     // Permanent results indicator (status bar) → opens the hub
     document.getElementById('sb-results')?.addEventListener('click', () => this.openAnalysisHub());
     this._updateResultsIndicator();
+    this._updateViewToggleBtn();   // estado inicial del botón del panel (deshabilitado sin resultados)
 
     // Results type/scale changes.
     // The scale control is a RELATIVE FACTOR (1 = normalized automatic fit). On
@@ -2264,21 +2268,51 @@ class App {
     this.toast('Vista del modelo (los resultados se conservan — usa «Ver resultados» para volver)', 'ok');
   }
 
+  // Panel «Resultados» twin of the toolbar view toggle (#30): shows the active result
+  // (deformed by default) on the 3D model, or returns to the model view. Same data,
+  // no recompute.
+  toggleResultsOnScreen() {
+    if (this.viewport._inResultsMode) { this.exitResultsView(); return; }
+    if (!this._results) {
+      this.toast('Aún no hay resultados — ejecuta el Análisis (F5) primero', 'warn'); return;
+    }
+    this._refreshResultView(true);
+    this._updateViewToggleBtn();
+  }
+
   // Toolbar button as a view TOGGLE (#88): «Model view» (cube) when results are shown,
   // «View results» (eye) when there are results but the model is shown, and hidden if
-  // there is nothing to show.
+  // there is nothing to show. Keeps the panel-side twin (#30) in sync.
   _updateViewToggleBtn() {
-    const btn = document.getElementById('btn-clear-results'); if (!btn) return;
     const inRes  = !!this.viewport._inResultsMode;
     const hasRes = !!this._results;
-    if (!inRes && !hasRes) { btn.style.display = 'none'; return; }
-    btn.style.display = '';
-    if (inRes) {
-      btn.title = i18n.t('Volver a la vista normal del modelo (sale de deformada/diagramas/contornos CONSERVANDO los resultados). Para descartarlos: menú Análisis → Limpiar Resultados.');
-      btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 L21 7.5 V16.5 L12 21 L3 16.5 V7.5 Z"/><path d="M3 7.5 L12 12 L21 7.5 M12 12 V21"/></svg><span>${i18n.t('Vista modelo')}</span>`;
-    } else {
-      btn.title = i18n.t('Volver a ver los resultados calculados (deformada / diagramas) sin recalcular.');
-      btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12 C5 6, 19 6, 22 12 C19 18, 5 18, 2 12 Z"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg><span>${i18n.t('Ver resultados')}</span>`;
+    const btn = document.getElementById('btn-clear-results');
+    if (btn) {
+      if (!inRes && !hasRes) { btn.style.display = 'none'; }
+      else {
+        btn.style.display = '';
+        if (inRes) {
+          btn.title = i18n.t('Volver a la vista normal del modelo (sale de deformada/diagramas/contornos CONSERVANDO los resultados). Para descartarlos: menú Análisis → Limpiar Resultados.');
+          btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 L21 7.5 V16.5 L12 21 L3 16.5 V7.5 Z"/><path d="M3 7.5 L12 12 L21 7.5 M12 12 V21"/></svg><span>${i18n.t('Vista modelo')}</span>`;
+        } else {
+          btn.title = i18n.t('Volver a ver los resultados calculados (deformada / diagramas) sin recalcular.');
+          btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12 C5 6, 19 6, 22 12 C19 18, 5 18, 2 12 Z"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg><span>${i18n.t('Ver resultados')}</span>`;
+        }
+      }
+    }
+    // Panel-side twin (#30): always visible in the Results panel; disabled without data.
+    const pbtn = document.getElementById('btn-results-onscreen');
+    if (pbtn) {
+      pbtn.disabled = !inRes && !hasRes;
+      pbtn.style.opacity = pbtn.disabled ? '0.5' : '';
+      pbtn.style.cursor = pbtn.disabled ? 'not-allowed' : 'pointer';
+      if (inRes) {
+        pbtn.title = i18n.t('Volver a la vista del modelo (conserva los resultados).');
+        pbtn.textContent = '🧊 Volver al modelo';
+      } else {
+        pbtn.title = i18n.t('Muestra el resultado seleccionado (deformada / diagramas / contornos) sobre el modelo 3D.');
+        pbtn.textContent = '👁 Ver en el modelo';
+      }
     }
   }
 
