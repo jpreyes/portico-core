@@ -13,9 +13,8 @@ desktop.ini
 .idea/
 .claude/
 *.swp
-#    Instrucciones del agente de IA (guía de desarrollo local): NO se publica.
-#    La arquitectura y convenciones públicas están en docs/EXTENDING.md y al
-#    inicio de cada módulo.
+#    Guía de desarrollo local (notas internas): NO se publica. La arquitectura y
+#    convenciones públicas están en docs/EXTENDING.md y al inicio de cada módulo.
 CLAUDE.md
 
 # ── Logs ──────────────────────────────────────────────────────────────

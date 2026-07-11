@@ -1,5 +1,5 @@
 // Diagram recovery (postprocess.js) — analytical contrast of the N/V/M integration
-// that CLAUDE.md calls "the source of truth for the diagrams". diagramFromForces and
+// that is the source of truth for the diagrams. diagramFromForces and
 // elemAtXiFromForces are pure equilibrium integrators; they drive every diagram the
 // UI draws yet had no direct analytical test. Plus one end-to-end pass through the
 // full StaticSolver chain.
