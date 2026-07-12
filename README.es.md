@@ -6,8 +6,9 @@
 ![Sin build](https://img.shields.io/badge/build-no%20requiere-success)
 ![Stack](https://img.shields.io/badge/stack-Vanilla%20JS%20%C2%B7%20Three.js-informational)
 [![CI](https://github.com/jpreyes/portico-core/actions/workflows/ci.yml/badge.svg)](https://github.com/jpreyes/portico-core/actions/workflows/ci.yml)
+[![Pruébalo en vivo](https://img.shields.io/badge/demo-en%20vivo-brightgreen)](https://jpreyes.github.io/portico-core/)
 
-### ▶ Demo en vivo: **[portico.jpreyes-c.workers.dev](https://portico.jpreyes-c.workers.dev)**
+### 🚀 Pruébalo en vivo: **[jpreyes.github.io/portico-core](https://jpreyes.github.io/portico-core/)** &nbsp;·&nbsp; espejo: [portico.jpreyes-c.workers.dev](https://portico.jpreyes-c.workers.dev)
 
 ![PORTICO — visor y análisis 3D en el navegador](docs/img/portico-hero.gif)
 
