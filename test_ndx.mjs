@@ -1,4 +1,4 @@
-// test_ndx.mjs — NODEX (.ndx) adapter: open→Pro handoff (nodex authoring grammar).
+// test_ndx.mjs — NODEX (.ndx) adapter round-trip (nodex authoring grammar).
 //
 //  A) The adapter is registered and reachable through the same io API.
 //  B) The emitted deck uses the ACTUAL nodex grammar tokens (units-suffixed material/

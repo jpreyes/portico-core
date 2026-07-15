@@ -22,9 +22,8 @@ Goal: publish a clean, professional and reusable base.
 - ✅ Professional mode / token out of core (lives in the Pro layer): core is functional without a token.
 - ✅ AGPL-3.0 license and open-core-oriented README.
 - ✅ Repository without binaries or copyrighted third-party material.
-- ✅ **Static wired through the `SolverRegistry`**: `App._solveStaticCases` queries the active backend
-  (hook in place; default `'js'` unchanged) → an external backend (Nodex) solves with transparent
-  fallback to JS. Post-processing (diagrams/deformed shape) reusable by backends.
+- ✅ **Reusable post-processing** (`js/solver/postprocess.js`): the diagram / deflected-shape math
+  lives once, so anything holding end forces + loads gets identical diagrams.
 
 ## Next milestones
 

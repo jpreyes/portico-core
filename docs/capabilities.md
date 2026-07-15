@@ -82,9 +82,8 @@ Status: ✅ complete · 🟡 partial · ⛔ out of core scope.
 - **Area geometric nonlinearity** (large-displacement shells) and **area prestress**.
 - **Pore pressure / hydromechanical coupling.**
 
-> The high-performance **C++/WASM solver Nodex** and the advanced Pro design do not live in the
-> open core: they plug into the private product **portico** through the `SolverBackend`
-> interface (see [EXTENDING](EXTENDING.md)).
+> The list above is what the JavaScript solver does **not** cover today. portico-core ships a
+> single engine, in JS, running in the browser — there is no native or WASM solver behind it.
 
 ---
 

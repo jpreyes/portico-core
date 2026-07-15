@@ -22,9 +22,8 @@ Objetivo: publicar una base limpia, profesional y reutilizable.
 - ✅ Modo profesional / token fuera de core (vive en la capa Pro): core es funcional sin token.
 - ✅ Licencia AGPL-3.0 y README orientado a open-core.
 - ✅ Repositorio sin binarios ni material de terceros con copyright.
-- ✅ **Estático cableado por el `SolverRegistry`**: `App._solveStaticCases` consulta el backend
-  activo (hook guardado; por defecto `'js'` sin cambios) → un backend externo (Nodex) resuelve
-  con fallback transparente a JS. Post-proceso (diagramas/deformada) reutilizable por backends.
+- ✅ **Post-proceso reutilizable** (`js/solver/postprocess.js`): la matemática de diagramas y
+  deformada vive una sola vez; con fuerzas de extremo + cargas se obtienen diagramas idénticos.
 
 ## Próximos hitos
 
