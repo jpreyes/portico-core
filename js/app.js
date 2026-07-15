@@ -15,7 +15,7 @@ import { areaStress, areaBendingStress, vonMises, areaLocalFrame } from './solve
 import { ModalSolver, guyanReduce }        from './solver/modal_solver.js?v=2';
 import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './solver/assembler.js?v=2';
 import { assembleSparseGlobal, extractFreeCSR } from './solver/sparse.js?v=2';
-import { corotBeamForceTangent } from './solver/corotbeam.js?v=2';
+import { corotBeamForceTangent, solveCorotBeam } from './solver/corotbeam.js?v=2';
 import { insertInfill } from './model/macromodel.js?v=2';
 import { listMacros, getMacro, insertMacro } from './model/macro_registry.js?v=2';
 import { assembleKg } from './solver/geometric.js?v=2';
@@ -23,7 +23,7 @@ import { makeFactor } from './solver/linsolve.js?v=2';
 import { ModalResults }                    from './solver/modal_results.js?v=2';
 import { parseAccelerogram, accStats, scaleToPGA, DEMO_PRESETS, G as GACC } from './solver/accelerograms.js?v=2';
 import { tendonEquivalentLoads, applyTendon, tendonEcc } from './solver/tendon.js?v=2';
-import { buildLane, influenceLine, responseReaction, responseSection } from './solver/moving_load.js?v=2';
+import { buildLane, influenceLine, responseReaction, responseSection, movingLoadEnvelope } from './solver/moving_load.js?v=2';
 import { newmarkNonlinear, shearBuilding, rayleighDamping } from './solver/nl_timehistory.js?v=2';
 import { checkDrift } from './design/serviceability.js?v=2';
 import { selectProfile, steelCandidates, predimensionar, candidatesForFamily } from './design/autodesign.js?v=2';
@@ -40,7 +40,12 @@ import { smoothAreasInModel } from './model/mesh_quality.js?v=2';
 import { listFormats, exportModel, importModel } from './io/index.js?v=2';
 import { extensions } from './ext/extensions.js?v=2';
 import { loadBranding, getBranding } from './branding.js?v=2';
-import { solverRegistry } from './solver/backend.js?v=2';
+import { SpectrumSolver }    from './solver/spectrum_solver.js?v=2';
+import { modalTimeHistory }  from './solver/timehistory.js?v=2';
+import { StagedSolver }      from './solver/staged.js?v=2';
+import { solveNonlinear, solveNonlinearDC } from './solver/nl_lite.js?v=2';
+import { solveBuckling }     from './solver/buckling.js?v=2';
+import { formFind }          from './solver/formfind.js?v=2';
 import { i18n } from './i18n/i18n.js?v=2';
 
 // Load categories (#106) — for automatic combinations and design.
@@ -1921,33 +1926,6 @@ class App {
   // once and factorizing once (banded Cholesky with RCM). If the worker fails or the
   // matrix is not SPD, it uses the dense fallback solver.
   async _solveStaticCases(staticLcs) {
-    // ── Backends hook (multi-solver) ────────────────────────────────────────────
-    // By default the active backend is 'js' → this block is skipped and the JS
-    // pipeline (sparse/dense worker) below is used, UNCHANGED. If an upper layer
-    // registered and activated another backend in the solverRegistry (e.g. Nodex
-    // C++/WASM), it solves through it; if it doesn't cover some case or fails, it
-    // falls back to the full JS pipeline (fast path intact). Each backend returns an
-    // object compatible with `Results`.
-    const backend = solverRegistry.active;
-    if (backend && backend.name !== 'js') {
-      try {
-        const bmap = new Map();
-        let ok = true;
-        for (const lc of staticLcs) {
-          const opts = { selfWeight: !!lc.selfWeight };
-          const can = backend.canSolve(this.model, lc.id, opts);
-          if (!can || !can.ok) { ok = false; break; }
-          const res = await backend.solveStatic(this.model, lc.id, opts);
-          if (!res) { ok = false; break; }
-          bmap.set(lc.id, res);
-        }
-        if (ok) return bmap;
-        console.warn(`Backend "${backend.name}" no cubre todos los casos; se usa el solver JS.`);
-      } catch (e) {
-        console.warn(`Backend "${backend.name}" falló (${e?.message || e}); se usa el solver JS.`);
-      }
-    }
-
     const model = this.model;
     const nodeIndex = buildNodeIndex(model);
     const nDOF = nodeIndex.size * 6;
@@ -2890,7 +2868,7 @@ class App {
 
     return new Promise(resolve => setTimeout(async () => {
       try {
-        this._results = await solverRegistry.solveSpectrum(this._modalResults, params);
+        this._results = new SpectrumSolver().solve(this._modalResults, params);
 
         // Store by direction so combos can reference it (legacy [ESP])
         this._spectrumResults.set('esp' + params.direction, { result: this._results, params });
@@ -3055,7 +3033,7 @@ class App {
       let w;
       try { w = new Worker(new URL('./solver/timehistory_worker.js?v=2', import.meta.url), { type: 'module' }); }
       catch (e) {
-        try { solverRegistry.solveTimeHistoryModal({ modes: modes.map(m => ({ ...m, phi: new Float64Array(0) })), ag, dt, zeta }).then(r => resolve({ q: r.q, peakModal: r.peakModal }), reject); }
+        try { const r = modalTimeHistory({ modes: modes.map(m => ({ ...m, phi: new Float64Array(0) })), ag, dt, zeta }); resolve({ q: r.q, peakModal: r.peakModal }); }
         catch (err) { reject(err); }
         return;
       }
@@ -3511,7 +3489,7 @@ class App {
     this._showProgress('Etapas constructivas…', 'Análisis lineal incremental por fases (acumulando estado)');
     await new Promise(r => setTimeout(r, 20));
     try {
-      const res = await solverRegistry.solveStaged(model, stages);
+      const res = new StagedSolver().solve(model, stages);
       this._stagedResult = { res, stages, info: stages.map((s, i) => `${i + 1}. ${s.name}`).join(' · ') };
       const last = res.stages[res.stages.length - 1];
       this.toast(`Etapas OK · ${res.stages.length} fases · δmax acumulado ${res.getMaxDisp().toExponential(2)} m · activos finales ${last ? last.active.size : 0}`, 'ok');
@@ -3724,7 +3702,7 @@ class App {
         const il = influenceLine(model, lane, resp, { nPos: cfg.nPos, P: 1 });
         result = { mode: 'il', lane, label: cfg.label, unit: cfg.unit, xs: il.s, ys: il.value, max: il.max, min: il.min, sMax: il.sMax, sMin: il.sMin };
       } else {
-        const env = await solverRegistry.solveMovingLoads(model, lane, cfg.train, { [cfg.label]: resp }, { nPos: cfg.nPos });
+        const env = movingLoadEnvelope(model, lane, cfg.train, { [cfg.label]: resp }, { nPos: cfg.nPos });
         const e = env.env[cfg.label];
         result = { mode: 'env', lane, label: cfg.label, unit: cfg.unit, xs: env.positions, ys: env.series[cfg.label], max: e.max, min: e.min, sMax: e.atMax, sMin: e.atMin, trainLen: env.trainLen };
       }
@@ -4583,7 +4561,7 @@ class App {
       try {
         worker = new Worker(new URL('./solver/nl_worker.js?v=2', import.meta.url), { type: 'module' });
       } catch (e) {
-        try { (kind === 'dc' ? solverRegistry.solveNonlinearDC(opts) : solverRegistry.solveNonlinear(opts)).then(resolve, reject); return; }
+        try { resolve(kind === 'dc' ? solveNonlinearDC(opts) : solveNonlinear(opts)); return; }
         catch (err) { reject(err); }
         return;
       }
@@ -4760,7 +4738,7 @@ class App {
     this._showProgress('Corotacional…', 'Gran rotación: Newton-Raphson por incrementos de carga');
     await new Promise(r => setTimeout(r, 20));
     let res;
-    try { res = await solverRegistry.solveCorotBeam({ coords, elems, free, Fref, nSteps, maxIter: 80, tol: 1e-9 }); }
+    try { res = solveCorotBeam({ coords, elems, free, Fref, nSteps, maxIter: 80, tol: 1e-9 }); }
     catch (e) { this.toast(`${i18n.t('Error corotacional:')} ${i18n.t(e.message)}`, 'error'); console.error(e); return; }
     finally { this._hideProgress(); }
 
@@ -4942,7 +4920,7 @@ class App {
       if (kgMax < 1e-12) throw new Error('La carga de referencia no genera rigidez geométrica (sin efecto de pandeo).');
 
       // Subspace iteration in the Worker (doesn't block the UI)
-      const buckResult = await solverRegistry.solveBuckling({ Kff_flat, Kgff_flat, nF, nModes, dense });
+      const buckResult = solveBuckling({ Kff_flat, Kgff_flat, nF, nModes, dense });
       if (buckResult.error) throw new Error(buckResult.error);
       const rawModes = buckResult.modes;
 
@@ -5215,7 +5193,7 @@ class App {
       }
     }
 
-    const res = await solverRegistry.solveFormFind({ coords, fixed, branches, q, loads: hasLoad ? loads : null, axes });
+    const res = formFind({ coords, fixed, branches, q, loads: hasLoad ? loads : null, axes });
     if (!res.ok) { this.toast(i18n.t('Form-finding:') + ' ' + res.note, 'error'); return; }
 
     // Reposition the free nodes to the equilibrium geometry (undo with Ctrl+Z).
@@ -5896,7 +5874,7 @@ class App {
     if (!P.nCasos) { this.toast('Defina un caso de carga (patrón de referencia).', 'warn'); return; }
 
     // Linear response (1 step, 1 iteration from u=0) → control DOF + imperfection shape
-    const lin = await solverRegistry.solveNonlinear({ X: P.X, elems: P.elems, free: P.free, Fref: P.Fref, nSteps: 1, maxIter: 1, tol: 1e-30 });
+    const lin = solveNonlinear({ X: P.X, elems: P.elems, free: P.free, Fref: P.Fref, nSteps: 1, maxIter: 1, tol: 1e-30 });
     const uLin = lin.steps[0]?.u || new Float64Array(P.X.length);
     let cDOF = P.free[0], best = -1;
     for (const d of P.free) { const v = Math.abs(uLin[d]); if (v > best) { best = v; cDOF = d; } }
