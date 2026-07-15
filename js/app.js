@@ -1839,13 +1839,12 @@ class App {
     }, 20));
   }
 
-  // ── Unified stability surfacing (backend-agnostic) ───────────────────────────
+  // ── Unified stability surfacing ──────────────────────────────────────────────
   // After a static run, assess every solved case for excessive drift / displacement
-  // (assessStabilitySanity, works for JS Results AND Nodex WasmResults) plus the
-  // solver's own `warnings`, and show a PROMINENT banner with the SAME text whatever
-  // the active backend. This is what catches a near-mechanism that "solves" with
-  // garbage (e.g. a model rescued by a rigid diaphragm) — invisible to the matrix
-  // solve alone. See js/solver/stability.js + NODEX-CONTRACT.md.
+  // (assessStabilitySanity) plus the solver's own `warnings`, and show a PROMINENT
+  // banner. This is what catches a near-mechanism that "solves" with garbage (e.g. a
+  // model rescued by a rigid diaphragm) — invisible to the matrix solve alone.
+  // See js/solver/stability.js.
   _surfaceStabilityWarnings() {
     if (!this._resultsByCase) return;
     const lines = [];
@@ -1868,7 +1867,7 @@ class App {
     this.toast('⚠ ' + i18n.t('Aviso de estabilidad:') + ' ' + uniq.slice(0, 3).join('  ·  '), 'warn', 9000);
   }
 
-  // Localized message for a structured stability warning (shared codes with Nodex).
+  // Localized message for a structured stability warning.
   _stabilityMsg(w) {
     const p = w.params || {};
     const tail = i18n.t('Posible inestabilidad o modelo mal restringido.');

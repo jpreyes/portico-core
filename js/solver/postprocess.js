@@ -34,11 +34,10 @@ function _toLocalLoad(load, ex, ey, ez) {
 // ──────────────────────────────────────────────────────────────────────────────
 // REUSABLE POST-PROCESSING (solver-agnostic) — pure functions.
 //
-// The diagram/deflected-shape math lives ONCE here. The `Results` class (JS solver)
-// delegates to it; any OTHER solverRegistry backend (Nodex C++/WASM, native
-// solvers…) can return just end forces + loads and obtain IDENTICAL diagrams by
+// The diagram/deflected-shape math lives ONCE here. The `Results` class delegates
+// to it, so anything holding end forces + loads obtains IDENTICAL diagrams by
 // calling these functions, without reimplementing anything.
-// See docs/EXTENDING.md (§ "Reusable post-processing for backends").
+// See docs/EXTENDING.md (§ "Reusable post-processing").
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -257,9 +256,9 @@ export class Results {
     this.lcId       = lcId;
     this.selfWeight = selfWeight;
 
-    // Structured stability warnings (shared vocabulary with Nodex `WasmResults`; see
-    // js/solver/stability.js + NODEX-CONTRACT.md). The solver pushes near-singular /
-    // ill-conditioning here; the app post adds drift/displacement sanity. Default [].
+    // Structured stability warnings (vocabulary in js/solver/stability.js). The solver
+    // pushes near-singular / ill-conditioning here; the app post adds drift/displacement
+    // sanity. Default [].
     this.warnings   = [];
 
     this._elemForces = new Map();
