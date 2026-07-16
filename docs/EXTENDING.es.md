@@ -42,7 +42,7 @@ muestre el mismo veredicto en cualquier análisis — ver [`js/solver/stability.
 
 ## Costura 1 — UI y memoria (`js/ext/extensions.js`)
 
-Un único singleton `extensions` con cuatro puntos de registro.
+Un único singleton `extensions` con tres puntos de registro.
 
 ### 1.1 Secciones del diálogo ⚙ Configuración
 ```js
@@ -73,39 +73,7 @@ extensions.setFlag('memoriaBranding', true);   // habilita logo/pie/limitaciones
 core lee `memoriaBranding` (vía `App._brandingPro`) en el generador de memoria; en
 core es `false` → se usa la **plantilla estándar** (pie y limitaciones por defecto).
 
-### 1.4 Análisis adicionales en el Hub (`registerAnalysis`)
-
-Permite que una capa superior añada entradas en el **Hub de análisis** (Centro de
-análisis). Core registra **cero** análisis adicionales; todo lo que llega aquí viene
-de una capa superior.
-
-```js
-import { extensions } from './js/ext/extensions.js?v=2';
-
-extensions.registerAnalysis({
-  id:    'fiber-section',
-  label: 'Análisis de sección fiber',
-  menu:  'run-nonlinear',     // sección del Hub donde aparece
-  group: 'Avanzado',          // etiqueta del grupo visual (opcional)
-  handler: async (ctx) => {
-    // ctx = { app, openModal, setStatus, refreshViewport }
-    const resultado = await miSolverFiber(ctx.app.model, opts);
-    ctx.setStatus('Análisis fiber OK');
-    ctx.refreshViewport();
-  },
-});
-```
-
-**ctx** expuesto al handler:
-
-| Propiedad | Tipo | Descripción |
-|---|---|---|
-| `app` | `App` | instancia central (acceso a `model`, `toast`, etc.) |
-| `openModal(title, html)` | función | abre el modal estándar con HTML personalizado |
-| `setStatus(text)` | función | actualiza la barra de estado |
-| `refreshViewport()` | función | redibuja la vista 3D |
-
-### 1.5 White-label por configuración (`branding.default.json` + `js/branding.js`)
+### 1.4 White-label por configuración (`branding.default.json` + `js/branding.js`)
 
 Para cambiar nombre, lema, descripción y logo **sin tocar código ni forkear**, edita
 `branding.default.json`. `js/branding.js` lo lee al iniciar (antes de arrancar la `App`,
@@ -168,8 +136,7 @@ Estas piezas no son parte de core y se quitaron en v0.1:
 - Memoria de empresa editable: **descripción, pie, limitaciones, logo, institución**
   → se re-añaden vía `registerConfigSection` + `setFlag('memoriaBranding')`.
 - Análisis que el solver JS NO implementa (alabeo 7-GDL, TH no lineal directa,
-  fiber, LTB con warping, etc.) → sencillamente **no están disponibles**. Una capa
-  superior que implemente alguno lo registra vía `registerAnalysis`.
+  fiber, LTB con warping, etc.) → sencillamente **no están disponibles**.
 - **Backend del asistente IA** (el Cloudflare Worker con el SYSTEM prompt, la
   cascada de modelos y la API key, más el corpus RAG curado y el flujo n8n) →
   vive fuera del repo público. En core queda **solo** el generador determinista

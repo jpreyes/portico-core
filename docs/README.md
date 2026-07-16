@@ -28,7 +28,7 @@ being translated to English; the UI is bilingual (ES/EN) and code comments are i
 
 ## For developers
 
-- [API and `SolverBackend`](api.md) — the seam for pluggable analysis engines.
+- [API](api.md) — the headless `Portico` facade: pre-processing, solvers, post-processing, design.
 - [Extending (Pro / white-label layers)](EXTENDING.md)
 - [Roadmap](ROADMAP.md)
 

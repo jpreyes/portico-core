@@ -51,6 +51,14 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
   a dónde caer — y las marcas `res._backend` / `res._fellBack` que producía no las leía
   nadie. Ahora `app.js` llama directo a los módulos del solver, como ya hacía
   `js/api/portico.js`. Ningún análisis cambió de comportamiento.
+- **`extensions.registerAnalysis`** (`js/ext/extensions.js`): el hook aceptaba specs y las
+  guardaba, pero nadie leía nunca la colección — un análisis registrado no podía llegar al
+  Hub y su handler jamás se invocaba. Era una costura para análisis que el JS de core no
+  corre, cosa que la regla de honestidad open source de `CONTRIBUTING` ya prohíbe, más
+  media página en `EXTENDING` documentando un `ctx` que nunca se construía. Sus costuras
+  hermanas (`registerConfigSection`, `registerBadge`, `setFlag`) sí se consumen y no
+  cambian. Sin relación con `Portico.registerAnalysis` / `Portico.run()` de
+  `js/api/portico.js`, que funciona y se mantiene.
 
 ### Corregido
 

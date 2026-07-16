@@ -40,7 +40,7 @@ same stability verdict for every analysis — see [`js/solver/stability.js`](../
 
 ## Seam 1 — UI and report (`js/ext/extensions.js`)
 
-A single `extensions` singleton with four registration points.
+A single `extensions` singleton with three registration points.
 
 ### 1.1 Sections of the ⚙ Settings dialog
 ```js
@@ -71,38 +71,7 @@ extensions.setFlag('memoriaBranding', true);   // enables company logo/footer/li
 core reads `memoriaBranding` (via `App._brandingPro`) in the report generator; in core it is
 `false` → the **standard template** is used (default footer and limitations).
 
-### 1.4 Additional analyses in the Hub (`registerAnalysis`)
-
-Lets an overlay add entries in the **analysis Hub** (Analysis Center). core registers **zero**
-additional analyses; everything that arrives here comes from an upper layer.
-
-```js
-import { extensions } from './js/ext/extensions.js?v=2';
-
-extensions.registerAnalysis({
-  id:    'fiber-section',
-  label: 'Fiber section analysis',
-  menu:  'run-nonlinear',     // Hub section where it appears
-  group: 'Advanced',          // visual group label (optional)
-  handler: async (ctx) => {
-    // ctx = { app, openModal, setStatus, refreshViewport }
-    const result = await myFiberSolver(ctx.app.model, opts);
-    ctx.setStatus('Fiber analysis OK');
-    ctx.refreshViewport();
-  },
-});
-```
-
-**ctx** exposed to the handler:
-
-| Property | Type | Description |
-|---|---|---|
-| `app` | `App` | central instance (access to `model`, `toast`, etc.) |
-| `openModal(title, html)` | function | opens the standard modal with custom HTML |
-| `setStatus(text)` | function | updates the status bar |
-| `refreshViewport()` | function | redraws the 3D view |
-
-### 1.5 White-label by configuration (`branding.default.json` + `js/branding.js`)
+### 1.4 White-label by configuration (`branding.default.json` + `js/branding.js`)
 
 To change the name, tagline, description and logo **without touching code or forking**, edit
 `branding.default.json`. `js/branding.js` reads it at startup (before starting the `App`, so the
@@ -164,8 +133,7 @@ These pieces are not part of core and were removed in v0.1:
 - Editable company report: **description, footer, limitations, logo, institution** → re-added via
   `registerConfigSection` + `setFlag('memoriaBranding')`.
 - Analyses the JS solver does NOT implement (7-DOF warping, direct nonlinear TH, fiber, LTB with
-  warping, etc.) → they are simply **not available**. An overlay that implements one registers it
-  through `registerAnalysis`.
+  warping, etc.) → they are simply **not available**.
 - **AI assistant backend** (the Cloudflare Worker with the SYSTEM prompt, the model cascade and the
   API key, plus the curated RAG corpus and the n8n flow) → it lives outside the public repo. In
   core there remains **only** the deterministic generator (`assistant/generator.js`: JSON spec →

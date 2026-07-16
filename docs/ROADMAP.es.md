@@ -16,7 +16,6 @@ Objetivo: publicar una base limpia, profesional y reutilizable.
 - ✅ De-branding total: sin marca institucional ni logos de terceros.
 - ✅ Branding como configuración (`branding.default.json`) para white-label.
 - ✅ Nomenclatura de hormigón **grado G** (NCh170:2016), con compatibilidad hacia atrás del legado «H».
-- ✅ Interfaz `SolverBackend` (`js/solver/backend.js`): costura para motores enchufables (solo motor JS en open).
 - ✅ Costura de extensión de UI/memoria (`js/ext/extensions.js`): secciones de configuración,
   insignias y flags que las capas superiores registran sin forkear `app.js`. Ver [`EXTENDING.md`](EXTENDING.md).
 - ✅ Modo profesional / token fuera de core (vive en la capa Pro): core es funcional sin token.
@@ -33,9 +32,9 @@ Objetivo: publicar una base limpia, profesional y reutilizable.
   (`title`/`aria-label`/`placeholder`) y auto-traduce los paneles que se re-renderizan.
 - ✅ **Loader de branding**: `js/branding.js` lee `branding.default.json` al iniciar (antes de la App)
   y rellena nombre/tagline/descripción/logo de la UI vía atributos `data-brand`. White-label sin forks.
-- ✅ **Registry para todos los análisis JS**: estático, modal, espectro, pandeo, P-Δ, no lineal,
-  pushover, time-history modal, etapas, cargas móviles, tendón y form-finding pasan por el
-  `SolverBackend` con *fallback* a JS. Hook `registerAnalysis` para análisis de capas superiores.
+- ✅ **Todos los análisis en JS**: estático, modal, espectro, pandeo, P-Δ, no lineal,
+  pushover, time-history modal, etapas, cargas móviles, tendón y form-finding, todos
+  resueltos en el navegador.
 - ✅ **Suite de verificación**: 18 casos documentados en `docs/verifications` contra solución
   analítica / referencias publicadas, con figuras generadas por `tools/` (sin depender de PDFs externos).
 - ✅ **Documentación de la API** (`docs/api.md`) y ejemplos mínimos de integración.
@@ -47,9 +46,9 @@ Objetivo: publicar una base limpia, profesional y reutilizable.
 
 ## Arquitectura
 
-Pre/post-procesador y solver JS conviven en este repo. El motor pesado (C++/WASM) **no**
-vive aquí: se enchufa a través de `SolverBackend` en los productos Pro. Detalles de
-arquitectura y convenciones de ingeniería en [`EXTENDING.md`](EXTENDING.md) y al inicio de cada módulo.
+Pre/post-procesador y solver conviven en este repo, en JavaScript, corriendo en el navegador.
+Detalles de arquitectura y convenciones de ingeniería en [`EXTENDING.md`](EXTENDING.md) y al
+inicio de cada módulo.
 
 ## Cómo contribuir
 

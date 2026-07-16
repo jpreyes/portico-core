@@ -51,6 +51,14 @@ and the project follows [Semantic Versioning](https://semver.org/).
   nothing to fall back to — and the `res._backend` / `res._fellBack` tags it produced
   were read by nothing. `app.js` now calls the solver modules directly, as
   `js/api/portico.js` already did. No analysis changed behaviour.
+- **`extensions.registerAnalysis`** (`js/ext/extensions.js`): the hook accepted specs and
+  stored them, but nothing ever read the collection — a registered analysis could never
+  reach the Hub and its handler was never invoked. It was a seam for analyses core's JS
+  cannot run, which `CONTRIBUTING`'s open-source-honesty rule already forbids, plus half a
+  page in `EXTENDING` documenting a `ctx` that was never built. Its sibling seams
+  (`registerConfigSection`, `registerBadge`, `setFlag`) are consumed and unaffected.
+  Unrelated to `Portico.registerAnalysis` / `Portico.run()` in `js/api/portico.js`, which
+  works and stays.
 
 ### Fixed
 
