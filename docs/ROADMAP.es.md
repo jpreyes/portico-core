@@ -36,7 +36,7 @@ Objetivo: publicar una base limpia, profesional y reutilizable.
   y rellena nombre/tagline/descripción/logo de la UI vía atributos `data-brand`. White-label sin forks.
 - ✅ **Registry para todos los análisis JS**: estático, modal, espectro, pandeo, P-Δ, no lineal,
   pushover, time-history modal, etapas, cargas móviles, tendón y form-finding pasan por el
-  `SolverBackend` con *fallback* a JS. Hook `registerAnalysis` para análisis de capas superiores.
+  `SolverBackend` con *fallback* a JS.
 - ✅ **Suite de verificación**: 18 casos documentados en `docs/verifications` contra solución
   analítica / referencias publicadas, con figuras generadas por `tools/` (sin depender de PDFs externos).
 - ✅ **Documentación de la API** (`docs/api.md`) y ejemplos mínimos de integración.

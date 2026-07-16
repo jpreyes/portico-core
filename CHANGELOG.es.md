@@ -47,6 +47,17 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
   dimensiones parecidas → **bloque 3D**, omitido con aviso. Antes estos archivos no importaban
   nada. Verificado con `test_ifc_brep.mjs`.
 
+### Eliminado
+
+- **`extensions.registerAnalysis`** (`js/ext/extensions.js`): el hook aceptaba specs y las
+  guardaba, pero nadie leía nunca la colección — un análisis registrado no podía llegar al
+  Hub y su handler jamás se invocaba. Era una costura para análisis que el JS de core no
+  corre, cosa que la regla de honestidad open source de `CONTRIBUTING` ya prohíbe, más
+  media página en `EXTENDING` §2.4 documentando un `ctx` que nunca se construía. Sus
+  costuras hermanas (`registerConfigSection`, `registerBadge`, `setFlag`) sí se consumen y
+  no cambian. Sin relación con `Portico.registerAnalysis` / `Portico.run()` de
+  `js/api/portico.js`, que funciona y se mantiene.
+
 ### Corregido
 
 - **Áreas de corte que escalan con A**: `Model.addSection` aplicaba un default fijo

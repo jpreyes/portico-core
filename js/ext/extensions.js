@@ -10,7 +10,6 @@
 //   • Extra sections of the ⚙ Settings dialog      (registerConfigSection)
 //   • Top-bar badges                                (registerBadge)
 //   • Opt-in capability flags                       (setFlag / flag)
-//   • Additional analyses in the Hub               (registerAnalysis)
 //
 // Sister seam: `js/solver/backend.js` (SolverRegistry) to plug in the engine
 // (Nodex C++/WASM) without touching core.
@@ -21,7 +20,6 @@ class Extensions {
     this._configSections = [];
     this._badges = [];
     this._flags = {};
-    this._analyses = [];
   }
 
   // ── Settings dialog (⚙) ────────────────────────────────────────────────────
@@ -48,27 +46,6 @@ class Extensions {
   // in the report. In core they are false → standard template.
   setFlag(name, value = true) { this._flags[name] = !!value; return this; }
   flag(name) { return !!this._flags[name]; }
-
-  // ── Additional analyses in the analysis Hub ───────────────────────────────────
-  // spec: {
-  //   id       string     unique identifier (e.g. 'nodex-nlth-direct')
-  //   label    string     Hub item text (e.g. 'Direct nonlinear TH')
-  //   menu     string     menu section where the quick access appears
-  //                       (e.g. 'run-nonlinear', 'run-dynamic', 'run-advanced')
-  //   group?   string     visual group label in the Hub (optional)
-  //   handler  function   async handler(ctx) — ctx = { app, openModal, setStatus,
-  //                         refreshViewport, solverRegistry }
-  // }
-  // core registers ZERO additional analyses. Only upper layers use this hook.
-  registerAnalysis(spec) {
-    if (!spec || !spec.id || typeof spec.handler !== 'function')
-      throw new Error('registerAnalysis: spec must have {id, handler}');
-    if (this._analyses.find(a => a.id === spec.id))
-      throw new Error(`registerAnalysis: an analysis with id '${spec.id}' already exists`);
-    this._analyses.push(spec);
-    return this;
-  }
-  get analyses() { return this._analyses.slice(); }
 }
 
 export const extensions = new Extensions();

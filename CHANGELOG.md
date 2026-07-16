@@ -45,6 +45,17 @@ and the project follows [Semantic Versioning](https://semver.org/).
   → **3D block**, skipped with a warning. Previously these files imported nothing. Verified
   with `test_ifc_brep.mjs`.
 
+### Removed
+
+- **`extensions.registerAnalysis`** (`js/ext/extensions.js`): the hook accepted specs and
+  stored them, but nothing ever read the collection — a registered analysis could never
+  reach the Hub and its handler was never invoked. It was a seam for analyses core's JS
+  cannot run, which `CONTRIBUTING`'s open-source-honesty rule already forbids, plus half a
+  page in `EXTENDING` §2.4 documenting a `ctx` that was never built. Its sibling seams
+  (`registerConfigSection`, `registerBadge`, `setFlag`) are consumed and unaffected.
+  Unrelated to `Portico.registerAnalysis` / `Portico.run()` in `js/api/portico.js`, which
+  works and stays.
+
 ### Fixed
 
 - **Section shear areas scale with A**: `Model.addSection` used to apply a fixed default

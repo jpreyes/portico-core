@@ -135,7 +135,7 @@ compartido** para que la UI muestre el mismo veredicto sea cual sea el backend �
 
 ## Costura 2 — UI y memoria (`js/ext/extensions.js`)
 
-Un único singleton `extensions` con cuatro puntos de registro.
+Un único singleton `extensions` con tres puntos de registro.
 
 ### 2.1 Secciones del diálogo ⚙ Configuración
 ```js
@@ -165,39 +165,6 @@ extensions.setFlag('memoriaBranding', true);   // habilita logo/pie/limitaciones
 ```
 core lee `memoriaBranding` (vía `App._brandingPro`) en el generador de memoria; en
 core es `false` → se usa la **plantilla estándar** (pie y limitaciones por defecto).
-
-### 2.4 Análisis adicionales en el Hub (`registerAnalysis`)
-
-Permite añadir entradas en el **Hub de análisis** (Centro de análisis) para
-capacidades que solo el backend Pro puede ejecutar. Core registra **cero** análisis
-adicionales; todo lo que llega aquí viene de una capa superior.
-
-```js
-import { extensions } from './js/ext/extensions.js?v=2';
-
-extensions.registerAnalysis({
-  id:    'nodex-nlth-direct',
-  label: 'TH no lineal directa (Nodex)',
-  menu:  'run-dynamic',       // sección del Hub donde aparece
-  group: 'Avanzado (Pro)',    // etiqueta del grupo visual (opcional)
-  handler: async (ctx) => {
-    // ctx = { app, openModal, setStatus, refreshViewport, solverRegistry }
-    const resultado = await ctx.solverRegistry.active.solveNlThDirect(ctx.app.model, opts);
-    ctx.setStatus('TH no lineal OK');
-    ctx.refreshViewport();
-  },
-});
-```
-
-**ctx** expuesto al handler:
-
-| Propiedad | Tipo | Descripción |
-|---|---|---|
-| `app` | `App` | instancia central (acceso a `model`, `toast`, etc.) |
-| `openModal(title, html)` | función | abre el modal estándar con HTML personalizado |
-| `setStatus(text)` | función | actualiza la barra de estado |
-| `refreshViewport()` | función | redibuja la vista 3D |
-| `solverRegistry` | `SolverRegistry` | backend activo; el handler puede llamar métodos propios del backend Pro |
 
 ### 2.4 White-label por configuración (`branding.default.json` + `js/branding.js`)
 
@@ -266,10 +233,10 @@ Estas piezas pertenecen a la capa Pro y se quitaron de core en v0.1:
 - Memoria de empresa editable: **descripción, pie, limitaciones, logo, institución**
   → se re-añaden vía `registerConfigSection` + `setFlag('memoriaBranding')`.
 - Motor de análisis alternativo y análisis exclusivos de Nodex
-  → vía `solverRegistry.register(new NodexBackend())` + `registerAnalysis(…)`.
+  → vía `solverRegistry.register(new NodexBackend())`.
 - Análisis que el JS de core NO implementa (alabeo 7-GDL, TH no lineal directa,
-  fiber, LTB con warping, etc.) → **no aparecen en la interfaz de core**. Se
-  añaden exclusivamente desde la capa Pro vía `registerAnalysis`.
+  fiber, LTB con warping, etc.) → **no aparecen en la interfaz de core**. Una capa
+  superior que implemente alguno registra su backend y lo expone desde su propia UI.
 - **Backend del asistente IA** (el Cloudflare Worker con el SYSTEM prompt, la
   cascada de modelos y la API key, más el corpus RAG curado y el flujo n8n) →
   vive fuera del repo público. En core queda **solo** el generador determinista

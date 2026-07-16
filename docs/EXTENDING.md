@@ -131,7 +131,7 @@ vocabulary** so the UI shows the same stability verdict whatever backend solved 
 
 ## Seam 2 — UI and report (`js/ext/extensions.js`)
 
-A single `extensions` singleton with four registration points.
+A single `extensions` singleton with three registration points.
 
 ### 2.1 Sections of the ⚙ Settings dialog
 ```js
@@ -162,40 +162,7 @@ extensions.setFlag('memoriaBranding', true);   // enables company logo/footer/li
 core reads `memoriaBranding` (via `App._brandingPro`) in the report generator; in core it is
 `false` → the **standard template** is used (default footer and limitations).
 
-### 2.4 Additional analyses in the Hub (`registerAnalysis`)
-
-Lets you add entries in the **analysis Hub** (Analysis Center) for capabilities that only the Pro
-backend can run. core registers **zero** additional analyses; everything that arrives here comes
-from an upper layer.
-
-```js
-import { extensions } from './js/ext/extensions.js?v=2';
-
-extensions.registerAnalysis({
-  id:    'nodex-nlth-direct',
-  label: 'Direct nonlinear TH (Nodex)',
-  menu:  'run-dynamic',       // Hub section where it appears
-  group: 'Advanced (Pro)',    // visual group label (optional)
-  handler: async (ctx) => {
-    // ctx = { app, openModal, setStatus, refreshViewport, solverRegistry }
-    const result = await ctx.solverRegistry.active.solveNlThDirect(ctx.app.model, opts);
-    ctx.setStatus('Nonlinear TH OK');
-    ctx.refreshViewport();
-  },
-});
-```
-
-**ctx** exposed to the handler:
-
-| Property | Type | Description |
-|---|---|---|
-| `app` | `App` | central instance (access to `model`, `toast`, etc.) |
-| `openModal(title, html)` | function | opens the standard modal with custom HTML |
-| `setStatus(text)` | function | updates the status bar |
-| `refreshViewport()` | function | redraws the 3D view |
-| `solverRegistry` | `SolverRegistry` | active backend; the handler can call methods of the Pro backend |
-
-### 2.5 White-label by configuration (`branding.default.json` + `js/branding.js`)
+### 2.4 White-label by configuration (`branding.default.json` + `js/branding.js`)
 
 To change the name, tagline, description and logo **without touching code or forking**, edit
 `branding.default.json`. `js/branding.js` reads it at startup (before starting the `App`, so the
@@ -260,10 +227,10 @@ These pieces belong to the Pro layer and were removed from core in v0.1:
 - Editable company report: **description, footer, limitations, logo, institution** → re-added via
   `registerConfigSection` + `setFlag('memoriaBranding')`.
 - Alternative analysis engine and Nodex-exclusive analyses → via
-  `solverRegistry.register(new NodexBackend())` + `registerAnalysis(…)`.
+  `solverRegistry.register(new NodexBackend())`.
 - Analyses that core's JS does NOT implement (7-DOF warping, direct nonlinear TH, fiber, LTB with
-  warping, etc.) → **they do not appear in core's interface**. They are added exclusively from the
-  Pro layer via `registerAnalysis`.
+  warping, etc.) → **they do not appear in core's interface**. An upper layer that implements one
+  registers its backend and surfaces it from its own UI.
 - **AI assistant backend** (the Cloudflare Worker with the SYSTEM prompt, the model cascade and the
   API key, plus the curated RAG corpus and the n8n flow) → it lives outside the public repo. In
   core there remains **only** the deterministic generator (`assistant/generator.js`: JSON spec →
