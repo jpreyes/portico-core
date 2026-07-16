@@ -42,7 +42,7 @@ Desplazamiento vertical del centro de la viga (nodo 5), Modelo A (flexión + cor
 
 Segunda opinión de un motor independiente y establecido: **OpenSees 3.8.0** (`openseespy`), corrido sobre el mismo `.s3d` mediante [`tools/verif/opensees/run_case.py`](../../tools/verif/opensees/run_case.py), que **traduce el modelo por su cuenta** — no pasa por el exportador de Pórtico, para que un malentendido compartido no se cuele. Elemento: `ElasticTimoshenkoBeam`; masa consistent (-cMass).
 
-Diferencia máxima **Pórtico ↔ OpenSees: 1.3e-14** (relativa). Los dos motores resuelven el mismo modelo con la misma formulación, así que lo que ambos comparten frente a la referencia analítica es discretización, no error de Pórtico.
+Diferencia máxima **Pórtico ↔ OpenSees: 1.3e-14** (relativa). Ambos resuelven la **misma malla** con la formulación de elemento igualada, así que lo que los dos comparten frente a la referencia analítica es discretización, no error de Pórtico. El residuo entre motores acota lo que aportan las diferencias de método que quedan (p. ej. Pórtico impone links y diafragmas por penalti, OpenSees por restricción exacta).
 
 ### Descomposición por tipo de deformación (referencia)
 

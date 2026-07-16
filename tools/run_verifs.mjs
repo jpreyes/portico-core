@@ -87,8 +87,11 @@ function osNote(ov, meta, pv, mod) {
     `modelo por su cuenta** — no pasa por el exportador de Pórtico, para que un malentendido ` +
     `compartido no se cuele. Elemento: \`${elems}\`; masa ${meta.mass}.\n\n` +
     `Diferencia máxima **Pórtico ↔ OpenSees: ${worst.toExponential(1)}** (relativa). ` +
-    `Los dos motores resuelven el mismo modelo con la misma formulación, así que lo que ambos ` +
-    `comparten frente a la referencia analítica es discretización, no error de Pórtico.\n\n`;
+    `Ambos resuelven la **misma malla** con la formulación de elemento igualada, así que lo ` +
+    `que los dos comparten frente a la referencia analítica es discretización, no error de ` +
+    `Pórtico. El residuo entre motores acota lo que aportan las diferencias de método que ` +
+    `quedan (p. ej. Pórtico impone links y diafragmas por penalti, OpenSees por restricción ` +
+    `exacta).\n\n`;
 }
 
 async function buildComparison(cmp, out, id) {

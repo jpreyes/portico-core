@@ -79,6 +79,30 @@ def local_axes(n1, n2):
 
 # ── model translation ─────────────────────────────────────────────────────────
 DOFS = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz']
+TRANS = ('ux', 'uy', 'uz')
+
+
+def _link_kind(lk):
+    """Map a PORTICO link (js/solver/links.js) onto an OpenSees constraint.
+
+    PORTICO: rigid=true  -> u_s = u_m + theta_m x r, theta_s = theta_m  (arm honoured)
+             rigid=false -> dof_s = dof_m for the marked DOFs           (no arm)
+    Returns ('beam'|'bar'|'equal', dof_indices) or None when it has no faithful map.
+
+    NOTE ON METHOD: PORTICO enforces links by PENALTY (alpha = max(diag K)*1e5,
+    links.js:19); OpenSees' rigidLink under the Transformation handler is exact. Any
+    residual between the two engines on a link case is that penalty, not a bug.
+    """
+    on = [d for d in DOFS if (lk.get('dofs') or {}).get(d)]
+    if lk.get('rigid'):
+        if len(on) == 6:
+            return ('beam', None)
+        if set(on) == set(TRANS):
+            return ('bar', None)          # translations only = force, no moment
+        return None                        # arbitrary partial rigid set: no OpenSees analogue
+    if on:
+        return ('equal', [DOFS.index(d) + 1 for d in on])
+    return None
 
 
 def _refuse_unsupported(m):
@@ -87,8 +111,12 @@ def _refuse_unsupported(m):
     problems = []
     if m.get('areas'):
         problems.append('%d area element(s)' % len(m['areas']))
-    if m.get('links'):
-        problems.append('%d link(s)' % len(m['links']))
+    for lk in m.get('links') or []:
+        if _link_kind(lk) is None:
+            problems.append('link %s: only a rigid link on all 6 DOF (-> rigidLink beam), '
+                            'a rigid link on the 3 translations (-> rigidLink bar), or a '
+                            'non-rigid coupling (-> equalDOF) can be translated'
+                            % lk.get('id'))
     if m.get('diaphragms'):
         problems.append('%d diaphragm(s)' % len(m['diaphragms']))
     for e in m.get('elements', []):
@@ -166,6 +194,14 @@ def build(m, lc_id=None, self_weight=False):
         ops.element(*args)
         _ELEMENT_KIND.add('elasticBeamColumn' if euler else 'ElasticTimoshenkoBeam')
 
+    for lk in m.get('links') or []:
+        kind, dofs = _link_kind(lk)
+        mst, slv = int(lk['master']), int(lk['slave'])
+        if kind == 'equal':
+            ops.equalDOF(mst, slv, *dofs)
+        else:
+            ops.rigidLink(kind, mst, slv)
+
     if lc_id is None:
         return nodes, presc
 
@@ -237,9 +273,10 @@ def run_static(m, lc_id, self_weight):
     nodes, presc = build(m, lc_id, self_weight)
     ops.system('BandGeneral')
     ops.numberer('RCM')
-    # 'Plain' cannot impose a NON-homogeneous sp constraint (an imposed settlement); it
-    # would silently solve the u=0 problem instead. 'Transformation' handles it.
-    ops.constraints('Transformation' if presc else 'Plain')
+    # 'Plain' handles neither a NON-homogeneous sp constraint (an imposed settlement) nor
+    # the multi-point constraints a link produces. It does not fail on the former: it
+    # solves the u=0 problem and returns tidy, wrong numbers.
+    ops.constraints('Transformation' if (presc or m.get('links')) else 'Plain')
     ops.integrator('LoadControl', 1.0)
     ops.algorithm('Linear')
     ops.analysis('Static')
