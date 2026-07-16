@@ -33,7 +33,7 @@ function PnAISC(L) {
   return 0.9 * Fcr * A;
 }
 
-const eng = (fuerzas, member) => checkElement({ fuerzas, sec, mat, codeId: 'AISC360-16:LRFD', member });
+const eng = (forces, member) => checkElement({ forces, sec, mat, codeId: 'AISC360-16:LRFD', member });
 
 export default {
   id: '4-001',
