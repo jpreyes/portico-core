@@ -11,6 +11,21 @@ import { applyDiaphragmConstraints, applyDiaphragmMass } from './diaphragm.js?v=
 import { applyLinkConstraints } from './links.js?v=2';
 import { assembleAreasInto, assembleAreasMassInto, areaThermalContribs } from './membrane.js?v=2';
 
+// ── Self-weight ───────────────────────────────────────────────────────────────
+// A material's `rho` is a MASS density: massMatrix() spends it as `rho*A*L = total
+// element mass`, and verification 1-014 validates the modal periods that come out of it
+// against a closed form. In the kN-m unit system that means t/m³ — concrete 2.5, steel 7.85.
+//
+// Self-weight is a FORCE, so it is `rho*A*g`, not `rho*A`. This is the single place that
+// conversion lives; every self-weight path calls it (assembleF, the diagram integrator in
+// postprocess.js, staged.js, and the NL-lite drivers in app.js) so they cannot drift apart.
+export const G_ACC = 9.80665;   // m/s²
+
+/** Self-weight of a frame element as a distributed load [force/length], along global −Z. */
+export function selfWeightPerLength(mat, sec) {
+  return (+mat?.rho || 0) * (+sec?.A || 0) * G_ACC;
+}
+
 // ── Node index (contiguous 0-based numbering) ─────────────────────────────
 export function buildNodeIndex(model) {
   const idx = new Map();
@@ -277,7 +292,7 @@ export function assembleF(model, nodeIndex, lcId, selfWeight = false) {
       const hasRel_sw  = elem.releases?.some(r => r !== 0);
       const relBool_sw = hasRel_sw ? elem.releases.map(r => r !== 0) : null;
       const Ke_loc_sw  = hasRel_sw ? stiffnessMatrix(L, mat, sec) : null;
-      const swLoad = { w: +(mat.rho * sec.A), dir: 'gravity' };
+      const swLoad = { w: selfWeightPerLength(mat, sec), dir: 'gravity' };
       for (const ll of _toLocalDistLoad(swLoad, ex, ey, ez)) {
         let f_local = fixedEndForces(L, ll);
         if (Ke_loc_sw) f_local = condenseFEF(Ke_loc_sw, relBool_sw, f_local);

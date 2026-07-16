@@ -23,7 +23,7 @@
 // Deliberate limitation: frame (bar) elements only. Areas/diaphragms are ignored in
 // the staged assembly (staged bridges are trusses/girders).
 // ──────────────────────────────────────────────────────────────────────────────
-import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './assembler.js?v=2';
+import { buildNodeIndex, assembleK, assembleF, getNodeDOFs, selfWeightPerLength } from './assembler.js?v=2';
 import { Results } from './postprocess.js?v=2';
 
 // Numeric end-force fields that ACCUMULATE between stages.
@@ -95,7 +95,7 @@ export class StagedSolver {
       if (swNew) for (const id of newlyActive) {
         const el = model.elements.get(id);
         const mat = model.materials.get(el.matId), sec = model.sections.get(el.secId);
-        if (mat && sec && mat.rho > 0) incLoads.push({ type: 'dist', elemId: id, dir: 'gravity', w: +(mat.rho * sec.A) });
+        if (mat && sec && mat.rho > 0) incLoads.push({ type: 'dist', elemId: id, dir: 'gravity', w: selfWeightPerLength(mat, sec) });
       }
 
       const view = makeView(model, active, incLoads);

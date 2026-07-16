@@ -8,7 +8,7 @@
 // Displacements at arbitrary xi use cubic Hermite shape functions.
 // ──────────────────────────────────────────────────────────────────────────────
 import { localAxes, stiffnessMatrix, transformMatrix, fixedEndForces, applyReleases, condenseFEF, recoverReleasedDisp, elemLocalK } from './timoshenko.js?v=2';
-import { getNodeDOFs } from './assembler.js?v=2';
+import { getNodeDOFs, selfWeightPerLength } from './assembler.js?v=2';
 import { areaStress, areaBendingStress, areaStrain, areaCurvature, vonMises } from './membrane.js?v=2';
 
 function _toLocalLoad(load, ex, ey, ez) {
@@ -65,7 +65,7 @@ export function actualLoadsLocal(model, lcId, selfWeight, elem, ex, ey, ez) {
   if (selfWeight) {
     const mat = model.materials.get(elem.matId);
     const sec = model.sections.get(elem.secId);
-    if (mat && sec && mat.rho > 0) add({ w: +(mat.rho * sec.A), dir: 'gravity' });
+    if (mat && sec && mat.rho > 0) add({ w: selfWeightPerLength(mat, sec), dir: 'gravity' });
   }
   return { qy: qy1, qz: qz1, qy1, qy2, qz1, qz2 };
 }
@@ -486,7 +486,7 @@ export class Results {
       const mat = this.model.materials.get(elem.matId);
       const sec = this.model.sections.get(elem.secId);
       if (mat && sec && mat.rho > 0) {
-        const w_sw = +(mat.rho * sec.A);
+        const w_sw = selfWeightPerLength(mat, sec);
         for (const { d, w, w2 } of _toLocalLoad({ w: w_sw, dir: 'gravity' }, ex, ey, ez)) {
           const f = fixedEndForces(L, { dir: d, w, w2 });
           for (let i = 0; i < 12; i++) fef[i] += f[i];
