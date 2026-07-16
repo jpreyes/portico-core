@@ -1,19 +1,16 @@
 // ──────────────────────────────────────────────────────────────────────────────
 // extensions.js — EXTENSION POINTS (hooks) of portico-core.
 //
-// portico-core (open, AGPL) is a COMPLETE, self-contained app. Upper layers —e.g.
-// the Pro repo `portico` (Nodex, white-label, company report)— do NOT fork `app.js`:
-// they import this module and REGISTER their contributions at runtime. Core never
-// imports anything from the upper layers → unidirectional dependency (core ⇠ Pro).
+// portico-core (open, AGPL) is a COMPLETE, self-contained app. Upper layers —e.g. a
+// white-label build or a company report— do NOT fork `app.js`: they import this
+// module and REGISTER their contributions at runtime. Core never imports anything
+// from the upper layers → unidirectional dependency (core ⇠ overlay).
 //
 // Available seams:
 //   • Extra sections of the ⚙ Settings dialog      (registerConfigSection)
 //   • Top-bar badges                                (registerBadge)
 //   • Opt-in capability flags                       (setFlag / flag)
 //   • Additional analyses in the Hub               (registerAnalysis)
-//
-// Sister seam: `js/solver/backend.js` (SolverRegistry) to plug in the engine
-// (Nodex C++/WASM) without touching core.
 // ──────────────────────────────────────────────────────────────────────────────
 
 class Extensions {
@@ -51,13 +48,13 @@ class Extensions {
 
   // ── Additional analyses in the analysis Hub ───────────────────────────────────
   // spec: {
-  //   id       string     unique identifier (e.g. 'nodex-nlth-direct')
-  //   label    string     Hub item text (e.g. 'Direct nonlinear TH')
+  //   id       string     unique identifier (e.g. 'fiber-section')
+  //   label    string     Hub item text (e.g. 'Fiber section analysis')
   //   menu     string     menu section where the quick access appears
   //                       (e.g. 'run-nonlinear', 'run-dynamic', 'run-advanced')
   //   group?   string     visual group label in the Hub (optional)
   //   handler  function   async handler(ctx) — ctx = { app, openModal, setStatus,
-  //                         refreshViewport, solverRegistry }
+  //                         refreshViewport }
   // }
   // core registers ZERO additional analyses. Only upper layers use this hook.
   registerAnalysis(spec) {

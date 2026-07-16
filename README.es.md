@@ -21,8 +21,8 @@ dibuja esfuerzos, deformadas y formas modales. Todo corre del lado del cliente ‚
 instalar, sin build step, sin bundler, sin framework; solo un navegador moderno
 (Chrome, Edge, Firefox).
 
-Es la base reutilizable del producto Pro **portico** (portico-core + el solver C++/WASM
-**Nodex**) y de otras herramientas derivadas.
+Todo corre en el navegador: el solver es JavaScript, no hay nada que compilar ni nada
+que instalar en un servidor. Adem√°s se instala como **PWA** y funciona offline.
 
 ---
 

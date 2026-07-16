@@ -1,8 +1,9 @@
 // ──────────────────────────────────────────────────────────────────────────────
-// io/formats/ndx.js — NODEX (.ndx) adapter · open→Pro handoff
+// io/formats/ndx.js — NODEX (.ndx) adapter
 //
-// Bridges the neutral model ↔ the `.ndx` text DSL of the nodex engine family
-// (compiled by nodex-compiler). Speaks only the NEUTRAL MODEL (`neutral.js`).
+// Bridges the neutral model ↔ the `.ndx` text DSL, one downstream format adapter
+// among others (SAP2000, ETABS, OpenSees…). Speaks only the NEUTRAL MODEL
+// (`neutral.js`); portico-core does not consume `.ndx` for analysis.
 //
 // GRAMMAR — this adapter now targets the ACTUAL nodex authoring grammar (the one
 // documented by the engine's `dsl_syntax`/`ndx_reference`, not the old provisional

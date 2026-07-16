@@ -84,9 +84,8 @@ Estado: ✅ completo · 🟡 parcial · ⛔ fuera de alcance del core.
   área**.
 - **Presión de poros / acoplamiento** hidromecánico.
 
-> El **solver C++/WASM Nodex** (alto rendimiento) y el diseño Pro avanzado no viven en el core
-> open: se enchufan en el producto privado **portico** mediante la interfaz `SolverBackend`
-> (ver [EXTENDING](EXTENDING.md)).
+> La lista de arriba es lo que el solver JavaScript **no** cubre hoy. portico-core lleva un solo
+> motor, en JS, corriendo en el navegador — no hay un solver nativo ni WASM por detrás.
 
 ---
 

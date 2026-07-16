@@ -55,8 +55,6 @@ superficie de ataque, pero hay vectores relevantes a tener en cuenta:
 
 ### Fuera de alcance
 
-- El **motor pesado (Nodex, C++/WASM)** y la **capa Pro** no forman parte de este repo;
-  su seguridad se gestiona aparte.
 - La **exactitud de los resultados de ingeniería** no es un problema de seguridad: los
   resultados son orientativos y requieren la revisión de un ingeniero calculista (ver
   el aviso en el `README`). Errores de cálculo se reportan como *issues* normales con

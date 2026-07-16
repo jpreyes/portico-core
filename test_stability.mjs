@@ -39,7 +39,7 @@ check(nearSingularWarning(1e-15)?.code === STABILITY.ILL_CONDITIONED, 'ratio 1e-
 check(nearSingularWarning(1e-6) === null, 'ratio 1e-6 → null (well conditioned)');
 check(nearSingularWarning(STABILITY_LIMITS.pivotRatio) === null, 'ratio == limit → null (strict <)');
 
-// ── (3) Hard mechanism → structured error verdict (vocabulary shared w/ Nodex) ─
+// ── (3) Hard mechanism → structured error verdict ─────────────────────────────
 console.log('\n── (3) Hard mechanism → structured err.stability ──');
 {
   const m = new Model(); m.materials.clear(); m.sections.clear();

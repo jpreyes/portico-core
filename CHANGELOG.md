@@ -16,18 +16,16 @@ and the project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Unified stability verdict** (core JS ↔ pluggable backend, e.g. Nodex): a structured
-  mechanism / near-singular verdict on `Results.warnings` and `err.stability`, plus a
-  backend-agnostic drift / displacement sanity in the post that catches a near-mechanism
-  which "solves" with garbage (e.g. roller bases rescued by a rigid diaphragm). Surfaced
-  as one prominent banner, identical whatever the active backend. Shared vocabulary in
-  [`NODEX-CONTRACT.md`](NODEX-CONTRACT.md) and `js/solver/stability.js`.
+- **Unified stability verdict**: a structured mechanism / near-singular verdict on
+  `Results.warnings` and `err.stability`, plus a drift / displacement sanity in the post
+  that catches a near-mechanism which "solves" with garbage (e.g. roller bases rescued by
+  a rigid diaphragm). Surfaced as one prominent banner. Vocabulary in
+  `js/solver/stability.js`.
 - **`.ndx` exporter** (`js/io/formats/ndx.js`): serializes the model to the NODEX text
-  DSL consumed by the (private) nodex-compiler layer for complex analysis — same
-  downstream-adapter pattern as OpenSees/Abaqus/SAP2000. Covers the L1/L2 subset (nodes,
-  supports, materials, sections, bars with releases, nodal masses, nodal / distributed
-  loads, and `solve` intent), with a raw escape hatch for advanced `analysis.kind`s. The
-  grammar is provisional pending nodex-compiler. Round-trip test: `test_ndx.mjs`.
+  DSL — same downstream-adapter pattern as OpenSees/Abaqus/SAP2000. Covers the L1/L2
+  subset (nodes, supports, materials, sections, bars with releases, nodal masses, nodal /
+  distributed loads, and `solve` intent), with a raw escape hatch for advanced
+  `analysis.kind`s. Round-trip test: `test_ndx.mjs`.
 - **Iterative solver (PCG) for large meshes** (`js/solver/pcg.js`): a matrix-free
   Preconditioned Conjugate Gradient (Jacobi / IC0 incomplete-Cholesky) for `K·u = F` in
   CSR, an alternative to the banded Cholesky when the band factor hits the memory/time
@@ -44,6 +42,15 @@ and the project follows [Semantic Versioning](https://semver.org/).
   (mid-surface + thickness; `IfcWall` → membrane, slab/plate/other → shell); all-comparable
   → **3D block**, skipped with a warning. Previously these files imported nothing. Verified
   with `test_ifc_brep.mjs`.
+
+### Removed
+
+- **`SolverBackend` / `SolverRegistry`** (`js/solver/backend.js`): portico-core ships a
+  single engine, in JavaScript, running in the browser. With one backend the registry
+  could only dispatch to itself — `_supports()` short-circuited and `_dispatch()` had
+  nothing to fall back to — and the `res._backend` / `res._fellBack` tags it produced
+  were read by nothing. `app.js` now calls the solver modules directly, as
+  `js/api/portico.js` already did. No analysis changed behaviour.
 
 ### Fixed
 

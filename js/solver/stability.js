@@ -1,8 +1,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
-// stability.js — UNIFIED STABILITY VERDICT (shared core ↔ Nodex C++/WASM).
+// stability.js — UNIFIED STABILITY VERDICT.
 //
-// PÓRTICO must show the SAME stability verdict regardless of the active backend
-// (JS `Results` or Nodex `WasmResults`). Three categories (see NODEX-CONTRACT.md):
+// PÓRTICO must show the SAME stability verdict for every analysis. Three categories:
 //
 //   (1) INERT_DOF      — legitimate inert DOF (membrane drilling, 2D out-of-plane).
 //                        INFO, NOT instability.
@@ -10,16 +9,15 @@
 //   (3) ILL_CONDITIONED— near-singular (solver-level relative pivot below a threshold).
 //                        WARNING. NOTE: a penalty diaphragm inflates the largest pivot
 //                        (~1e5·kmax) and MASKS near-mechanisms in the pivot ratio, so
-//                        this solver-level signal is best-effort; the robust, backend-
-//                        agnostic catch is the DRIFT / DISPLACEMENT sanity below, which
-//                        reads the RESULTS (works for JS and Nodex alike).
+//                        this solver-level signal is best-effort; the robust catch is
+//                        the DRIFT / DISPLACEMENT sanity below, which reads the RESULTS.
 //
 // This module is solver-NEUTRAL (no i18n, no DOM): it returns structured warnings
 // `{ code, severity, params, message }` (message = Spanish fallback). The UI layer
 // localizes by `code` + `params`.
 // ──────────────────────────────────────────────────────────────────────────────
 
-// Shared vocabulary of stability codes (must match Nodex resultJson keys).
+// Vocabulary of stability codes.
 export const STABILITY = {
   OK:              'STABILITY_OK',
   MECHANISM:       'STABILITY_MECHANISM',        // singular → error, no valid results
@@ -29,7 +27,7 @@ export const STABILITY = {
   INERT_DOF:       'STABILITY_INERT_DOF',        // legitimate inert DOF (info, not instability)
 };
 
-// Thresholds (single source of truth, shared with Nodex).
+// Thresholds (single source of truth).
 export const STABILITY_LIMITS = {
   driftRatio:  1 / 20,   // inter-story drift Δ/h above this → "absurd" (instability hint)
   dispFrac:    0.15,     // |u|_max above this fraction of the model span → absurd
@@ -59,11 +57,9 @@ export function nearSingularWarning(pivotRatio) {
   };
 }
 
-// ── PART 2 — backend-agnostic sanity from the RESULTS ─────────────────────────
+// ── PART 2 — sanity from the RESULTS ──────────────────────────────────────────
 // `res` is any Results-like object exposing getNodeDisp(nodeId) and (optionally)
-// getMaxDisp(). Works for JS `Results` and Nodex `WasmResults`. Returns a list of
-// structured warnings (drift / displacement). PÓRTICO knows the domain (diaphragm
-// floors, geometry), so this is where the cross-backend check lives.
+// getMaxDisp(). Returns a list of structured warnings (drift / displacement).
 export function assessStabilitySanity(model, res, opts = {}) {
   const driftLimit = opts.driftRatio ?? STABILITY_LIMITS.driftRatio;
   const dispFrac   = opts.dispFrac   ?? STABILITY_LIMITS.dispFrac;

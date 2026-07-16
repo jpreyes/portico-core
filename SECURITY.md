@@ -54,8 +54,6 @@ but there are relevant vectors to keep in mind:
 
 ### Out of scope
 
-- The **heavy engine (Nodex, C++/WASM)** and the **Pro layer** are not part of this
-  repo; their security is managed separately.
 - The **accuracy of engineering results** is not a security issue: results are
   indicative and require review by a qualified structural engineer (see the notice in
   the `README`). Calculation errors are reported as normal *issues* with a verification
