@@ -13,7 +13,7 @@ import { Results }                         from './solver/postprocess.js?v=2';
 import { assessStabilitySanity, STABILITY } from './solver/stability.js?v=2';
 import { areaStress, areaBendingStress, vonMises, areaLocalFrame } from './solver/membrane.js?v=2';
 import { ModalSolver, guyanReduce }        from './solver/modal_solver.js?v=2';
-import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './solver/assembler.js?v=2';
+import { buildNodeIndex, assembleK, assembleF, getNodeDOFs, selfWeightPerLength } from './solver/assembler.js?v=2';
 import { assembleSparseGlobal, extractFreeCSR } from './solver/sparse.js?v=2';
 import { corotBeamForceTangent, solveCorotBeam } from './solver/corotbeam.js?v=2';
 import { insertInfill } from './model/macromodel.js?v=2';
@@ -3083,7 +3083,7 @@ class App {
         La componente vertical (−Z) de cada caso × su factor se reparte a los nodos (regla tributaria) y se convierte en masa m = W/g, activa en X, Y y Z. Así el peso muerto/sobrecarga participa en modal, espectro y time-history.</div>
       ${lcRows}
       <div class="prop-row" style="margin-top:8px">
-        <label style="flex:1;display:flex;align-items:center;gap:6px"><input type="checkbox" id="msrc-sw" ${ms.selfWeight ? 'checked' : ''}> Incluir peso propio (ρ·A·L)</label>
+        <label style="flex:1;display:flex;align-items:center;gap:6px"><input type="checkbox" id="msrc-sw" ${ms.selfWeight ? 'checked' : ''}> Incluir peso propio (ρ·A·L·g)</label>
         <div class="prop-field" style="width:140px"><label>g (m/s²)</label><input type="number" id="msrc-g" value="${ms.g || 9.80665}" step="0.001" min="0.001" style="width:100px"></div>
       </div>
       <div style="color:var(--text-muted);font-size:11px;margin-top:6px">Si el material ya tiene densidad ρ&gt;0, su masa estructural ya está incluida — no marques «peso propio» para no duplicarla.</div>`;
@@ -4644,7 +4644,7 @@ class App {
           const mat = this.model.materials.get(el.matId), sec = this.model.sections.get(el.secId);
           if (!n1 || !n2 || !mat || !sec) continue;
           const L = Math.hypot(n2.x-n1.x, n2.y-n1.y, n2.z-n1.z);
-          const w = mat.rho * sec.A * L / 2;   // half to each node
+          const w = selfWeightPerLength(mat, sec) * L / 2;   // half to each node
           addNode(el.n1, 0, 0, -w); addNode(el.n2, 0, 0, -w);
         }
       }
@@ -4728,7 +4728,7 @@ class App {
         const n1 = this.model.nodes.get(el.n1), n2 = this.model.nodes.get(el.n2);
         const mat = this.model.materials.get(el.matId), sec = this.model.sections.get(el.secId);
         if (!n1 || !n2 || !mat || !sec) continue;
-        const w = mat.rho * sec.A * Math.hypot(n2.x-n1.x, n2.z-n1.z) / 2;
+        const w = selfWeightPerLength(mat, sec) * Math.hypot(n2.x-n1.x, n2.z-n1.z) / 2;
         add(el.n1, 0, -w, 0); add(el.n2, 0, -w, 0);
       }
     }
@@ -5184,7 +5184,7 @@ class App {
           const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2);
           if (!mat || !sec || !n1 || !n2) continue;
           const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z);
-          const wgt = mat.rho * sec.A * L / 2;
+          const wgt = selfWeightPerLength(mat, sec) * L / 2;
           const a = idxOf.get(el.n1), b = idxOf.get(el.n2);
           if (a != null) loads[a][2] -= wgt; if (b != null) loads[b][2] -= wgt;
           hasLoad = true;
@@ -5813,7 +5813,7 @@ class App {
         const mat = model.materials.get(el.matId), sec = model.sections.get(el.secId);
         const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2);
         if (!mat || !sec || !n1 || !n2) continue;
-        const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z), w = fac * mat.rho * sec.A * L / 2;
+        const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z), w = fac * selfWeightPerLength(mat, sec) * L / 2;
         addN(el.n1, 0, 0, -w); addN(el.n2, 0, 0, -w);
       }
     }
