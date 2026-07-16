@@ -117,5 +117,54 @@ console.log('\n── (5) Vertical member: weight is axial, not bending ──')
     'no base moment: gravity is parallel to the member', `(|My| = ${Math.abs(R[4]).toExponential(2)})`);
 }
 
+// ── (6) Areas weigh: W = rho·t·A·g ──────────────────────────────────────────
+// A slab or wall modelled with area elements used to contribute nothing at all, so a
+// shear-wall building had a self-weight of exactly zero with the box ticked.
+console.log('\n── (6) Area elements carry their weight ──');
+{
+  const RHO_C = 2.5, T = 0.20, LX = 4, LY = 3;      // 4×3 m slab, 20 cm, concrete
+  const m = new Model(); m.materials.clear(); m.sections.clear();
+  const mat = m.addMaterial({ name: 'H30', E: 28.7e6, nu: 0.2, rho: RHO_C });
+  const fix = { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 };
+  const n = [
+    m.addNode(0, 0, 0, fix), m.addNode(LX, 0, 0, fix), m.addNode(LX, LY, 0, fix),
+    m.addNode(0, LY, 0, { rz: 1 }),   // free; rz is inert for a flat QUAD shell (no drilling)
+  ];
+  m.addArea(n.map(x => x.id), mat.id, { thickness: T, behavior: 'shell' });
+  const lc = m.addLoadCase('PP', true, 'static');
+  const res = new StaticSolver().solve(m, lc.id, true);
+  // The free corner's share travels through the element into the supports, so the
+  // restrained nodes must still carry the whole slab.
+  let sumRz = 0;
+  for (const x of n) sumRz += res.getReaction(x.id)[2];
+  const W = RHO_C * T * LX * LY * G_ACC;
+  check(rel(sumRz, W) < 1e-9, 'slab: ΣReactions = rho·t·A·g',
+    `(${sumRz.toFixed(6)} vs ${W.toFixed(6)} kN)`);
+  check(sumRz > 0, 'a slab does not weigh zero', `(${sumRz.toFixed(3)} kN)`);
+}
+
+// ── (7) An area's weight and its mass must describe the same body ───────────
+// Both integrate rho·t·A and lump one nN-th per node; the only difference is ×g. If the
+// two paths ever drift, a building's seismic mass stops matching its dead load.
+console.log('\n── (7) Area weight = area mass × g ──');
+{
+  const { areaSelfWeightContribs, assembleAreasMassInto } = await import('./js/solver/membrane.js');
+  const { buildNodeIndex } = await import('./js/solver/assembler.js');
+  const RHO_C = 2.5, T = 0.15;
+  const m = new Model(); m.materials.clear(); m.sections.clear();
+  const mat = m.addMaterial({ name: 'H30', E: 28.7e6, nu: 0.2, rho: RHO_C });
+  const n = [m.addNode(0, 0, 0), m.addNode(3, 0, 0), m.addNode(3, 2.5, 0), m.addNode(0, 2.5, 0)];
+  const area = m.addArea(n.map(x => x.id), mat.id, { thickness: T, behavior: 'shell' });
+  const ni = buildNodeIndex(m);
+
+  let massTot = 0;
+  assembleAreasMassInto({ add: (i, j, v) => { if (i === j && i % 6 === 2) massTot += v; } }, m, ni);
+  const wTot = areaSelfWeightContribs(area, m, ni, G_ACC).reduce((s, c) => s + Math.abs(c.val), 0);
+
+  check(rel(wTot, massTot * G_ACC) < 1e-12, 'Σweight = Σmass × g',
+    `(${wTot.toFixed(6)} kN vs ${(massTot * G_ACC).toFixed(6)})`);
+  check(rel(massTot, RHO_C * T * 3 * 2.5) < 1e-12, 'Σmass = rho·t·A', `(${massTot.toFixed(6)} t)`);
+}
+
 console.log(`\n=== ${failures === 0 ? 'ALL OK' : failures + ' FAILURE(S)'} ===`);
 process.exit(failures === 0 ? 0 : 1);

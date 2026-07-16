@@ -9,7 +9,7 @@ import {
 } from './timoshenko.js?v=2';
 import { applyDiaphragmConstraints, applyDiaphragmMass } from './diaphragm.js?v=2';
 import { applyLinkConstraints } from './links.js?v=2';
-import { assembleAreasInto, assembleAreasMassInto, areaThermalContribs } from './membrane.js?v=2';
+import { assembleAreasInto, assembleAreasMassInto, areaThermalContribs, areaSelfWeightContribs } from './membrane.js?v=2';
 
 // ── Self-weight ───────────────────────────────────────────────────────────────
 // A material's `rho` is a MASS density: massMatrix() spends it as `rho*A*L = total
@@ -303,6 +303,11 @@ export function assembleF(model, nodeIndex, lcId, selfWeight = false) {
         for (let i=0; i<12; i++) F[ed[i]] -= f_global[i];
       }
     }
+    // Areas weigh too. A slab or a wall modelled with area elements used to contribute
+    // nothing here, so a model built entirely out of them (a shear-wall building) had a
+    // self-weight of exactly zero — with the box ticked and no warning.
+    for (const area of model.areas.values())
+      for (const { dof, val } of areaSelfWeightContribs(area, model, nodeIndex, G_ACC)) F[dof] += val;
   }
 
   return F;

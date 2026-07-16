@@ -441,6 +441,30 @@ export function assembleAreasMassInto(writer, model, nodeIndex) {
   }
 }
 
+/**
+ * Self-weight of ONE area element → [{dof, val}] on the global −Z translation.
+ *
+ * Same integral as assembleAreasMassInto — total = rho·t·A — and split the same way, one
+ * nN-th to each node, so an element's weight and its mass never describe different bodies.
+ * ×g because weight is a force; see selfWeightPerLength() in assembler.js for why `rho`
+ * is a mass density.
+ *
+ * Membrane-only areas (a shear wall) get it too: their weight is in-plane, and the walls
+ * carry it. A node whose only stiffness is out-of-plane would be a modelling error the
+ * stability check reports — not a reason to leave the weight out.
+ */
+export function areaSelfWeightContribs(area, model, nodeIndex, g) {
+  const S = _areaSetup(area, model, nodeIndex, [0, 0, 0]);
+  if (!S) return [];
+  const { el, gdof, nN, mat } = S;
+  const W = (mat.rho || 0) * (area.thickness || 0) * (el.area || 0) * g;
+  if (!(W > 0)) return [];
+  const wn = W / nN;
+  const out = [];
+  for (let a = 0; a < nN; a++) out.push({ dof: gdof[a] + 2, val: -wn });   // global −Z
+  return out;
+}
+
 // Thermal load contributions of an area to F (list of {dof, val}).
 // dT = mean temperature (membrane). gradT = T_top − T_bot (gradient through the
 // thickness → thermal bending moment in plate/shell, #57).
