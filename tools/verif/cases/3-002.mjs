@@ -7,7 +7,7 @@ const avgAbs = (res, comp) => TIP.reduce((s, j) => s + Math.abs(res.getNodeDisp(
 
 export default {
   id: '3-002',
-  slug: '3-002_plane_stress_viga',
+  slug: '3-002_plane_stress_beam',
   title: 'Viga recta con elementos plane-stress (membrana)',
   capability: 'continuo plano en TENSIÓN PLANA (plane-stress) — elemento de membrana QUAD',
   referenceText: 'CSI *Software Verification — SAP2000*, Example 3-002 (MacNeal & Harder 1985); independiente por el método de la carga unitaria (Cook & Young 1985).',

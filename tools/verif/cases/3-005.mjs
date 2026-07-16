@@ -1,11 +1,11 @@
 // Caso de verificación 3-005 — Patch test en MALLA LIBRE (planta en L) · #52 (Fase 3).
 export default {
   id: '3-005',
-  slug: '3-005_malla_libre_L',
+  slug: '3-005_free_mesh_L',
   title: 'Malla libre de una planta en L — patch test de membrana',
   capability: 'mallador LIBRE (ear-clipping + Delaunay + refinamiento + recombinación a quad) de un polígono cóncavo arbitrario → malla conforme que pasa el patch test',
   referenceText: 'Patch test de elementos finitos (Irons & Razzaque; MacNeal-Harder): reproducción exacta de un estado de deformación constante en una malla no estructurada.',
-  s3d: 'examples/verif_3-005_malla_libre_L.s3d',
+  s3d: 'examples/verif_3-005_free_mesh_L.s3d',
   analysis: 'static',
   lcId: null,
 

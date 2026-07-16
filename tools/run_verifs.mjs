@@ -86,8 +86,8 @@ async function runCase(file) {
   // figura
   const svg = buildFigure(model, out, mod);
   const imgRel = `img/${mod.slug}.svg`;
-  fs.mkdirSync(path.join(ROOT, 'docs/verificaciones/img'), { recursive: true });
-  fs.writeFileSync(path.join(ROOT, 'docs/verificaciones', imgRel), svg, 'utf8');
+  fs.mkdirSync(path.join(ROOT, 'docs/verifications/img'), { recursive: true });
+  fs.writeFileSync(path.join(ROOT, 'docs/verifications', imgRel), svg, 'utf8');
 
   // comparación + sustitución de placeholders {{Pi}}/{{Di}} en `extra`
   const { table, pv } = await buildComparison(mod.compare, out);
@@ -97,6 +97,8 @@ async function runCase(file) {
   const caption = typeof mod.figure?.caption === 'function' ? mod.figure.caption(out.res) : (mod.figure?.caption || '');
 
   const md = `# Verificación ${mod.id} — ${mod.title}
+
+[English](${mod.slug}.md) · **Español**
 
 **Capacidad verificada:** ${mod.capability}.
 **Referencia:** ${mod.referenceText}
@@ -124,7 +126,9 @@ ${extra ? extra + '\n\n' : ''}## Conclusión
 
 ${mod.conclusion}
 `;
-  const mdPath = path.join(ROOT, 'docs/verificaciones', mod.slug + '.md');
+  // The case prose is Spanish, so this pipeline owns `<slug>.es.md`. `<slug>.md` is the
+  // English translation, maintained by hand — regenerating must not clobber it.
+  const mdPath = path.join(ROOT, 'docs/verifications', mod.slug + '.es.md');
   fs.writeFileSync(mdPath, md, 'utf8');
 
   // PDF

@@ -1,11 +1,11 @@
 // Caso de verificación 1-031 — Etapas constructivas (staged construction, #59).
 export default {
   id: '1-031',
-  slug: '1-031_etapas_constructivas',
+  slug: '1-031_construction_stages',
   title: 'Etapas constructivas — voladizo apuntalado por fases',
   capability: 'análisis por ETAPAS con activación de elementos/apoyos y acumulación de estado (peso/cargas por fase)',
   referenceText: 'Solución analítica de viga (voladizo y viga apuntalada, Hibbeler/Gere) — el orden de construcción cambia los esfuerzos respecto al montaje monolítico.',
-  s3d: 'examples/verif_1-031_etapas_constructivas.s3d',
+  s3d: 'examples/verif_1-031_construction_stages.s3d',
   analysis: 'staged',
   // Etapas: (A) voladizo empotrado en 1 con UDL w1 → la punta 3 flecta libre.
   //         (B) se apuntala la punta 3 (apoyo uz) SIN carga → nada cambia.

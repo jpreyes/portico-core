@@ -3,11 +3,11 @@
 // (simetría alineada a ejes), presión interna P=1 ksi, ν=0.3.
 export default {
   id: '3-004',
-  slug: '3-004_plane_strain_cilindro',
+  slug: '3-004_plane_strain_cylinder',
   title: 'Cilindro de pared gruesa — deformación plana (plane-strain)',
   capability: 'continuo plano en DEFORMACIÓN PLANA (plane-strain) — elemento de membrana con confinamiento fuera del plano',
   referenceText: 'CSI *Software Verification — SAP2000*, Example 3-004 (Timoshenko 1956, *Strength of Materials* Part II §44; MacNeal & Harder 1985).',
-  s3d: 'examples/verif_3-004_plane_strain_cilindro.s3d',
+  s3d: 'examples/verif_3-004_plane_strain_cylinder.s3d',
   analysis: 'static',
   lcId: 1,
 

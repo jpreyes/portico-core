@@ -1,11 +1,11 @@
 // Caso de verificación 1-018 — Estático: flexión + corte + axial en un pórtico.
 export default {
   id: '1-018',
-  slug: '1-018_estatico_portal',
+  slug: '1-018_static_portal',
   title: 'Estático — flexión, corte y axial en un pórtico',
   capability: 'análisis estático lineal con deformación por flexión, corte (Timoshenko) y axial',
   referenceText: 'CSI *Software Verification — SAP2000*, Example 1-018; resultados independientes por el método de la carga unitaria (Cook & Young 1985).',
-  s3d: 'examples/verif_1-018_estatico_portal.s3d',
+  s3d: 'examples/verif_1-018_static_portal.s3d',
   analysis: 'static',
   lcId: 1,
 

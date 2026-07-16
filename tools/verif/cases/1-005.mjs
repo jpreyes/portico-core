@@ -2,11 +2,11 @@
 // Materializa el Model A del original CSI (rodillo con asentamiento Uz=−0.5").
 export default {
   id: '1-005',
-  slug: '1-005_asentamiento_apoyo',
+  slug: '1-005_support_settlement',
   title: 'Asentamiento de apoyo (desplazamiento prescrito)',
   capability: 'desplazamiento prescrito de nodo/apoyo (asentamiento), partición libre/prescrito en el solver',
   referenceText: 'CSI *Software Verification — SAP2000*, Example 1-005 (Model A); resultados independientes por el método de la carga unitaria (Cook & Young 1985, p. 244).',
-  s3d: 'examples/verif_1-005a_asentamiento.s3d',
+  s3d: 'examples/verif_1-005a_settlement.s3d',
   analysis: 'static',
   lcId: 1,
 
