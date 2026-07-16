@@ -1,11 +1,11 @@
 // Caso de verificación 3-001 — Patch test de membrana en malla transfinita (#52 F1).
 export default {
   id: '3-001',
-  slug: '3-001_patch_test_malla',
+  slug: '3-001_patch_test_mesh',
   title: 'Patch test de membrana — malla transfinita distorsionada',
   capability: 'mallador transfinito (Coons) de áreas → QUAD conformes que pasan el patch test de tensión constante en una malla NO rectangular',
   referenceText: 'Patch test de elementos finitos (Irons & Razzaque; MacNeal-Harder): un elemento es convergente si reproduce EXACTAMENTE un estado de deformación constante en cualquier malla distorsionada.',
-  s3d: 'examples/verif_3-001_patch_test_malla.s3d',
+  s3d: 'examples/verif_3-001_patch_test_mesh.s3d',
   analysis: 'static',
   lcId: null,   // sin cargas: el estado lo impone el desplazamiento prescrito del borde
 

@@ -3,11 +3,11 @@
 // salen de un modal sobre K+Kg (rigidización por tracción), no de la flexión.
 export default {
   id: '1-017',
-  slug: '1-017_cuerda_tensa',
+  slug: '1-017_taut_string',
   title: 'Vibración de una cuerda bajo tensión (modal con rigidez geométrica)',
   capability: 'análisis modal con rigidez geométrica Kg desde un estado de referencia (rigidización por tracción / pre-esfuerzo)',
   referenceText: 'CSI *Software Verification — SAP2000*, Example 1-017; independiente por la teoría de cuerda vibrante (Kreyszig 1983, pp. 506-510).',
-  s3d: 'examples/verif_1-017_cuerda_tensa.s3d',
+  s3d: 'examples/verif_1-017_taut_string.s3d',
   analysis: 'modalKg',
   refLcId: 1,
   nModes: 3,

@@ -3,11 +3,11 @@
 // exterior, gradiente de 100°F a través del espesor (cara inferior más caliente).
 export default {
   id: '2-014',
-  slug: '2-014_gradiente_termico_placa',
+  slug: '2-014_thermal_gradient_plate',
   title: 'Gradiente térmico a través del espesor (placa anular)',
   capability: 'gradiente de temperatura a través del espesor de placa/cáscara → momento térmico de flexión',
   referenceText: 'CSI *Software Verification — SAP2000*, Example 2-014 (Roark & Young 1975, Tabla 24, ítem 8e).',
-  s3d: 'examples/verif_2-014_gradiente_termico.s3d',
+  s3d: 'examples/verif_2-014_thermal_gradient.s3d',
   analysis: 'static',
   lcId: 1,
 

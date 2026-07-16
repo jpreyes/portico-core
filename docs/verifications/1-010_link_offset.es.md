@@ -4,7 +4,7 @@
 
 **Capacidad verificada:** links/couplings: restricción cinemática rígida con brazo (offset) que transmite fuerza + momento entre nodos sin elemento intermedio.
 **Referencia:** Modelado de end offsets / insertion points (CSI *Software Verification*, 1-010/1-011); equilibrio de la carga excéntrica (estática elemental).
-**Modelo Portico:** [`examples/verif_1-010_link_offset.s3d`](../../examples/verif_1-010_link_offset.s3d)
+**Modelo Pórtico:** [`examples/verif_1-010_link_offset.s3d`](../../examples/verif_1-010_link_offset.s3d)
 
 ## Descripción del problema
 
@@ -19,7 +19,7 @@ Pila vertical de 5 m empotrada en la base. El eje del **tablero** (nodo 3) está
 | Momento base teórico | M = P·e = 200 kN·m |
 | Flecha lateral teórica | ux = M·H²/(2EI) = 0.125 m |
 
-## Modelo en Portico
+## Modelo en Pórtico
 
 - El nodo del tablero **no** tiene elemento propio: queda ligado a la punta de la pila por el **link rígido** (`model.links`), que transmite los 6 GDL con el brazo (penalización, como los diafragmas).
 - La carga vertical excéntrica se convierte automáticamente en **axial + momento** en la pila gracias al brazo del link.
@@ -33,10 +33,17 @@ Pila vertical de 5 m empotrada en la base. El eje del **tablero** (nodo 3) está
 
 Momento de empotramiento y flecha lateral de la punta, comparados con la estática elemental de la carga excéntrica.
 
-| Cantidad | Descripción | Independiente (—) | SAP2000 (—) | dif. SAP | **Portico (—)** | **dif. Portico** |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | Momento base, nodo 1 · |My| [kN·m] = P·e | 200.0000 | 200.0000 | 0 % | **200.0000** | **0 %** |
-| 2 | Flecha lateral de la punta, nodo 2 · |ux| [m] | 0.1250 | 0.1250 | 0 % | **0.1250** | **0 %** |
+| Cantidad | Descripción | Independiente (—) | SAP2000 (—) | dif. SAP | OpenSees (—) | dif. OpenSees | **Pórtico (—)** | **dif. Pórtico** |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Momento base, nodo 1 · |My| [kN·m] = P·e | 200.0000 | 200.0000 | 0 % | 200.0000 | 0 % | **200.0000** | **0 %** |
+| 2 | Flecha lateral de la punta, nodo 2 · |ux| [m] | 0.1250 | 0.1250 | 0 % | 0.1250 | 0 % | **0.1250** | **0 %** |
+
+
+### Contraste con OpenSees
+
+Segunda opinión de un motor independiente y establecido: **OpenSees 3.8.0** (`openseespy`), corrido sobre el mismo `.s3d` mediante [`tools/verif/opensees/run_case.py`](../../tools/verif/opensees/run_case.py), que **traduce el modelo por su cuenta** — no pasa por el exportador de Pórtico, para que un malentendido compartido no se cuele. Elemento: `ElasticTimoshenkoBeam`; masa consistent (-cMass).
+
+Diferencia máxima **Pórtico ↔ OpenSees: 1.5e-8** (relativa). Ambos resuelven la **misma malla** con la formulación de elemento igualada, así que lo que los dos comparten frente a la referencia analítica es discretización, no error de Pórtico. El residuo entre motores acota lo que aportan las diferencias de método que quedan (p. ej. Pórtico impone links y diafragmas por penalti, OpenSees por restricción exacta).
 
 ### Por qué importa para puentes
 

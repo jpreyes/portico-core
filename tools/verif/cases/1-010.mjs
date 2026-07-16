@@ -34,6 +34,7 @@ export default {
       { idx: '2', desc: 'Flecha lateral de la punta, nodo 2 · |ux| [m]', indep: 0.125, sap: 0.125 },
     ],
     portico: res => [Math.abs(res.getReaction(1)[4]), Math.abs(res.getNodeDisp(2)[0])],
+    opensees: r => [Math.abs(r.reaction['1'][4]), Math.abs(r.disp['2'][0])],
   },
 
   extra: `### Por qué importa para puentes

@@ -1,11 +1,11 @@
 // Caso de verificación 1-009 — Pretensado por tendones (cargas equivalentes, #60).
 export default {
   id: '1-009',
-  slug: '1-009_pretensado_tendon',
+  slug: '1-009_tendon_prestress',
   title: 'Pretensado por tendón parabólico — balanceo de carga',
   capability: 'pretensado por tendones con trazado parabólico → cargas equivalentes (load balancing) y axial de presfuerzo',
   referenceText: 'Método de las cargas equivalentes / balanceo de carga (T.Y. Lin, *Design of Prestressed Concrete Structures*); solución de viga simplemente apoyada.',
-  s3d: 'examples/verif_1-009_pretensado.s3d',
+  s3d: 'examples/verif_1-009_prestress.s3d',
   analysis: 'tendon',
   lcId: 1,
   // Tendón parabólico anclado en el eje (e=0 en extremos) con sagita 0.4 m al centro.
