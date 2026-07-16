@@ -36,6 +36,7 @@ import { checkElement, listDesignCodes, getDesignCode, registerDesignCode } from
 import { checkDeflection, checkDrift } from '../design/serviceability.js?v=2';
 import { polygonProps, compositeProps } from '../design/polygon_props.js?v=2';
 import { jointSCWB, strongColumnWeakBeam } from '../design/seismic.js?v=2';
+import { buildSpectrum } from '../design/nch433_spectrum.js?v=2';
 import { resolveMaterial } from '../design/material_props.js?v=2';
 import { resolveSectionProps } from '../design/section_props.js?v=2';
 import { registerFormat, listFormats, exportModel, importModel } from '../io/index.js?v=2';
@@ -226,6 +227,11 @@ export class Portico {
   // ── Sección poligonal / compuesta (#70) ─────────────────────────────────────
   static polygonProps(o) { return polygonProps(o); }
   static compositeProps(o) { return compositeProps(o); }
+
+  // ── Espectro de diseño NCh433/DS61 ───────────────────────────────────────────
+  // { soil, zone, category, Ro, Tstar, Tmax, dT, applyRstar } → { curve, text, Rstar,
+  // Sa0, params }. Fuente única del espectro (antes había 4 copias divergentes).
+  static spectrumNCh433(o) { return buildSpectrum(o); }
 
   // ── Detallado sísmico columna fuerte-viga débil (#68) ────────────────────────
   // MnOf opcional: capacidad nominal de flexión por barra (kN·m). Por defecto

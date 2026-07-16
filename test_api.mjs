@@ -68,5 +68,11 @@ const codes = Portico.listDesignCodes();
 ok(codes.some(c => c.id === 'AISC360-16:LRFD') && codes.some(c => c.id === 'EN1993-1-1') && codes.some(c => c.id === 'ACI318-19'),
   'catálogo incluye AISC, EC3, ACI', `(${codes.length} códigos)`);
 
+console.log('\n── 8. Espectro NCh433/DS61 ──');
+const spec = Portico.spectrumNCh433({ soil: 'D', zone: 2, category: 'II', Ro: 11, Tstar: 0.5 });
+ok(spec.curve.length > 2 && spec.curve[0].T === 0, 'devuelve la curva desde T=0');
+ok(spec.Rstar > 5 && spec.Rstar < 5.3, 'R* razonable para suelo D, T*=0.5', `(R*=${spec.Rstar.toFixed(3)})`);
+ok(spec.params.Tp === 0.85 && spec.params.n === 1.80, 'preserva Tp y n del suelo D');
+
 console.log(`\n${fails === 0 ? '✅ TODOS PASAN' : '❌ ' + fails + ' fallos'}`);
 process.exit(fails ? 1 : 0);
