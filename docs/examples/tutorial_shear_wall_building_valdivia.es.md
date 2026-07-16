@@ -25,7 +25,7 @@ Variante del edificio de Valdivia resuelto con **muros de corte** en vez de pór
 ## 3. Materiales, cargas y masa
 
 - Hormigón H30 (E=2.57·10⁷ kPa). Espesores: muros 0.25 m, losas 0.2 m.
-- **Masa sísmica:** peso propio de muros y losas (las áreas aportan ρ·t·A al modal automáticamente) **más** la sobrecarga (D_sup + 0.25·L) = (3.0+0.25·2.0) kN/m² aplicada como **masa nodal** por área tributaria (total adicional 1514 ton).
+- **Masa sísmica:** toda la masa sísmica se **concentra en los diafragmas rígidos de piso** — una masa concentrada por nivel (302.75 ton/piso, 1514 ton total). Reúne el peso propio de losas y muros (7.5 kN/m²), la sobrecarga muerta (3.0 kN/m²) y la fracción sísmica de la sobrecarga viva (0.25·L = 0.5 kN/m²), cada una por el área en planta. Al material de las áreas se le da a propósito **ρ = 0**, de modo que los shells no aportan masa distribuida y no hay masa nodal: concentrar la masa de piso en el diafragma es práctica habitual y da modos laterales limpios.
 
 ## 4. Análisis modal (Portico, con elementos de área)
 
