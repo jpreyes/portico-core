@@ -35,6 +35,7 @@ export default {
       { desc: '3er modo', indep: 16.5879, sap: 16.5879 },
     ],
     portico: res => res.omega2.slice(0, 3),
+    opensees: r => r.omega2.slice(0, 3),
   },
 
   conclusion: 'Pórtico reproduce el **primer autovalor con +0.05 %** (esencialmente exacto) y el 2º y 3º dentro de **+0.5 % y +1.2 %**. Las pequeñas diferencias en los modos superiores reflejan la formulación de **masa consistente** de Pórtico frente al modelo de masa del benchmark (la subdivisión adicional de los miembros no las reduce, confirmando que no son error de discretización). El solver modal por iteración de subespacio resuelve correctamente un pórtico plano grande (110 nodos). **Capacidad modal en pórticos verificada.**',

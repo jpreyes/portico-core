@@ -63,19 +63,57 @@ function buildFigure(model, out, caseDef) {
   return renderModelSVG({ nodes, elements, supports, deformed, width: 900 });
 }
 
-async function buildComparison(cmp, out) {
+// Committed OpenSees run for a case, if one exists. Produced by
+// tools/verif/opensees/run_case.py — see that file for how the model is translated.
+// Absent → the case simply gets no OpenSees column.
+function openseesResult(id) {
+  const p = path.join(ROOT, 'tools/verif/opensees/results', id + '.json');
+  return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : null;
+}
+
+// Prose for the OpenSees column: says where the numbers came from and how closely the
+// two engines agree. The engine-vs-engine gap is the point — it separates "PORTICO is
+// wrong" from "this mesh cannot reach the closed-form answer", which the difference
+// against the analytical reference alone cannot distinguish.
+function osNote(ov, meta, pv, mod) {
+  if (!ov || !meta) return '';
+  const rel = ov.map((o, i) => Math.abs(o) < 1e-12 ? Math.abs(pv[i] - o) : Math.abs((pv[i] - o) / o));
+  const worst = Math.max(...rel);
+  const elems = (meta.element || []).join(' + ');
+  return `\n### Contraste con OpenSees\n\n` +
+    `Segunda opinión de un motor independiente y establecido: **OpenSees ${meta.version || ''}** ` +
+    `(\`openseespy\`), corrido sobre el mismo \`.s3d\` mediante ` +
+    `[\`tools/verif/opensees/run_case.py\`](../../tools/verif/opensees/run_case.py), que **traduce el ` +
+    `modelo por su cuenta** — no pasa por el exportador de Pórtico, para que un malentendido ` +
+    `compartido no se cuele. Elemento: \`${elems}\`; masa ${meta.mass}.\n\n` +
+    `Diferencia máxima **Pórtico ↔ OpenSees: ${worst.toExponential(1)}** (relativa). ` +
+    `Los dos motores resuelven el mismo modelo con la misma formulación, así que lo que ambos ` +
+    `comparten frente a la referencia analítica es discretización, no error de Pórtico.\n\n`;
+}
+
+async function buildComparison(cmp, out, id) {
   // `out` se pasa también (2º arg) para casos multi-LC: cmp.portico(res, out) →
   // los casos sencillos ignoran el 2º argumento (compatibilidad). portico puede
   // ser async (p.ej. correr variantes adicionales del modelo).
   const pv = await cmp.portico(out.res, out);
+
+  // OpenSees column: only when the case says how to read it AND a run is committed.
+  const osRaw = cmp.opensees ? openseesResult(id) : null;
+  const ov = osRaw ? cmp.opensees(osRaw) : null;
+
   const idxLabel = cmp.indexLabel || 'Modo';
-  const header = [idxLabel, 'Descripción', `Independiente (${cmp.unit})`, `SAP2000 (${cmp.unit})`, 'dif. SAP', `**Pórtico (${cmp.unit})**`, '**dif. Pórtico**'];
+  const header = [idxLabel, 'Descripción', `Independiente (${cmp.unit})`, `SAP2000 (${cmp.unit})`, 'dif. SAP'];
+  if (ov) header.push(`OpenSees (${cmp.unit})`, 'dif. OpenSees');
+  header.push(`**Pórtico (${cmp.unit})**`, '**dif. Pórtico**');
+
   const rows = cmp.rows.map((r, i) => {
     const p = pv[i];
-    return [String(r.idx ?? (i + 1)), r.desc, r.indep.toFixed(cmp.decimals), r.sap.toFixed(cmp.decimals), pct(r.sap, r.indep),
-      `**${p.toFixed(cmp.decimals)}**`, `**${pct(p, r.indep)}**`];
+    const row = [String(r.idx ?? (i + 1)), r.desc, r.indep.toFixed(cmp.decimals), r.sap.toFixed(cmp.decimals), pct(r.sap, r.indep)];
+    if (ov) row.push(ov[i].toFixed(cmp.decimals), pct(ov[i], r.indep));
+    row.push(`**${p.toFixed(cmp.decimals)}**`, `**${pct(p, r.indep)}**`);
+    return row;
   });
-  return { table: mdTable(header, rows), pv };
+  return { table: mdTable(header, rows), pv, ov, osMeta: osRaw?._meta || null };
 }
 
 async function runCase(file) {
@@ -90,7 +128,7 @@ async function runCase(file) {
   fs.writeFileSync(path.join(ROOT, 'docs/verifications', imgRel), svg, 'utf8');
 
   // comparación + sustitución de placeholders {{Pi}}/{{Di}} en `extra`
-  const { table, pv } = await buildComparison(mod.compare, out);
+  const { table, pv, ov, osMeta } = await buildComparison(mod.compare, out, mod.id);
   let extra = mod.extra || '';
   extra = extra.replace(/\{\{P(\d+)\}\}/g, (_, i) => pv[+i].toFixed(mod.compare.decimals))
                .replace(/\{\{D(\d+)\}\}/g, (_, i) => pct(pv[+i], mod.compare.rows[+i].indep));
@@ -122,7 +160,7 @@ ${mod.modelNotes.map(n => `- ${n}`).join('\n')}
 ${mod.compare.intro}
 
 ${table}
-${extra ? extra + '\n\n' : ''}## Conclusión
+${osNote(ov, osMeta, pv, mod)}${extra ? extra + '\n\n' : ''}## Conclusión
 
 ${mod.conclusion}
 `;
@@ -136,8 +174,11 @@ ${mod.conclusion}
 
   // resumen a consola
   const maxDiff = Math.max(...mod.compare.rows.map((r, i) => Math.abs(r.indep) < 1e-9 ? 0 : Math.abs((pv[i] - r.indep) / r.indep * 100)));
-  console.log(`✓ ${mod.id}  ${mod.slug}  ·  máx |dif| = ${maxDiff.toFixed(3)} %  ·  ${mod.slug}.pdf`);
-  return { id: mod.id, maxDiff };
+  const osDiff = ov ? Math.max(...ov.map((o, i) => Math.abs(o) < 1e-12 ? Math.abs(pv[i] - o) : Math.abs((pv[i] - o) / o))) : null;
+  console.log(`✓ ${mod.id}  ${mod.slug}  ·  máx |dif| = ${maxDiff.toFixed(3)} %` +
+    (osDiff !== null ? `  ·  vs OpenSees = ${osDiff.toExponential(1)}` : '') +
+    `  ·  ${mod.slug}.pdf`);
+  return { id: mod.id, maxDiff, osDiff };
 }
 
 const files = fs.readdirSync(path.join(ROOT, 'tools/verif/cases')).filter(f => f.endsWith('.mjs') && (!pat || f.includes(pat))).sort();

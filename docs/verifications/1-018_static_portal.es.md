@@ -4,11 +4,11 @@
 
 **Capacidad verificada:** análisis estático lineal con deformación por flexión, corte (Timoshenko) y axial.
 **Referencia:** CSI *Software Verification — SAP2000*, Example 1-018; resultados independientes por el método de la carga unitaria (Cook & Young 1985).
-**Modelo Portico:** [`examples/verif_1-018_static_portal.s3d`](../../examples/verif_1-018_static_portal.s3d)
+**Modelo Pórtico:** [`examples/verif_1-018_static_portal.s3d`](../../examples/verif_1-018_static_portal.s3d)
 
 ## Descripción del problema
 
-Portico de un vano (viga horizontal de 288 in sobre dos columnas de 144 in) con **apoyo articulado** (nodo 1) y **apoyo deslizante** (nodo 3), bajo carga vertical uniforme de 0.1 k/in sobre la viga. Se compara el **desplazamiento vertical del centro de la viga** (nodo 5). El Modelo A considera **las tres deformaciones combinadas** (flexión + corte + axial), que es justo el elemento Timoshenko de Portico.
+Pórtico de un vano (viga horizontal de 288 in sobre dos columnas de 144 in) con **apoyo articulado** (nodo 1) y **apoyo deslizante** (nodo 3), bajo carga vertical uniforme de 0.1 k/in sobre la viga. Se compara el **desplazamiento vertical del centro de la viga** (nodo 5). El Modelo A considera **las tres deformaciones combinadas** (flexión + corte + axial), que es justo el elemento Timoshenko de Pórtico.
 
 | Propiedad | Valor |
 | --- | --- |
@@ -19,11 +19,11 @@ Portico de un vano (viga horizontal de 288 in sobre dos columnas de 144 in) con 
 | Sección W8X31 | A = 9.12 in², I = 110 in⁴, Aᵥ = 2.28 in² |
 | Carga | 0.1 k/in vertical sobre la viga |
 
-## Modelo en Portico
+## Modelo en Pórtico
 
 - Modelo **2D**, juntas viga-columna **rígidas**; bases articulada y deslizante (según la figura del original).
 - Sección **real** (A, I y área de corte Aᵥ activos) → el elemento incluye **flexión + corte + axial** = Modelo A del original.
-- El elemento **Timoshenko** de Portico captura la deformación por corte vía el área de corte `Avz`.
+- El elemento **Timoshenko** de Pórtico captura la deformación por corte vía el área de corte `Avz`.
 
 ![Deformada bajo la carga vertical (×escala). En gris el pórtico sin deformar; en azul la deformada — la viga flecta y los apoyos articulado/deslizante permiten el giro/desplazamiento.](img/1-018_static_portal.svg)
 
@@ -33,9 +33,16 @@ Portico de un vano (viga horizontal de 288 in sobre dos columnas de 144 in) con 
 
 Desplazamiento vertical del centro de la viga (nodo 5), Modelo A (flexión + corte + axial). La referencia independiente coincide exactamente con SAP2000.
 
-| Modelo | Descripción | Independiente (in) | SAP2000 (in) | dif. SAP | **Portico (in)** | **dif. Portico** |
-| --- | --- | --- | --- | --- | --- | --- |
-| A | Flexión + corte + axial · U_z(nodo 5) | -2.77076 | -2.77076 | 0 % | **-2.77076** | **0 %** |
+| Modelo | Descripción | Independiente (in) | SAP2000 (in) | dif. SAP | OpenSees (in) | dif. OpenSees | **Pórtico (in)** | **dif. Pórtico** |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A | Flexión + corte + axial · U_z(nodo 5) | -2.77076 | -2.77076 | 0 % | -2.77076 | 0 % | **-2.77076** | **0 %** |
+
+
+### Contraste con OpenSees
+
+Segunda opinión de un motor independiente y establecido: **OpenSees 3.8.0** (`openseespy`), corrido sobre el mismo `.s3d` mediante [`tools/verif/opensees/run_case.py`](../../tools/verif/opensees/run_case.py), que **traduce el modelo por su cuenta** — no pasa por el exportador de Pórtico, para que un malentendido compartido no se cuele. Elemento: `ElasticTimoshenkoBeam`; masa consistent (-cMass).
+
+Diferencia máxima **Pórtico ↔ OpenSees: 1.3e-14** (relativa). Los dos motores resuelven el mismo modelo con la misma formulación, así que lo que ambos comparten frente a la referencia analítica es discretización, no error de Pórtico.
 
 ### Descomposición por tipo de deformación (referencia)
 
@@ -51,4 +58,4 @@ El original separa las contribuciones (mismas en SAP2000 e independiente); su **
 
 ## Conclusión
 
-Portico reproduce el desplazamiento del Modelo A con **diferencia 0.000 %** (−2.77076 in), idéntico a la solución independiente y a SAP2000. El resultado integra correctamente las deformaciones de **flexión, corte y axial**, validando el elemento **Timoshenko** (incluida la deformación por corte) y el tratamiento de apoyos articulado/deslizante. **Capacidad estática (flexión+corte+axial) verificada.**
+Pórtico reproduce el desplazamiento del Modelo A con **diferencia 0.000 %** (−2.77076 in), idéntico a la solución independiente y a SAP2000. El resultado integra correctamente las deformaciones de **flexión, corte y axial**, validando el elemento **Timoshenko** (incluida la deformación por corte) y el tratamiento de apoyos articulado/deslizante. **Capacidad estática (flexión+corte+axial) verificada.**

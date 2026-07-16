@@ -31,6 +31,7 @@ export default {
     unit: 'in', decimals: 5, indexLabel: 'Modelo',
     rows: [{ idx: 'A', desc: 'Flexión + corte + axial · U_z(nodo 5)', indep: -2.77076, sap: -2.77076 }],
     portico: res => [res.getNodeDisp(5)[2]],
+    opensees: r => [r.disp['5'][2]],
   },
 
   extra: `### Descomposición por tipo de deformación (referencia)

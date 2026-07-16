@@ -40,6 +40,7 @@ export default {
       { desc: '3ª flexión, eje débil', indep: 0.002165, sap: 0.002166 },
     ],
     portico: res => res.period.slice(0, 5),   // valores de Pórtico
+    opensees: r => r.period.slice(0, 5),
   },
 
   extra: `### Convergencia (modo 1) — masa consistente vs. concentrada
