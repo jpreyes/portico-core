@@ -4,7 +4,7 @@
 
 **Capacidad verificada:** análisis modal con rigidez geométrica Kg desde un estado de referencia (rigidización por tracción / pre-esfuerzo).
 **Referencia:** CSI *Software Verification — SAP2000*, Example 1-017; independiente por la teoría de cuerda vibrante (Kreyszig 1983, pp. 506-510).
-**Modelo Portico:** [`examples/verif_1-017_taut_string.s3d`](../../examples/verif_1-017_taut_string.s3d)
+**Modelo Pórtico:** [`examples/verif_1-017_taut_string.s3d`](../../examples/verif_1-017_taut_string.s3d)
 
 ## Descripción del problema
 
@@ -18,7 +18,7 @@ Una cuerda flexible de 100 in, anclada en ambos extremos y **tensada a 0.5 k**, 
 | Masa por volumen | 7.324×10⁻⁷ k·s²/in⁴ |
 | Tensión | T = 0.5 k (carga axial de referencia) |
 
-## Modelo en Portico
+## Modelo en Pórtico
 
 - La **tensión** se introduce con un caso estático (F_x = 0.5 k en el extremo libre axialmente) → estado de referencia con N = +0.5 k uniforme.
 - El modal corre sobre **K + Kg** con el toggle «incluir rigidez geométrica P-Δ» (#55): la tracción rigidiza los modos laterales. Sin Kg, la cuerda (EI≈0) no tendría rigidez transversal.
@@ -30,9 +30,9 @@ Una cuerda flexible de 100 in, anclada en ambos extremos y **tensada a 0.5 k**, 
 
 ## Resultados — comparación
 
-Tres primeras frecuencias de la cuerda tensa. La referencia independiente es la teoría de cuerda vibrante (Kreyszig). El modal de Portico usa K+Kg del estado tensado.
+Tres primeras frecuencias de la cuerda tensa. La referencia independiente es la teoría de cuerda vibrante (Kreyszig). El modal de Pórtico usa K+Kg del estado tensado.
 
-| Modo | Descripción | Independiente (Hz) | SAP2000 (Hz) | dif. SAP | **Portico (Hz)** | **dif. Portico** |
+| Modo | Descripción | Independiente (Hz) | SAP2000 (Hz) | dif. SAP | **Pórtico (Hz)** | **dif. Pórtico** |
 | --- | --- | --- | --- | --- | --- | --- |
 | f₁ | Primer modo (media onda) | 74.586 | 74.579 | -0.01 % | **74.587** | **0 %** |
 | f₂ | Segundo modo (onda completa) | 149.170 | 148.930 | -0.16 % | **149.185** | **+0.01 %** |
@@ -46,8 +46,8 @@ La frecuencia teórica f_n = (n/2L)·√(T/μ) = 74.586·n Hz da 74.586 / 149.17
 
 ### Masa consistente vs concentrada
 
-Con sólo 10 elementos y **masa consistente**, Portico alcanza la solución analítica (dif ≤ 0.02 %), superando al Model A de SAP2000 (10 elementos, masa **concentrada**: f₃ −0.76 %) e igualando su Model B (100 elementos). El refinamiento a 100 elementos no cambia el resultado de Portico.
+Con sólo 10 elementos y **masa consistente**, Pórtico alcanza la solución analítica (dif ≤ 0.02 %), superando al Model A de SAP2000 (10 elementos, masa **concentrada**: f₃ −0.76 %) e igualando su Model B (100 elementos). El refinamiento a 100 elementos no cambia el resultado de Pórtico.
 
 ## Conclusión
 
-Portico reproduce las tres primeras frecuencias de la cuerda tensa con **diferencia ≤ 0.02 %** (74.587 / 149.18 / 223.80 Hz vs 74.586 / 149.17 / 223.76 Hz analíticos), con sólo 10 elementos. El **modal con rigidez geométrica Kg** (#55) —donde la rigidez lateral proviene íntegramente de la tracción del estado de referencia— queda validado contra la teoría de cuerda vibrante. **Capacidad de modal con Kg / pre-esfuerzo verificada.**
+Pórtico reproduce las tres primeras frecuencias de la cuerda tensa con **diferencia ≤ 0.02 %** (74.587 / 149.18 / 223.80 Hz vs 74.586 / 149.17 / 223.76 Hz analíticos), con sólo 10 elementos. El **modal con rigidez geométrica Kg** (#55) —donde la rigidez lateral proviene íntegramente de la tracción del estado de referencia— queda validado contra la teoría de cuerda vibrante. **Capacidad de modal con Kg / pre-esfuerzo verificada.**

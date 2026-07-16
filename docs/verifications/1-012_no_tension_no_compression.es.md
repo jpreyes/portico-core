@@ -4,7 +4,7 @@
 
 **Capacidad verificada:** miembros con límite de tracción (compression-only / puntal) y de compresión (tension-only / cable) en el solver NL-lite.
 **Referencia:** CSI *Software Verification — SAP2000*, Example 1-012; independiente por el método de la carga unitaria + estática (Cook & Young 1985).
-**Modelo Portico:** [`examples/verif_1-012c_no_tension.s3d`](../../examples/verif_1-012c_no_tension.s3d)
+**Modelo Pórtico:** [`examples/verif_1-012c_no_tension.s3d`](../../examples/verif_1-012c_no_tension.s3d)
 
 ## Descripción del problema
 
@@ -18,7 +18,7 @@ Marco arriostrado de un vano y un piso (120 × 120 in) con dos diagonales (aspa,
 | Miembro 4 (diag. 1-4) | traccionada — sin tracción en Model C (puntal) |
 | Miembro 5 (diag. 2-3) | comprimida — sin compresión en Model B (cable) |
 
-## Modelo en Portico
+## Modelo en Pórtico
 
 - Todos los miembros como **barras axiales** (reticulado corotacional NL-lite). El límite «sin tracción» = **`compressionOnly`** (#56); el límite «sin compresión» = **`cable`** (tension-only).
 - Los tres modelos se resuelven con el **mismo solver NL-lite**; A en 1 paso (lineal), B y C incrementales (la diagonal limitada se afloja → N=0).
@@ -32,7 +32,7 @@ Marco arriostrado de un vano y un piso (120 × 120 in) con dos diagonales (aspa,
 
 Desplazamiento horizontal U_x del nodo 2 y reacciones F_x, F_z de los apoyos 1 y 3, para los tres modelos. La referencia independiente coincide exactamente con SAP2000.
 
-| Modelo | Descripción | Independiente (in · kip) | SAP2000 (in · kip) | dif. SAP | **Portico (in · kip)** | **dif. Portico** |
+| Modelo | Descripción | Independiente (in · kip) | SAP2000 (in · kip) | dif. SAP | **Pórtico (in · kip)** | **dif. Pórtico** |
 | --- | --- | --- | --- | --- | --- | --- |
 | A | U_x(2) — sin límites (lineal) | 0.1068 | 0.1068 | 0 % | **0.1068** | **0 %** |
 | A | F_x(1) | -44.2240 | -44.2240 | 0 % | **-44.2917** | **+0.15 %** |
@@ -50,4 +50,4 @@ En los tres modelos F_z(1) = −100 kip y F_z(3) = +100 kip (la carga horizontal
 
 ## Conclusión
 
-Portico reproduce los tres modelos del Example 1-012 con **diferencia ≤ 0.6 %**: el reticulado lineal (A), la diagonal **sin compresión** (cable, B → la diagonal comprimida se afloja y la traccionada toma 100√2) y la diagonal **sin tracción** (puntal `compressionOnly`, C → la diagonal traccionada se afloja y la comprimida toma −100√2). Los **límites de tracción/compresión por miembro** (#56) quedan validados contra el manual CSI. **Capacidad de miembros compression-only / tension-only verificada.**
+Pórtico reproduce los tres modelos del Example 1-012 con **diferencia ≤ 0.6 %**: el reticulado lineal (A), la diagonal **sin compresión** (cable, B → la diagonal comprimida se afloja y la traccionada toma 100√2) y la diagonal **sin tracción** (puntal `compressionOnly`, C → la diagonal traccionada se afloja y la comprimida toma −100√2). Los **límites de tracción/compresión por miembro** (#56) quedan validados contra el manual CSI. **Capacidad de miembros compression-only / tension-only verificada.**

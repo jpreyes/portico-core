@@ -4,7 +4,7 @@
 
 **Capacidad verificada:** gradiente de temperatura a través del espesor de placa/cáscara → momento térmico de flexión.
 **Referencia:** CSI *Software Verification — SAP2000*, Example 2-014 (Roark & Young 1975, Tabla 24, ítem 8e).
-**Modelo Portico:** [`examples/verif_2-014_thermal_gradient.s3d`](../../examples/verif_2-014_thermal_gradient.s3d)
+**Modelo Pórtico:** [`examples/verif_2-014_thermal_gradient.s3d`](../../examples/verif_2-014_thermal_gradient.s3d)
 
 ## Descripción del problema
 
@@ -18,7 +18,7 @@ Placa **anular** plana (radio interior 3 in, exterior 30 in, espesor 1 in) **emp
 | Poisson ν | 0.3 · α = 6.5×10⁻⁶/°F |
 | Carga | gradiente 100 °F (cara inferior más caliente) |
 
-## Modelo en Portico
+## Modelo en Pórtico
 
 - Áreas con comportamiento **shell** (membrana + placa MITC4). El gradiente se ingresa como **temperatura por cara** (#57): cara inferior (−z) +100 °F, cara superior (+z) 0 °F.
 - La diferencia entre caras genera una **curvatura térmica** κ₀ = α·ΔT/t → momento de flexión; la media (50 °F) sólo dilata en el plano (sin efecto al estar la placa restringida).
@@ -32,7 +32,7 @@ Placa **anular** plana (radio interior 3 in, exterior 30 in, espesor 1 in) **emp
 
 Desplazamiento y rotación del borde interno (malla 18×32, refinamiento de la malla 9×16 «Model A» del original). Referencia analítica de Roark & Young.
 
-| Parámetro | Descripción | Independiente (in · rad) | SAP2000 (in · rad) | dif. SAP | **Portico (in · rad)** | **dif. Portico** |
+| Parámetro | Descripción | Independiente (in · rad) | SAP2000 (in · rad) | dif. SAP | **Pórtico (in · rad)** | **dif. Pórtico** |
 | --- | --- | --- | --- | --- | --- | --- |
 | U_z | Desplazamiento vertical del borde interno | 0.01931 | 0.01922 | -0.47 % | **0.01905** | **-1.33 %** |
 | R₂ | Rotación tangencial del borde interno | 0.00352 | 0.00351 | -0.28 % | **0.00342** | **-2.92 %** |
@@ -52,4 +52,4 @@ El elemento MITC4 (placa gruesa de Mindlin) converge al refinar, como el propio 
 
 ## Conclusión
 
-Portico reproduce la respuesta de la placa anular al **gradiente térmico a través del espesor** (#57): U_z = 0.01905 in (−1.3 %) y R₂ = 0.00342 rad (−2.8 %) en el borde interno, en línea con la solución analítica (0.01931 / 0.00352) y con SAP2000. La **curvatura térmica de flexión** (momento térmico de placa) queda validada, incluido el **signo físico** (la cara más caliente se alarga y la placa curva hacia ella). **Capacidad de gradiente térmico en áreas verificada.**
+Pórtico reproduce la respuesta de la placa anular al **gradiente térmico a través del espesor** (#57): U_z = 0.01905 in (−1.3 %) y R₂ = 0.00342 rad (−2.8 %) en el borde interno, en línea con la solución analítica (0.01931 / 0.00352) y con SAP2000. La **curvatura térmica de flexión** (momento térmico de placa) queda validada, incluido el **signo físico** (la cara más caliente se alarga y la placa curva hacia ella). **Capacidad de gradiente térmico en áreas verificada.**

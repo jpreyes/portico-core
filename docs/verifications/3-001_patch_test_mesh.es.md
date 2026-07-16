@@ -4,7 +4,7 @@
 
 **Capacidad verificada:** mallador transfinito (Coons) de áreas → QUAD conformes que pasan el patch test de tensión constante en una malla NO rectangular.
 **Referencia:** Patch test de elementos finitos (Irons & Razzaque; MacNeal-Harder): un elemento es convergente si reproduce EXACTAMENTE un estado de deformación constante en cualquier malla distorsionada.
-**Modelo Portico:** [`examples/verif_3-001_patch_test_mesh.s3d`](../../examples/verif_3-001_patch_test_mesh.s3d)
+**Modelo Pórtico:** [`examples/verif_3-001_patch_test_mesh.s3d`](../../examples/verif_3-001_patch_test_mesh.s3d)
 
 ## Descripción del problema
 
@@ -19,7 +19,7 @@ Panel **trapezoidal** (lado izquierdo de 1 m, derecho de 2 m) mallado por **inte
 | Campo impuesto | u = (εₓ·x, −ν·εₓ·y), εₓ = 10⁻⁴ |
 | Estado teórico | σ₁ = E·εₓ = 2.1·10⁷ Pa, σ₂ = 0 |
 
-## Modelo en Portico
+## Modelo en Pórtico
 
 - La malla la genera `coonsGridFromCorners` (mesh_map.js); con lados rectos coincide con el mallador de bloque, pero el trapecio produce **QUADs distorsionados** — el caso exigente del patch test.
 - El campo lineal se impone con **desplazamiento prescrito** (#54) en los nodos del borde; los nodos interiores quedan libres.
@@ -33,7 +33,7 @@ Panel **trapezoidal** (lado izquierdo de 1 m, derecho de 2 m) mallado por **inte
 
 Tensiones principales de un elemento interior (todas las celdas dan el mismo valor constante). El patch test pasa si coinciden con el estado uniaxial teórico.
 
-| Cantidad | Descripción | Independiente (Pa) | SAP2000 (Pa) | dif. SAP | **Portico (Pa)** | **dif. Portico** |
+| Cantidad | Descripción | Independiente (Pa) | SAP2000 (Pa) | dif. SAP | **Pórtico (Pa)** | **dif. Pórtico** |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | σ₁ (tensión principal mayor) = E·εₓ | 21000000.0 | 21000000.0 | 0 % | **21000000.0** | **0 %** |
 | 2 | σ₂ (tensión principal menor) ≈ 0 | 0.0 | 0.0 | ≈0 | **-0.0** | **≈0** |

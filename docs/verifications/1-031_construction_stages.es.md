@@ -4,7 +4,7 @@
 
 **Capacidad verificada:** análisis por ETAPAS con activación de elementos/apoyos y acumulación de estado (peso/cargas por fase).
 **Referencia:** Solución analítica de viga (voladizo y viga apuntalada, Hibbeler/Gere) — el orden de construcción cambia los esfuerzos respecto al montaje monolítico.
-**Modelo Portico:** [`examples/verif_1-031_construction_stages.s3d`](../../examples/verif_1-031_construction_stages.s3d)
+**Modelo Pórtico:** [`examples/verif_1-031_construction_stages.s3d`](../../examples/verif_1-031_construction_stages.s3d)
 
 ## Descripción del problema
 
@@ -19,7 +19,7 @@ Viga de 8 m (2 elementos de 4 m) empotrada en el nodo 1, construida en **tres et
 | E | 2.1·10⁸ kN/m² |
 | I | 8.333·10⁻⁶ m⁴ (rígida a corte) |
 
-## Modelo en Portico
+## Modelo en Pórtico
 
 - Modelo **2D**; el peso propio se desactiva (ρ=0) para aislar el efecto de las etapas.
 - El **StagedSolver** ensambla K sólo con los elementos activos y resuelve el **incremento** de cada fase; U y los esfuerzos se **acumulan** por elemento.
@@ -33,7 +33,7 @@ Viga de 8 m (2 elementos de 4 m) empotrada en el nodo 1, construida en **tres et
 
 Resultados al final de la secuencia (estado acumulado). La referencia analítica combina el voladizo de la etapa A con la viga apuntalada de la etapa C.
 
-| Cantidad | Descripción | Independiente (—) | SAP2000 (—) | dif. SAP | **Portico (—)** | **dif. Portico** |
+| Cantidad | Descripción | Independiente (—) | SAP2000 (—) | dif. SAP | **Pórtico (—)** | **dif. Pórtico** |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Flecha de la punta, nodo 3 · U_z [m] | -3.511 | -3.511 | 0 % | **-3.511** | **0 %** |
 | 2 | Momento de empotramiento, elem 1 · |M| [kN·m] | 544.000 | 544.000 | 0 % | **544.000** | **0 %** |

@@ -4,7 +4,7 @@
 
 **Capacidad verificada:** mallador LIBRE (ear-clipping + Delaunay + refinamiento + recombinación a quad) de un polígono cóncavo arbitrario → malla conforme que pasa el patch test.
 **Referencia:** Patch test de elementos finitos (Irons & Razzaque; MacNeal-Harder): reproducción exacta de un estado de deformación constante en una malla no estructurada.
-**Modelo Portico:** [`examples/verif_3-005_free_mesh_L.s3d`](../../examples/verif_3-005_free_mesh_L.s3d)
+**Modelo Pórtico:** [`examples/verif_3-005_free_mesh_L.s3d`](../../examples/verif_3-005_free_mesh_L.s3d)
 
 ## Descripción del problema
 
@@ -19,7 +19,7 @@ Planta en **L** (cóncava, 3 m²) mallada de forma **LIBRE** (sin descomponer en
 | Campo impuesto | u = (εₓ·x, −ν·εₓ·y), εₓ = 10⁻⁴ |
 | Estado teórico | σ₁ = E·εₓ = 2.1·10⁷ Pa, σ₂ = 0 |
 
-## Modelo en Portico
+## Modelo en Pórtico
 
 - La malla la genera `meshPolygonIntoModel` (mesh_free.js): triangulación por **ear-clipping** del polígono cóncavo, **flips de Delaunay**, refinamiento al tamaño h y **recombinación a quad**; luego **suavizado Laplaciano** de los nodos interiores.
 - El polígono se proyecta a su plano (Newell), se malla en 2D y se mapea de vuelta — sirve para cáscaras inclinadas.
@@ -33,7 +33,7 @@ Planta en **L** (cóncava, 3 m²) mallada de forma **LIBRE** (sin descomponer en
 
 Tensiones principales de una celda (todas dan el mismo valor constante). El patch test pasa si coinciden con el estado uniaxial teórico.
 
-| Cantidad | Descripción | Independiente (Pa) | SAP2000 (Pa) | dif. SAP | **Portico (Pa)** | **dif. Portico** |
+| Cantidad | Descripción | Independiente (Pa) | SAP2000 (Pa) | dif. SAP | **Pórtico (Pa)** | **dif. Pórtico** |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | σ₁ (principal mayor) = E·εₓ | 21000000.0 | 21000000.0 | 0 % | **21000000.0** | **0 %** |
 | 2 | σ₂ (principal menor) ≈ 0 | 0.0 | 0.0 | ≈0 | **0.0** | **≈0** |
