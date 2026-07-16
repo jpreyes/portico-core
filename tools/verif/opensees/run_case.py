@@ -98,7 +98,7 @@ def _refuse_unsupported(m):
             if e.get(k):
                 problems.append('element %s has %s' % (e['id'], k))
     for n in m.get('nodes', []):
-        for k in ('springK', 'springUni', 'soilSpring', 'prescDisp'):
+        for k in ('springK', 'springUni', 'soilSpring'):
             if n.get(k):
                 problems.append('node %s has %s' % (n['id'], k))
         if any(v for v in (n.get('springs') or {}).values()):
@@ -119,13 +119,23 @@ def build(m, lc_id=None, self_weight=False):
     ops.wipe()
     ops.model('basic', '-ndm', 3, '-ndf', 6)
 
+    presc = []          # (nodeId, dof index 1-based, value)
     for n in m['nodes']:
         ops.node(int(n['id']), float(n['x']), float(n['y']), float(n['z']))
         r = dict(n.get('restraints') or {})
         if is2d:
             # Mirror App.runModal / runners.apply2D: planar X-Z models restrain uy, rx, rz.
             r['uy'], r['rx'], r['rz'] = 1, 1, 1
-        ops.fix(int(n['id']), *[1 if r.get(d) else 0 for d in DOFS])
+        pd = n.get('prescDisp') or {}
+        fixflags = []
+        for k, d in enumerate(DOFS):
+            pv = float(pd.get(d) or 0.0)
+            # static_solver.js:75 — `if (rArr[li] || pv !== 0)`. A NON-ZERO prescribed
+            # value makes the DOF a support carrying that value; a zero one does not.
+            fixflags.append(1 if (r.get(d) or pv != 0.0) else 0)
+            if pv != 0.0:
+                presc.append((int(n['id']), k + 1, pv))
+        ops.fix(int(n['id']), *fixflags)
 
     for e in m['elements']:
         n1, n2 = nodes[e['n1']], nodes[e['n2']]
@@ -157,7 +167,7 @@ def build(m, lc_id=None, self_weight=False):
         _ELEMENT_KIND.add('elasticBeamColumn' if euler else 'ElasticTimoshenkoBeam')
 
     if lc_id is None:
-        return nodes
+        return nodes, presc
 
     lc = next((c for c in m['loadCases'] if c['id'] == lc_id), None)
     if lc is None:
@@ -165,6 +175,11 @@ def build(m, lc_id=None, self_weight=False):
 
     ops.timeSeries('Linear', 1)
     ops.pattern('Plain', 1, 1)
+
+    # Imposed support displacements. The DOF is already fixed above; `sp` inside the
+    # pattern gives it its value. Needs a non-Plain constraint handler (see run_static).
+    for nid, dof, val in presc:
+        ops.sp(nid, dof, val)
 
     for ld in lc.get('loads', []):
         t = ld.get('type')
@@ -214,15 +229,17 @@ def build(m, lc_id=None, self_weight=False):
             ops.eleLoad('-ele', int(e['id']), '-type', '-beamUniform',
                         _dot(gv, ey), _dot(gv, ez), _dot(gv, ex))
 
-    return nodes
+    return nodes, presc
 
 
 # ── analyses ──────────────────────────────────────────────────────────────────
 def run_static(m, lc_id, self_weight):
-    nodes = build(m, lc_id, self_weight)
+    nodes, presc = build(m, lc_id, self_weight)
     ops.system('BandGeneral')
     ops.numberer('RCM')
-    ops.constraints('Plain')
+    # 'Plain' cannot impose a NON-homogeneous sp constraint (an imposed settlement); it
+    # would silently solve the u=0 problem instead. 'Transformation' handles it.
+    ops.constraints('Transformation' if presc else 'Plain')
     ops.integrator('LoadControl', 1.0)
     ops.algorithm('Linear')
     ops.analysis('Static')
@@ -236,7 +253,7 @@ def run_static(m, lc_id, self_weight):
 
 
 def run_modal(m, n_modes):
-    nodes = build(m, None)
+    nodes, _ = build(m, None)
     lam = ops.eigen('-genBandArpack', n_modes)
     omega = [math.sqrt(abs(v)) for v in lam]
     return {
