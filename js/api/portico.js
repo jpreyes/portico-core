@@ -27,6 +27,7 @@ import { Serializer } from '../model/serializer.js?v=2';
 import { StaticSolver } from '../solver/static_solver.js?v=2';
 import { ModalSolver } from '../solver/modal_solver.js?v=2';
 import { ModalResults } from '../solver/modal_results.js?v=2';
+import { SpectrumSolver } from '../solver/spectrum_solver.js?v=2';
 import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from '../solver/assembler.js?v=2';
 import { assembleKg } from '../solver/geometric.js?v=2';
 import { makeFactor } from '../solver/linsolve.js?v=2';
@@ -122,6 +123,20 @@ export class Portico {
     this.modal = new ModalSolver().solve(this.model, nModes);
     this._lastKind = 'modal';
     return this.modal;
+  }
+  // Response spectrum (SRSS/CQC) on the modal results. CODE-AGNOSTIC: it takes any
+  // spectrum curve [{T,Sa}] — from Portico.spectrumNCh433() or hand-built — and combines
+  // the modes. If no modal has been solved yet, it solves one with `nModes` first.
+  //   opts = { spectrum:[{T,Sa}], saFactor=1, direction='X', zeta=0.05, method='CQC', nModes=6 }
+  // saFactor scales the raw Sa to model accel. units (m/s²); e.g. for an NCh433 elastic
+  // curve in g, saFactor = g/R* applies gravity and the reduction in one step.
+  async solveSpectrum(opts = {}) {
+    const { nModes = 6, ...params } = opts;
+    if (!params.spectrum || params.spectrum.length < 2) throw new Error('solveSpectrum: params.spectrum needs at least 2 [{T,Sa}] points');
+    if (!this.modal) await this.solveModal(nModes);
+    this.results = new SpectrumSolver().solve(this.modal, params);
+    this._lastKind = 'spectrum';
+    return this.results;
   }
   // Modal con rigidez geométrica del estado de referencia (lcId).
   async solveModalKg(refLcId, nModes = 3) {

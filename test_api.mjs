@@ -74,5 +74,36 @@ ok(spec.curve.length > 2 && spec.curve[0].T === 0, 'devuelve la curva desde T=0'
 ok(spec.Rstar > 5 && spec.Rstar < 5.3, 'R* razonable para suelo D, T*=0.5', `(R*=${spec.Rstar.toFixed(3)})`);
 ok(spec.params.Tp === 0.85 && spec.params.n === 1.80, 'preserva Tp y n del suelo D');
 
+console.log('\n── 9. solveSpectrum (cableado del SpectrumSolver) ──');
+{
+  // SDOF: columna vertical de 1 elemento, sin masa propia, con masa concentrada en la
+  // punta → un oscilador limpio. Pinchamos las mismas identidades que test_spectrum:
+  //   desplazamiento de punta = Sa/ω²   y   corte basal = m_eff·Sa.
+  const ps = new Portico();
+  const mt = ps.material({ name: 'S', E: 2.1e11, G: 8.0e10, nu: 0.3125, rho: 0 });
+  const st = ps.section({ name: 'C', A: 0.01, Iy: 8e-6, Iz: 8e-6, J: 1e-6, Avy: 1e30, Avz: 1e30, kappay: 1, kappaz: 1 });
+  const base = ps.node(0, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+  const tip = ps.node(0, 0, 3, { uy: 1, uz: 1, ry: 1, rz: 1 });   // sólo ux libre
+  ps.element(base, tip, { mat: mt, sec: st });
+  ps.model.updateNode(tip, { nodeMass: { mx: 50, my: 50, mz: 50 } });
+
+  const flatSa = 4.0, spectrum = [{ T: 0.001, Sa: flatSa }, { T: 100, Sa: flatSa }];
+  // solveSpectrum resuelve el modal solo si no existe:
+  ok(ps.modal == null, 'sin modal previo');
+  const res = await ps.solveSpectrum({ spectrum, direction: 'X', method: 'SRSS', nModes: 1 });
+  ok(ps.modal != null, 'solveSpectrum resolvió el modal automáticamente');
+  ok(res && typeof res.getNodeDisp === 'function', 'devuelve un Results con getNodeDisp');
+
+  const w2 = ps.modal.omega[0] ** 2;
+  const uTip = res.getNodeDisp(tip)[0];
+  ok(Math.abs(uTip - flatSa / w2) / (flatSa / w2) < 1e-6, 'punta ux = Sa/ω²',
+    `(${uTip.toExponential(4)} vs ${(flatSa / w2).toExponential(4)})`);
+
+  // end-to-end: la curva NCh433 alimenta al solver espectral sin fricción.
+  const { curve, Rstar } = Portico.spectrumNCh433({ soil: 'D', zone: 2, category: 'II', applyRstar: false, Tstar: 0.3 });
+  const res2 = await ps.solveSpectrum({ spectrum: curve, saFactor: 9.80665 / Rstar, direction: 'X', method: 'CQC', nModes: 1 });
+  ok(Math.abs(res2.getNodeDisp(tip)[0]) > 0, 'curva NCh433 → solveSpectrum da respuesta no nula');
+}
+
 console.log(`\n${fails === 0 ? '✅ TODOS PASAN' : '❌ ' + fails + ' fallos'}`);
 process.exit(fails ? 1 : 0);
