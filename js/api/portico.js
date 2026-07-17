@@ -34,7 +34,8 @@ import { makeFactor } from '../solver/linsolve.js?v=2';
 import { solveBuckling } from '../solver/buckling.js?v=2';
 import { StagedSolver } from '../solver/staged.js?v=2';
 import { checkElement, listDesignCodes, getDesignCode, registerDesignCode } from '../design/design.js?v=2';
-import { checkDeflection, checkDrift } from '../design/serviceability.js?v=2';
+import { checkDeflection, checkDrift, driftLimit } from '../design/serviceability.js?v=2';
+import { interstoryDrifts, buildStoryLevels } from '../solver/drift.js?v=2';
 import { polygonProps, compositeProps } from '../design/polygon_props.js?v=2';
 import { jointSCWB, strongColumnWeakBeam } from '../design/seismic.js?v=2';
 import { buildSpectrum } from '../design/nch433_spectrum.js?v=2';
@@ -238,6 +239,27 @@ export class Portico {
   // ── Estados límite de SERVICIO (#68): flecha y deriva por norma ──────────────
   checkDeflection(opts) { return checkDeflection(opts); }
   checkDrift(opts) { return checkDrift(opts); }
+
+  // Interstory drifts for one direction, checked against a code limit. Composes the
+  // generic drift primitive (js/solver/drift.js) with driftLimit(code) — the primitive
+  // stays code-agnostic; only the limit is per-norm, so a new code is one row there.
+  //   opts = { results, direction='X', mode='auto'|'cm'|'ext', code='NCh433' }
+  // `results` defaults to the last solveSpectrum output. Returns [{story, z, h, drift,
+  // limit, ratio, ok, code, label?}]. Run once per direction for a full building.
+  storyDrifts({ results, direction = 'X', mode = 'auto', code = 'NCh433' } = {}) {
+    const res = results || this.results;
+    if (!res || typeof res.getNodeDisp !== 'function')
+      throw new Error('storyDrifts: needs results with getNodeDisp — run solveSpectrum first or pass { results }');
+    const idx = { X: 0, Y: 1, Z: 2 }[direction];
+    if (idx === undefined) throw new Error(`storyDrifts: bad direction "${direction}"`);
+    const dispOf = id => { try { return res.getNodeDisp(id)[idx]; } catch { return 0; } };
+    const levels = buildStoryLevels(this.model, dispOf, { mode });
+    const lim = driftLimit(code);
+    return interstoryDrifts(levels).map(s => ({
+      ...s, limit: lim, ratio: lim > 1e-12 ? +(s.drift / lim).toFixed(4) : Infinity,
+      ok: s.drift <= lim, code,
+    }));
+  }
 
   // ── Sección poligonal / compuesta (#70) ─────────────────────────────────────
   static polygonProps(o) { return polygonProps(o); }
