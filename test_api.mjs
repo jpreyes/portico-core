@@ -68,5 +68,70 @@ const codes = Portico.listDesignCodes();
 ok(codes.some(c => c.id === 'AISC360-16:LRFD') && codes.some(c => c.id === 'EN1993-1-1') && codes.some(c => c.id === 'ACI318-19'),
   'catálogo incluye AISC, EC3, ACI', `(${codes.length} códigos)`);
 
+console.log('\n── 8. Espectro NCh433/DS61 ──');
+const spec = Portico.spectrumNCh433({ soil: 'D', zone: 2, category: 'II', Ro: 11, Tstar: 0.5 });
+ok(spec.curve.length > 2 && spec.curve[0].T === 0, 'devuelve la curva desde T=0');
+ok(spec.Rstar > 5 && spec.Rstar < 5.3, 'R* razonable para suelo D, T*=0.5', `(R*=${spec.Rstar.toFixed(3)})`);
+ok(spec.params.Tp === 0.85 && spec.params.n === 1.80, 'preserva Tp y n del suelo D');
+
+console.log('\n── 9. solveSpectrum (cableado del SpectrumSolver) ──');
+{
+  // SDOF: columna vertical de 1 elemento, sin masa propia, con masa concentrada en la
+  // punta → un oscilador limpio. Pinchamos las mismas identidades que test_spectrum:
+  //   desplazamiento de punta = Sa/ω²   y   corte basal = m_eff·Sa.
+  const ps = new Portico();
+  const mt = ps.material({ name: 'S', E: 2.1e11, G: 8.0e10, nu: 0.3125, rho: 0 });
+  const st = ps.section({ name: 'C', A: 0.01, Iy: 8e-6, Iz: 8e-6, J: 1e-6, Avy: 1e30, Avz: 1e30, kappay: 1, kappaz: 1 });
+  const base = ps.node(0, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+  const tip = ps.node(0, 0, 3, { uy: 1, uz: 1, ry: 1, rz: 1 });   // sólo ux libre
+  ps.element(base, tip, { mat: mt, sec: st });
+  ps.model.updateNode(tip, { nodeMass: { mx: 50, my: 50, mz: 50 } });
+
+  const flatSa = 4.0, spectrum = [{ T: 0.001, Sa: flatSa }, { T: 100, Sa: flatSa }];
+  // solveSpectrum resuelve el modal solo si no existe:
+  ok(ps.modal == null, 'sin modal previo');
+  const res = await ps.solveSpectrum({ spectrum, direction: 'X', method: 'SRSS', nModes: 1 });
+  ok(ps.modal != null, 'solveSpectrum resolvió el modal automáticamente');
+  ok(res && typeof res.getNodeDisp === 'function', 'devuelve un Results con getNodeDisp');
+
+  const w2 = ps.modal.omega[0] ** 2;
+  const uTip = res.getNodeDisp(tip)[0];
+  ok(Math.abs(uTip - flatSa / w2) / (flatSa / w2) < 1e-6, 'punta ux = Sa/ω²',
+    `(${uTip.toExponential(4)} vs ${(flatSa / w2).toExponential(4)})`);
+
+  // end-to-end: la curva NCh433 alimenta al solver espectral sin fricción.
+  const { curve, Rstar } = Portico.spectrumNCh433({ soil: 'D', zone: 2, category: 'II', applyRstar: false, Tstar: 0.3 });
+  const res2 = await ps.solveSpectrum({ spectrum: curve, saFactor: 9.80665 / Rstar, direction: 'X', method: 'CQC', nModes: 1 });
+  ok(Math.abs(res2.getNodeDisp(tip)[0]) > 0, 'curva NCh433 → solveSpectrum da respuesta no nula');
+}
+
+console.log('\n── 10. storyDrifts: modal → espectro → derivas por norma ──');
+{
+  // Edificio de corte de 2 pisos: masa concentrada por piso, columnas verticales. Todo
+  // headless por la API — el flujo que antes sólo existía en app.js con DOM.
+  const pb = new Portico();
+  const mt = pb.material({ name: 'S', E: 2.1e11, G: 8.0e10, nu: 0.3125, rho: 0 });
+  const st = pb.section({ name: 'C', A: 0.02, Iy: 4e-4, Iz: 4e-4, J: 1e-5, Avy: 1e30, Avz: 1e30, kappay: 1, kappaz: 1 });
+  const base = pb.node(0, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+  const p1 = pb.node(0, 0, 3, { uy: 1, uz: 1, ry: 1, rz: 1 });
+  const p2 = pb.node(0, 0, 6, { uy: 1, uz: 1, ry: 1, rz: 1 });
+  pb.element(base, p1, { mat: mt, sec: st });
+  pb.element(p1, p2, { mat: mt, sec: st });
+  pb.model.updateNode(p1, { nodeMass: { mx: 30, my: 30, mz: 30 } });
+  pb.model.updateNode(p2, { nodeMass: { mx: 30, my: 30, mz: 30 } });
+
+  const { curve, Rstar } = Portico.spectrumNCh433({ soil: 'D', zone: 3, category: 'II', applyRstar: false, Tstar: 0.4 });
+  await pb.solveSpectrum({ spectrum: curve, saFactor: 9.80665 / Rstar, direction: 'X', nModes: 2 });
+
+  const drifts = pb.storyDrifts({ direction: 'X', code: 'NCh433' });
+  ok(drifts.length === 2, 'dos pisos', `(${drifts.length})`);
+  ok(drifts.every(s => s.limit === 0.002 && s.code === 'NCh433'), 'límite 0.002 viene de la norma, no hardcodeado');
+  ok(drifts.every(s => s.drift >= 0 && Number.isFinite(s.ratio)), 'cada piso trae drift y ratio Δ/límite');
+  // el mismo cálculo con otra norma cambia sólo el límite/ratio, no el drift
+  const asce = pb.storyDrifts({ direction: 'X', code: 'ASCE7' });
+  ok(Math.abs(asce[0].drift - drifts[0].drift) < 1e-15, 'el drift es el mismo drift; sólo cambia el límite por norma');
+  ok(asce[0].limit === 0.020, 'ASCE7 usa 0.020');
+}
+
 console.log(`\n${fails === 0 ? '✅ TODOS PASAN' : '❌ ' + fails + ' fallos'}`);
 process.exit(fails ? 1 : 0);

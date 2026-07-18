@@ -27,15 +27,18 @@ import { Serializer } from '../model/serializer.js?v=2';
 import { StaticSolver } from '../solver/static_solver.js?v=2';
 import { ModalSolver } from '../solver/modal_solver.js?v=2';
 import { ModalResults } from '../solver/modal_results.js?v=2';
+import { SpectrumSolver } from '../solver/spectrum_solver.js?v=2';
 import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from '../solver/assembler.js?v=2';
 import { assembleKg } from '../solver/geometric.js?v=2';
 import { makeFactor } from '../solver/linsolve.js?v=2';
 import { solveBuckling } from '../solver/buckling.js?v=2';
 import { StagedSolver } from '../solver/staged.js?v=2';
 import { checkElement, listDesignCodes, getDesignCode, registerDesignCode } from '../design/design.js?v=2';
-import { checkDeflection, checkDrift } from '../design/serviceability.js?v=2';
+import { checkDeflection, checkDrift, driftLimit } from '../design/serviceability.js?v=2';
+import { interstoryDrifts, buildStoryLevels } from '../solver/drift.js?v=2';
 import { polygonProps, compositeProps } from '../design/polygon_props.js?v=2';
 import { jointSCWB, strongColumnWeakBeam } from '../design/seismic.js?v=2';
+import { buildSpectrum } from '../design/nch433_spectrum.js?v=2';
 import { resolveMaterial } from '../design/material_props.js?v=2';
 import { resolveSectionProps } from '../design/section_props.js?v=2';
 import { registerFormat, listFormats, exportModel, importModel } from '../io/index.js?v=2';
@@ -121,6 +124,20 @@ export class Portico {
     this.modal = new ModalSolver().solve(this.model, nModes);
     this._lastKind = 'modal';
     return this.modal;
+  }
+  // Response spectrum (SRSS/CQC) on the modal results. CODE-AGNOSTIC: it takes any
+  // spectrum curve [{T,Sa}] — from Portico.spectrumNCh433() or hand-built — and combines
+  // the modes. If no modal has been solved yet, it solves one with `nModes` first.
+  //   opts = { spectrum:[{T,Sa}], saFactor=1, direction='X', zeta=0.05, method='CQC', nModes=6 }
+  // saFactor scales the raw Sa to model accel. units (m/s²); e.g. for an NCh433 elastic
+  // curve in g, saFactor = g/R* applies gravity and the reduction in one step.
+  async solveSpectrum(opts = {}) {
+    const { nModes = 6, ...params } = opts;
+    if (!params.spectrum || params.spectrum.length < 2) throw new Error('solveSpectrum: params.spectrum needs at least 2 [{T,Sa}] points');
+    if (!this.modal) await this.solveModal(nModes);
+    this.results = new SpectrumSolver().solve(this.modal, params);
+    this._lastKind = 'spectrum';
+    return this.results;
   }
   // Modal con rigidez geométrica del estado de referencia (lcId).
   async solveModalKg(refLcId, nModes = 3) {
@@ -223,9 +240,35 @@ export class Portico {
   checkDeflection(opts) { return checkDeflection(opts); }
   checkDrift(opts) { return checkDrift(opts); }
 
+  // Interstory drifts for one direction, checked against a code limit. Composes the
+  // generic drift primitive (js/solver/drift.js) with driftLimit(code) — the primitive
+  // stays code-agnostic; only the limit is per-norm, so a new code is one row there.
+  //   opts = { results, direction='X', mode='auto'|'cm'|'ext', code='NCh433' }
+  // `results` defaults to the last solveSpectrum output. Returns [{story, z, h, drift,
+  // limit, ratio, ok, code, label?}]. Run once per direction for a full building.
+  storyDrifts({ results, direction = 'X', mode = 'auto', code = 'NCh433' } = {}) {
+    const res = results || this.results;
+    if (!res || typeof res.getNodeDisp !== 'function')
+      throw new Error('storyDrifts: needs results with getNodeDisp — run solveSpectrum first or pass { results }');
+    const idx = { X: 0, Y: 1, Z: 2 }[direction];
+    if (idx === undefined) throw new Error(`storyDrifts: bad direction "${direction}"`);
+    const dispOf = id => { try { return res.getNodeDisp(id)[idx]; } catch { return 0; } };
+    const levels = buildStoryLevels(this.model, dispOf, { mode });
+    const lim = driftLimit(code);
+    return interstoryDrifts(levels).map(s => ({
+      ...s, limit: lim, ratio: lim > 1e-12 ? +(s.drift / lim).toFixed(4) : Infinity,
+      ok: s.drift <= lim, code,
+    }));
+  }
+
   // ── Sección poligonal / compuesta (#70) ─────────────────────────────────────
   static polygonProps(o) { return polygonProps(o); }
   static compositeProps(o) { return compositeProps(o); }
+
+  // ── Espectro de diseño NCh433/DS61 ───────────────────────────────────────────
+  // { soil, zone, category, Ro, Tstar, Tmax, dT, applyRstar } → { curve, text, Rstar,
+  // Sa0, params }. Fuente única del espectro (antes había 4 copias divergentes).
+  static spectrumNCh433(o) { return buildSpectrum(o); }
 
   // ── Detallado sísmico columna fuerte-viga débil (#68) ────────────────────────
   // MnOf opcional: capacidad nominal de flexión por barra (kN·m). Por defecto

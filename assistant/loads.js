@@ -146,6 +146,11 @@ export function Rstar(Tstar, To, Ro = 11.0) {
 /**
  * ELASTIC NCh433 design spectrum: Sa(T) = S·Ao·I·α(T) in g units.
  * The R* reduction (which needs T* from the modal) is applied as saFactor.
+ *
+ * The core UI uses js/design/nch433_spectrum.js (buildSpectrum) for the same formula.
+ * This one stays here because the assistant subsystem is deliberately standalone (no
+ * js/ imports). test_nch433_spectrum.mjs §7 pins the two together so they cannot drift.
+ *
  * @returns {object} { curva:[{T,Sa}], texto, params, saFactor_nota, Rstar_formula }
  */
 export function responseSpectrum(ficha, reglas, { Tmax = 3.0, dT = 0.02 } = {}) {

@@ -25,12 +25,14 @@ import { parseAccelerogram, accStats, scaleToPGA, DEMO_PRESETS, G as GACC } from
 import { tendonEquivalentLoads, applyTendon, tendonEcc } from './solver/tendon.js?v=2';
 import { buildLane, influenceLine, responseReaction, responseSection, movingLoadEnvelope } from './solver/moving_load.js?v=2';
 import { newmarkNonlinear, shearBuilding, rayleighDamping } from './solver/nl_timehistory.js?v=2';
-import { checkDrift } from './design/serviceability.js?v=2';
+import { checkDrift, driftLimit } from './design/serviceability.js?v=2';
+import { buildSpectrum } from './design/nch433_spectrum.js?v=2';
 import { selectProfile, steelCandidates, predimensionar, candidatesForFamily } from './design/autodesign.js?v=2';
 import { jointSCWB } from './design/seismic.js?v=2';
 import { resolveMaterial } from './design/material_props.js?v=2';
 import { resolveSectionProps } from './design/section_props.js?v=2';
 import { autoDetectDiaphragms, computeFloorCR, applyDiaphragmConstraints } from './solver/diaphragm.js?v=2';
+import { interstoryDrifts, buildStoryLevels } from './solver/drift.js?v=2';
 import { splitElement, splitByLength, discretizeAll, joinElements, intersectElements } from './model/discretize.js?v=2';
 import { localAxes, stiffnessMatrix, massMatrix, transformMatrix, globalStiffness, applyReleases } from './solver/timoshenko.js?v=2';
 import { blockCells, cornerGridIndices } from './model/mesher.js?v=2';
@@ -6086,11 +6088,6 @@ class App {
   <svg id="sp-graph" viewBox="0 0 420 200" style="width:100%;height:170px;background:var(--bg-elev,#1b1b1b);border:1px solid var(--border);border-radius:6px"></svg>
 </div>`;
 
-      // ── NCh433/DS61 tables (same as assistant/rules.json) ─────────────────
-      const SUELOS = { A:{S:0.9,To:0.15,p:2.0}, B:{S:1.0,To:0.30,p:1.5}, C:{S:1.05,To:0.40,p:1.6}, D:{S:1.2,To:0.75,p:1.0}, E:{S:1.3,To:1.2,p:1.0} };
-      const AO = { '1':0.20, '2':0.30, '3':0.40 };
-      const CAT = { I:0.6, II:1.0, III:1.2, IV:1.2 };
-
       const $ = (id) => document.getElementById(id);
 
       const drawGraph = () => {
@@ -6109,18 +6106,14 @@ class App {
       };
 
       const genNCh433 = () => {
-        const su = SUELOS[$('sp-suelo').value]; const Ao = AO[$('sp-zona').value]; const I = CAT[$('sp-cat').value];
-        const Ro = parseFloat($('sp-Ro').value) || 11; const Tstar = parseFloat($('sp-Tstar').value);
-        const Rstar = (Tstar > 0) ? 1 + Tstar / (0.10 * su.To + Tstar / Ro) : 1;
-        const alpha = (T) => (1 + 4.5 * Math.pow(T / su.To, su.p)) / (1 + Math.pow(T / su.To, 3));
-        const lines = [];
-        for (let T = 0; T <= 3.0001; T += 0.05) {
-          const Tr = +T.toFixed(2);
-          lines.push(`${Tr.toFixed(2)}, ${(su.S * Ao * I * alpha(Tr) / Rstar).toFixed(4)}`);
-        }
-        $('sp-spectrum').value = lines.join('\n');
+        const Ro = parseFloat($('sp-Ro').value) || 11, Tstar = parseFloat($('sp-Tstar').value);
+        // Single source of truth: js/design/nch433_spectrum.js (was 4 drifted copies).
+        const { text, Rstar, Sa0, params } = buildSpectrum({
+          soil: $('sp-suelo').value, zone: $('sp-zona').value, category: $('sp-cat').value, Ro, Tstar,
+        });
+        $('sp-spectrum').value = text;
         $('sp-unit').value = '9.81';
-        $('sp-rstar').textContent = `R* = ${Rstar.toFixed(4)} (To=${su.To}, Ro=${Ro}${Tstar>0?`, T*=${Tstar}`:''}). Sa(0)=${(su.S*Ao*I/Rstar).toFixed(4)} g.`;
+        $('sp-rstar').textContent = `R* = ${Rstar.toFixed(4)} (To=${params.To}, Ro=${Ro}${Tstar>0?`, T*=${Tstar}`:''}). Sa(0)=${Sa0.toFixed(4)} g.`;
         drawGraph();
       };
 
@@ -6178,17 +6171,12 @@ class App {
           this.toast('El espectro necesita al menos 2 puntos (T,Sa)', 'error');
           return null;
         }
-        const su = SUELOS[$('sp-suelo').value];
-        const TstarV = parseFloat($('sp-Tstar').value);
-        const RoV = parseFloat($('sp-Ro').value) || 11;
-        const RstarV = (TstarV > 0) ? 1 + TstarV / (0.10 * su.To + TstarV / RoV) : 1;
-        const nch433 = {
-          zona: $('sp-zona').value, suelo: $('sp-suelo').value, cat: $('sp-cat').value,
-          Ao: AO[$('sp-zona').value], I: CAT[$('sp-cat').value],
-          S: su.S, To: su.To, p: su.p, Ro: RoV,
-          Tstar: TstarV > 0 ? TstarV : null, Rstar: RstarV,
-          unidadSa: $('sp-unit').options[$('sp-unit').selectedIndex]?.text || '',
-        };
+        // Same source of truth as genNCh433; params is shaped to match this object.
+        const { params: sp } = buildSpectrum({
+          soil: $('sp-suelo').value, zone: $('sp-zona').value, category: $('sp-cat').value,
+          Ro: parseFloat($('sp-Ro').value) || 11, Tstar: parseFloat($('sp-Tstar').value),
+        });
+        const nch433 = { ...sp, unidadSa: $('sp-unit').options[$('sp-unit').selectedIndex]?.text || '' };
         const caseSel = $('sp-case')?.value;
         const targetLcId = (forceNew || !caseSel || caseSel === '__new') ? null : +caseSel;
         return {
@@ -8992,54 +8980,34 @@ class App {
   // EXTERNAL nodes (max level displacement). Both ≤ 0.002·h (2/1000 of the story
   // height). Uses the seismic displacements (spectrum F6+F7).
   _computeDrift() {
-    const limit = 0.002;
+    // Limit from the code layer (js/design/serviceability.js), not a hardcoded 0.002; the
+    // drift math is the generic primitive (js/solver/drift.js). Here we only assemble the
+    // report shape: CM (diaphragm master) and external drift side by side, per direction.
+    const limit = driftLimit('NCh433');
     const out = { limit, dirs: [], note: '', hasCM: false };
     const spec = this._spectrumResults;
     const dirDefs = [['X', 0, 'espX'], ['Y', 1, 'espY']].filter(([, , k]) => spec?.get(k)?.result);
     if (!dirDefs.length) { out.note = 'Las derivas usan los resultados sísmicos: ejecute Análisis Modal (F6) y Espectro de Respuesta (F7) en X y/o Y.'; return out; }
 
-    // Floor levels: diaphragms (master = CM) if they exist; otherwise group nodes by z.
-    let levels;
-    const diaphs = [...this.model.diaphragms.values()];
-    if (diaphs.length) {
-      levels = diaphs.map(d => ({ z: d.z, masterId: d.masterId, nodeIds: (d.nodes || []).filter(id => this.model.nodes.has(id)) }));
-      out.hasCM = true;
-    } else {
-      const byZ = new Map();
-      for (const n of this.model.nodes.values()) {
-        if (Math.abs(n.z) < 0.01) continue;   // base level
-        const zk = Math.round(n.z * 100) / 100;
-        if (!byZ.has(zk)) byZ.set(zk, []);
-        byZ.get(zk).push(n.id);
-      }
-      levels = [...byZ.entries()].map(([z, ids]) => ({ z, masterId: null, nodeIds: ids }));
-      out.note = 'Sin diafragmas rígidos: la deriva entre centros de masa requiere definir diafragmas (Análisis → diafragmas). Se reporta solo la deriva entre nodos externos por nivel de Z.';
+    out.hasCM = this.model.diaphragms.size > 0;
+    if (!out.hasCM) out.note = 'Sin diafragmas rígidos: la deriva entre centros de masa requiere definir diafragmas (Análisis → diafragmas). Se reporta solo la deriva entre nodos externos por nivel de Z.';
+    // Level set is direction-independent; probe it once to detect "no stories".
+    if (!buildStoryLevels(this.model, () => 0, { mode: 'ext' }).length) {
+      out.note = 'No hay niveles de entrepiso (todos los nodos están en la base).'; return out;
     }
-    levels.sort((a, b) => a.z - b.z);
-    if (!levels.length) { out.note = 'No hay niveles de entrepiso (todos los nodos están en la base).'; return out; }
 
     for (const [dir, idx, key] of dirDefs) {
       const res = spec.get(key).result;
       const dispH = id => { try { return Math.abs(res.getNodeDisp(id)[idx]); } catch { return 0; } };
-      const lvlData = levels.map(L => ({
-        z: L.z,
-        cm: L.masterId != null ? dispH(L.masterId) : null,
-        ext: L.nodeIds.reduce((mx, id) => Math.max(mx, dispH(id)), 0),
-      }));
-      // Base (ground) reference at z=0 with u=0
-      let prev = { z: 0, cm: 0, ext: 0 };
-      const stories = [];
-      lvlData.forEach((cur, i) => {
-        const h = cur.z - prev.z;
-        if (h <= 1e-6) { prev = cur; return; }
-        const driftCM = (cur.cm != null && prev.cm != null) ? Math.abs(cur.cm - prev.cm) / h : null;
-        const driftExt = Math.abs(cur.ext - prev.ext) / h;
-        stories.push({
-          piso: i + 1, z: cur.z, h,
-          driftCM, ratioCM: driftCM != null ? driftCM / limit : null, okCM: driftCM != null ? driftCM <= limit : null,
-          driftExt, ratioExt: driftExt / limit, okExt: driftExt <= limit,
-        });
-        prev = cur;
+      const dExt = interstoryDrifts(buildStoryLevels(this.model, dispH, { mode: 'ext' }));
+      const dCM = out.hasCM ? interstoryDrifts(buildStoryLevels(this.model, dispH, { mode: 'cm' })) : [];
+      const stories = dExt.map((se, i) => {
+        const dc = dCM[i] ? dCM[i].drift : null;
+        return {
+          piso: se.story, z: se.z, h: se.h,
+          driftCM: dc, ratioCM: dc != null ? dc / limit : null, okCM: dc != null ? dc <= limit : null,
+          driftExt: se.drift, ratioExt: se.drift / limit, okExt: se.drift <= limit,
+        };
       });
       out.dirs.push({ dir, stories });
     }
