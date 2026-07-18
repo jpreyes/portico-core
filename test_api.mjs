@@ -133,5 +133,120 @@ console.log('\n── 10. storyDrifts: modal → espectro → derivas por norma 
   ok(asce[0].limit === 0.020, 'ASCE7 usa 0.020');
 }
 
+console.log('\n── 11. Análisis geométrico-NL e inelástico vía API (Fase 4) ──');
+{
+  // Helpers para modelos planos reutilizables.
+  const planar = () => {
+    const q = new Portico(); q.set2D(true);
+    const mt = q.material({ name: 'S', E: 2.1e8, G: 8e7, nu: 0.3125, rho: 0 });
+    const st = q.section({ name: 'C', A: 0.01, Iy: 8e-5, Iz: 8e-5, J: 1e-6, Avy: 1e30, Avz: 1e30, kappay: 1, kappaz: 1 });
+    return { q, mt, st };
+  };
+
+  // (a) plasticHinge: voladizo con carga de punta → λc = Mp/(P0·L) = 3.333.
+  {
+    const { q, mt, st } = planar();
+    const A = q.node(0, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 }), B = q.node(3, 0, 0);
+    q.element(A, B, { mat: mt, sec: st });
+    const lc = q.loadCase('P'); q.nodalLoad(lc, B, { fz: -10 });
+    const r = await q.plasticHinge({ Mp: 100 });
+    ok(r.ok && r.collapsed, 'plasticHinge: mecanismo alcanzado');
+    approx(r.lambda, 100 / (10 * 3), 1e-4, 'plasticHinge λc = Mp/(P0·L)');
+  }
+
+  // (b) pDelta: columna con axial + lateral → amplifica (>1) y converge.
+  {
+    const { q, mt, st } = planar();
+    const N = 8, L = 4, nodes = [];
+    for (let i = 0; i <= N; i++) nodes.push(q.node(0, 0, L * i / N, i === 0 ? { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 } : {}));
+    for (let i = 0; i < N; i++) q.element(nodes[i], nodes[i + 1], { mat: mt, sec: st });
+    const ax = q.loadCase('ax'); q.nodalLoad(ax, nodes[N], { fz: -1200 });
+    const lat = q.loadCase('lat'); q.nodalLoad(lat, nodes[N], { fx: 30 });
+    const pd = await q.pDelta({});
+    ok(pd.ok && pd.conv && pd.amp > 1.05, `pDelta: amplifica y converge (×${pd.amp.toFixed(2)})`);
+  }
+
+  // (c) nonlinearStatic: cable pretensado con carga central → converge.
+  {
+    const q = new Portico(); q.set2D(true);
+    const mt = q.material({ name: 'S', E: 2.1e8, G: 8e7, nu: 0.3, rho: 0 });
+    const sc = q.section({ name: 'B', A: 1e-4, Iy: 1e-6, Iz: 1e-6, J: 1e-7 });
+    const A = q.node(0, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+    const M = q.node(1, 0, 0), B = q.node(2, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+    const e1 = q.element(A, M, { mat: mt, sec: sc }), e2 = q.element(M, B, { mat: mt, sec: sc });
+    q.model.elements.get(e1).L0factor = 0.99; q.model.elements.get(e2).L0factor = 0.99;
+    const lc = q.loadCase('P'); q.nodalLoad(lc, M, { fz: -420 });
+    const nl = await q.nonlinearStatic({ nSteps: 20 });
+    ok(nl.converged && Math.abs(nl.steps.at(-1).u[3 * 1 + 2]) > 0.2, 'nonlinearStatic: converge con descenso de midspan');
+  }
+
+  // (d) corotational: voladizo con momento de punta → la punta se acorta y sube.
+  {
+    const q = new Portico(); q.set2D(true);
+    const mt = q.material({ name: 'S', E: 2.1e8, G: 8e7, nu: 0.3125, rho: 0 });
+    const sc = q.section({ name: 'C', A: 0.01, Iy: 8e-5, Iz: 8e-5, J: 1e-6 });
+    const nEl = 16, L = 2, nodes = [];
+    for (let i = 0; i <= nEl; i++) nodes.push(q.node(L * i / nEl, 0, 0, i === 0 ? { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 } : {}));
+    for (let i = 0; i < nEl; i++) q.element(nodes[i], nodes[i + 1], { mat: mt, sec: sc });
+    const lc = q.loadCase('M'); q.nodalLoad(lc, nodes[nEl], { my: 2.1e8 * 8e-5 / L });   // θ≈1 rad
+    const cr = await q.corotational({ nSteps: 20 });
+    const uTip = cr.steps.at(-1).u;
+    ok(cr.steps.length > 0 && uTip[3 * nEl] < 0 && Math.abs(uTip[3 * nEl + 2]) > 0, 'corotational: punta acortada y elevada');
+  }
+
+  // (e) pushover DC: armadura de von Mises → pico de la trayectoria (carga límite).
+  {
+    const q = new Portico(); q.set2D(true);
+    const mt = q.material({ name: 'S', E: 2.1e8, G: 8e7, nu: 0.3, rho: 0 });
+    const sc = q.section({ name: 'B', A: 1e-3, Iy: 1e-6, Iz: 1e-6, J: 1e-7 });
+    const A = q.node(0, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+    const C = q.node(1, 0, 0.3), B = q.node(2, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+    q.element(A, C, { mat: mt, sec: sc }); q.element(C, B, { mat: mt, sec: sc });
+    const lc = q.loadCase('P'); q.nodalLoad(lc, C, { fz: -500 });
+    const po = await q.pushover({ nSteps: 60 });
+    let peak = -Infinity; for (const p of po.path) if (p.lambda > peak) peak = p.lambda;
+    ok(po.path.length > 2 && peak > 3.5 && peak < 4.5, `pushover: pico λ≈4 (carga límite)  (${peak.toFixed(2)})`);
+  }
+
+  // (f) timeHistoryNL: modelo con diafragmas → 2 pisos, T₁ > 0.
+  {
+    const q = new Portico(); q.set2D(true);
+    const mt = q.material({ name: 'S', E: 2.1e8, G: 8e7, nu: 0.3, rho: 0 });
+    const sc = q.section({ name: 'C', A: 0.02, Iy: 4e-4, Iz: 4e-4, J: 1e-5 });
+    const N0 = q.node(0, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+    const N1 = q.node(0, 0, 3), N2 = q.node(0, 0, 6);
+    q.element(N0, N1, { mat: mt, sec: sc }); q.element(N1, N2, { mat: mt, sec: sc });
+    q.model.addDiaphragm({ name: 'P1', z: 3, nodes: [N1], mass: { m: 120, Icm: 0 } });
+    q.model.addDiaphragm({ name: 'P2', z: 6, nodes: [N2], mass: { m: 90, Icm: 0 } });
+    const dt = 0.02, ag = Array.from({ length: 200 }, (_, i) => 0.05 * Math.sin(2 * Math.PI * 1.5 * i * dt) * Math.exp(-i * dt / 3));
+    const th = await q.timeHistoryNL({ dir: 'X', ag, dt });
+    ok(th.stories.length === 2 && th.T1 > 0, `timeHistoryNL: 2 pisos, T₁=${th.T1.toFixed(3)}s`);
+  }
+
+  // (g) movingLoad: LI de reacción → máx = 1 (carga sobre el apoyo).
+  {
+    const q = new Portico(); q.set2D(true);
+    const mt = q.material({ name: 'H', E: 3e7, G: 1.25e7, nu: 0.2, rho: 0 });
+    const sc = q.section({ name: 'V', A: 0.4, Iy: 0.05, Iz: 0.05, J: 1e-3, Avy: 1e3, Avz: 1e3, kappay: 1, kappaz: 1 });
+    const L = 12, NEL = 6, nodes = [], elems = [];
+    for (let i = 0; i <= NEL; i++) { const r = i === 0 ? { ux: 1, uz: 1 } : i === NEL ? { uz: 1 } : {}; nodes.push(q.node(L * i / NEL, 0, 0, r)); }
+    for (let i = 0; i < NEL; i++) elems.push(q.element(nodes[i], nodes[i + 1], { mat: mt, sec: sc }));
+    const ml = await q.movingLoad({ mode: 'il', nPos: 25, respType: 'reaction', nodeId: nodes[0], comp: 'Fz', label: 'RFz', unit: 'kN', laneIds: elems });
+    approx(ml.max, 1, 1e-3, 'movingLoad: IL reacción máx = 1');
+  }
+
+  // (h) formFinding: nodo libre fuera de la línea A–B relaja hacia ella (muta geometría).
+  {
+    const q = new Portico();
+    const mt = q.material({ name: 'S', E: 2.1e8, G: 8e7, nu: 0.3, rho: 0 });
+    const sc = q.section({ name: 'B', A: 1e-4, Iy: 1e-6, Iz: 1e-6, J: 1e-7 });
+    const A = q.node(0, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+    const M = q.node(1, 0, 5), B = q.node(2, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+    q.element(A, M, { mat: mt, sec: sc }); q.element(M, B, { mat: mt, sec: sc });
+    await q.formFinding({ q0: 10, axes: [2] });
+    ok(Math.abs(q.model.nodes.get(M).z) < 5, `formFinding: nodo reposicionado (z ${q.model.nodes.get(M).z.toFixed(2)} < 5)`);
+  }
+}
+
 console.log(`\n${fails === 0 ? '✅ TODOS PASAN' : '❌ ' + fails + ' fallos'}`);
 process.exit(fails ? 1 : 0);
