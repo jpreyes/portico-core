@@ -22,7 +22,7 @@ import { makeFactor } from './linsolve.js?v=3';
  * and the free-DOF list (2D mode locks uy/rx/rz).
  * @returns {{nodeIndex:Map, K:Float64Array, nDOF:number, freeDOF:number[], F:Float64Array, nCasos:number}}
  */
-export function buildGeomProblem(model) {
+export function buildGeomProblem(model, contribs = null) {
   const nodeIndex = buildNodeIndex(model);
   const { K, nDOF } = assembleK(model, nodeIndex);
   const is2D = model.mode === '2D';
@@ -32,13 +32,24 @@ export function buildGeomProblem(model) {
     const rArr = [r.ux, is2D ? 1 : r.uy, r.uz, is2D ? 1 : r.rx, r.ry, is2D ? 1 : r.rz];
     d.forEach((gi, li) => { if (!rArr[li]) freeDOF.push(gi); });
   }
+  // Reference load: an explicit `contribs` pattern (each case with its factor and
+  // self-weight flag), or — when omitted — every static case at factor 1.
   const F = new Float64Array(nDOF);
   let nCasos = 0;
-  for (const lc of model.loadCases.values()) {
-    if (lc.type === 'spectrum') continue;
-    const Fi = assembleF(model, nodeIndex, lc.id, !!lc.selfWeight);
-    for (let i = 0; i < nDOF; i++) F[i] += Fi[i];
-    nCasos++;
+  if (contribs) {
+    for (const c of contribs) {
+      const lc = model.loadCases.get(c.lcId); if (!lc) continue;
+      const Fi = assembleF(model, nodeIndex, c.lcId, !!c.selfWeight);
+      for (let i = 0; i < nDOF; i++) F[i] += c.factor * Fi[i];
+      nCasos++;
+    }
+  } else {
+    for (const lc of model.loadCases.values()) {
+      if (lc.type === 'spectrum') continue;
+      const Fi = assembleF(model, nodeIndex, lc.id, !!lc.selfWeight);
+      for (let i = 0; i < nDOF; i++) F[i] += Fi[i];
+      nCasos++;
+    }
   }
   return { nodeIndex, K, nDOF, freeDOF, F, nCasos };
 }
@@ -62,12 +73,14 @@ export function maxTransDisp(u, model, nodeIndex) {
  * @param {object} [o]
  * @param {number} [o.nModes=6]  modes to extract
  * @param {boolean}[o.dense=false] dense factorization instead of banded
+ * @param {{lcId:number,factor:number,selfWeight:boolean}[]|null} [o.contribs]  reference
+ *        load pattern; null (default) → every static case at factor 1.
  * @returns {{ok:false, reason:string, message?:string}
  *          | {ok:true, modes:{lambda:number,vec:Float64Array}[], Nby:Map, nCasos:number, nodeIndex:Map}}
  *   reason ∈ 'no-free-dof' | 'no-loads' | 'ref-singular' | 'no-kg' | 'solver-error' | 'no-modes'.
  */
-export function linearBuckling(model, { nModes = 6, dense = false } = {}) {
-  const { nodeIndex, K, nDOF, freeDOF, F, nCasos } = buildGeomProblem(model);
+export function linearBuckling(model, { nModes = 6, dense = false, contribs = null } = {}) {
+  const { nodeIndex, K, nDOF, freeDOF, F, nCasos } = buildGeomProblem(model, contribs);
   if (!freeDOF.length) return { ok: false, reason: 'no-free-dof' };
   if (!nCasos) return { ok: false, reason: 'no-loads' };
 
