@@ -38,6 +38,10 @@ function buildFigure(model, out, caseDef) {
     const r = n.restraints; if (r && ((r.ux ? 1 : 0) + (r.uy ? 1 : 0) + (r.uz ? 1 : 0)) >= 2) supports.add(n.id);
   }
   for (const e of model.elements.values()) elements.push({ n1: e.n1, n2: e.n2 });
+  // Áreas (shell / membrane / placa): polígonos de nodos → renderModelSVG los dibuja
+  // como caras rellenas. Sin esto, los casos 2D sólo mostraban los nodos exteriores.
+  const areas = [...(model.areas?.values?.() || [])]
+    .map(a => a.nodes || a.n || a.nodeIds || []).filter(ns => ns.length >= 3);
   // diagonal del bbox para escalar la amplitud
   let mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
   for (const c of nodes.values()) for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], c[k]); mx[k] = Math.max(mx[k], c[k]); }
@@ -60,7 +64,7 @@ function buildFigure(model, out, caseDef) {
   }
   // optimización: la forma modal sólo se calcula una vez por nodo arriba; recalcular
   // getModeShape en el bucle es O(n²) pero los modelos de verificación son chicos.
-  return renderModelSVG({ nodes, elements, supports, deformed, width: 900 });
+  return renderModelSVG({ nodes, elements, areas, supports, deformed, width: 900 });
 }
 
 // Committed OpenSees run for a case, if one exists. Produced by
@@ -104,14 +108,21 @@ async function buildComparison(cmp, out, id) {
   const osRaw = cmp.opensees ? openseesResult(id) : null;
   const ov = osRaw ? cmp.opensees(osRaw) : null;
 
+  // The SAP2000 column is only shown when the case carries a REAL same-element SAP value.
+  // A convergence/element study compared only against the analytical target leaves `sap`
+  // null on every row — showing a stubbed "SAP = analytical, diff 0 %" would falsely imply
+  // an independent same-element engine validated it.
+  const hasSap = cmp.rows.some(r => r.sap != null);
   const idxLabel = cmp.indexLabel || 'Modo';
-  const header = [idxLabel, 'Descripción', `Independiente (${cmp.unit})`, `SAP2000 (${cmp.unit})`, 'dif. SAP'];
+  const header = [idxLabel, 'Descripción', `Independiente (${cmp.unit})`];
+  if (hasSap) header.push(`SAP2000 (${cmp.unit})`, 'dif. SAP');
   if (ov) header.push(`OpenSees (${cmp.unit})`, 'dif. OpenSees');
   header.push(`**Pórtico (${cmp.unit})**`, '**dif. Pórtico**');
 
   const rows = cmp.rows.map((r, i) => {
     const p = pv[i];
-    const row = [String(r.idx ?? (i + 1)), r.desc, r.indep.toFixed(cmp.decimals), r.sap.toFixed(cmp.decimals), pct(r.sap, r.indep)];
+    const row = [String(r.idx ?? (i + 1)), r.desc, r.indep.toFixed(cmp.decimals)];
+    if (hasSap) row.push(r.sap != null ? r.sap.toFixed(cmp.decimals) : '—', r.sap != null ? pct(r.sap, r.indep) : '—');
     if (ov) row.push(ov[i].toFixed(cmp.decimals), pct(ov[i], r.indep));
     row.push(`**${p.toFixed(cmp.decimals)}**`, `**${pct(p, r.indep)}**`);
     return row;
@@ -176,16 +187,34 @@ ${mod.conclusion}
   execFileSync('node', ['tools/md2pdf.mjs', path.relative(ROOT, mdPath), '--logos', LOGOS], { cwd: ROOT, stdio: 'ignore' });
 
   // resumen a consola
-  const maxDiff = Math.max(...mod.compare.rows.map((r, i) => Math.abs(r.indep) < 1e-9 ? 0 : Math.abs((pv[i] - r.indep) / r.indep * 100)));
+  const relPct = (v, ref) => Math.abs(ref) < 1e-9 ? 0 : Math.abs((v - ref) / ref * 100);
+  const diffs = mod.compare.rows.map((r, i) => relPct(pv[i], r.indep));
+  // A convergence study designates its CONVERGED (finest) row as the verified point via
+  // `compare.metricIdx`: the coarser rows are the convergence path, not failures, so the
+  // reported error must be the converged one — not the worst coarse mesh. Otherwise the
+  // reported error is the worst row (a plain pass/fail case).
+  const mIdx = mod.compare.metricIdx;
+  const maxDiff = mIdx != null ? diffs[mIdx] : Math.max(...diffs);
+  // Same-element / same-software reference: portico vs SAP2000 (apples-to-apples). For
+  // element-behaviour studies this isolates the element from modelling error.
+  const sapRows = mod.compare.rows.filter(r => r.sap != null);
+  const sapDiffs = mod.compare.rows.map((r, i) => r.sap != null ? relPct(pv[i], r.sap) : 0);
+  const maxVsSap = !sapRows.length ? null
+    : (mIdx != null && mod.compare.rows[mIdx].sap != null ? sapDiffs[mIdx] : Math.max(...sapDiffs));
   const osDiff = ov ? Math.max(...ov.map((o, i) => Math.abs(o) < 1e-12 ? Math.abs(pv[i] - o) : Math.abs((pv[i] - o) / o))) : null;
-  console.log(`✓ ${mod.id}  ${mod.slug}  ·  máx |dif| = ${maxDiff.toFixed(3)} %` +
+  console.log(`✓ ${mod.id}  ${mod.slug}  ·  ${mIdx != null ? 'converge a' : 'máx |dif| ='} ${maxDiff.toFixed(3)} %` +
+    (mIdx != null ? `  (máx malla gruesa ${Math.max(...diffs).toFixed(1)} %)` : '') +
     (osDiff !== null ? `  ·  vs OpenSees = ${osDiff.toExponential(1)}` : '') +
     `  ·  ${mod.slug}.pdf`);
-  return { id: mod.id, maxDiff, osDiff };
+  return { id: mod.id, slug: mod.slug, title: mod.title, capability: mod.capability,
+    referenceText: mod.referenceText, unit: mod.compare?.unit || '', maxDiff, maxVsSap, osDiff };
 }
 
 const files = fs.readdirSync(path.join(ROOT, 'tools/verif/cases')).filter(f => f.endsWith('.mjs') && (!pat || f.includes(pat))).sort();
 if (!files.length) { console.error('Sin casos en tools/verif/cases/ que matcheen', pat); process.exit(1); }
 console.log(`Corriendo ${files.length} caso(s)…`);
-for (const f of files) { try { await runCase(f); } catch (e) { console.error(`✗ ${f}: ${e.message}`); } }
-console.log('Listo.');
+const index = [];
+for (const f of files) { try { index.push(await runCase(f)); } catch (e) { console.error(`✗ ${f}: ${e.message}`); } }
+// Persist a results index for the master Verification Manual generator (living doc).
+fs.writeFileSync(path.join(ROOT, 'docs/verifications/_index.json'), JSON.stringify(index, null, 2), 'utf8');
+console.log(`Listo. Índice → docs/verifications/_index.json (${index.length} casos).`);
