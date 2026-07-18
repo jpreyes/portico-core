@@ -96,5 +96,25 @@ console.log('\n── (6) invalid inputs throw ──');
   check(threw, 'unknown soil class throws');
 }
 
+// ── (7) Anti-drift guard: assistant/loads.js must agree with this module ──────
+// loads.js is deliberately standalone (its own header: "Pure ES module … auditable"),
+// so it keeps its own NCh433 implementation instead of importing this one — the
+// assistant subsystem must not depend on js/design. This test is what keeps the two
+// from drifting apart again, which was the whole reason for one source of truth.
+console.log('\n── (7) loads.js and this module do not drift ──');
+{
+  const fs = await import('node:fs');
+  const { responseSpectrum } = await import('./assistant/loads.js');
+  const rules = JSON.parse(fs.readFileSync('assistant/rules.json', 'utf8'));
+  const real = responseSpectrum({ seismic: { soil: 'D', zone: 2, category: 'II' } }, rules, { Tmax: 3.0, dT: 0.02 });
+  const mine = buildSpectrum({ soil: 'D', zone: 2, category: 'II', applyRstar: false, dT: 0.02 });
+  check(real.curva.length === mine.curve.length, 'same number of points', `(${real.curva.length})`);
+  let worst = 0;
+  for (let i = 0; i < mine.curve.length; i++) {
+    worst = Math.max(worst, Math.abs(real.curva[i].T - mine.curve[i].T), Math.abs(real.curva[i].Sa - mine.curve[i].Sa));
+  }
+  check(worst < 1e-9, 'every (T,Sa) matches assistant/loads.js', `(máx Δ ${worst.toExponential(1)})`);
+}
+
 console.log(`\n=== ${failures === 0 ? 'ALL OK' : failures + ' FAILURE(S)'} ===`);
 process.exit(failures === 0 ? 0 : 1);
