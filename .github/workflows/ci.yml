@@ -20,7 +20,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       # ES modules must be checked with `--input-type=module` (a bare `.js` is
       # treated as CommonJS and would false-fail on `import`/`export`).
