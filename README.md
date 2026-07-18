@@ -21,8 +21,8 @@ codes; and draws the forces, deformed shapes and mode shapes. Everything runs
 client-side — no install, no build step, no bundler, no framework; just a modern
 browser (Chrome, Edge, Firefox).
 
-It is the reusable base for the Pro product **portico** (portico-core + the C++/WASM
-solver **Nodex**) and other derived tools.
+Everything runs in the browser: the solver is JavaScript, there is nothing to compile
+and nothing to install on a server. It also installs as a **PWA** and works offline.
 
 ---
 

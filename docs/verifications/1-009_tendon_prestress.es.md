@@ -4,7 +4,7 @@
 
 **Capacidad verificada:** pretensado por tendones con trazado parabólico → cargas equivalentes (load balancing) y axial de presfuerzo.
 **Referencia:** Método de las cargas equivalentes / balanceo de carga (T.Y. Lin, *Design of Prestressed Concrete Structures*); solución de viga simplemente apoyada.
-**Modelo Portico:** [`examples/verif_1-009_prestress.s3d`](../../examples/verif_1-009_prestress.s3d)
+**Modelo Pórtico:** [`examples/verif_1-009_prestress.s3d`](../../examples/verif_1-009_prestress.s3d)
 
 ## Descripción del problema
 
@@ -19,7 +19,7 @@ Viga simplemente apoyada de 20 m (4 elementos) con un **tendón parabólico** de
 | I | 0.1 m⁴ |
 | Carga equivalente | w = 8Pa/L² = 16 kN/m (↑) |
 
-## Modelo en Portico
+## Modelo en Pórtico
 
 - Modelo **2D**, viga simple (articulada + rodillo); peso propio desactivado para aislar el presfuerzo.
 - El tendón se traduce a **cargas equivalentes** (UDL hacia arriba + axial de ancla) con `tendonEquivalentLoads`, que el estático lineal resuelve normalmente.
@@ -33,7 +33,7 @@ Viga simplemente apoyada de 20 m (4 elementos) con un **tendón parabólico** de
 
 Sólo el pretensado actuando (sin carga externa). Contraflecha del centro y axial del primer elemento.
 
-| Cantidad | Descripción | Independiente (—) | SAP2000 (—) | dif. SAP | **Portico (—)** | **dif. Portico** |
+| Cantidad | Descripción | Independiente (—) | SAP2000 (—) | dif. SAP | **Pórtico (—)** | **dif. Pórtico** |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Contraflecha de centro, nodo 3 · U_z [m] (↑) | 0.01111 | 0.01111 | 0 % | **0.01111** | **+0.01 %** |
 | 2 | Axial de presfuerzo, elem 1 · N [kN] (− = compresión) | -2000.00000 | -2000.00000 | 0 % | **-2000.00000** | **0 %** |

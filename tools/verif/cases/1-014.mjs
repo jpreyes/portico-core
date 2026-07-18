@@ -3,11 +3,11 @@
 // de referencia y cómo mapear los resultados de Pórtico a la comparación.
 export default {
   id: '1-014',
-  slug: '1-014_modal_voladizo',
+  slug: '1-014_modal_cantilever',
   title: 'Análisis modal de viga en voladizo',
   capability: 'análisis modal (frecuencias y formas modales de flexión)',
   referenceText: 'CSI *Software Verification — SAP2000*, Example 1-014; solución independiente de **Clough & Penzien (1975)** para un voladizo de masa uniforme y `EI` constante.',
-  s3d: 'examples/verif_1-014_modal_voladizo.s3d',
+  s3d: 'examples/verif_1-014_modal_cantilever.s3d',
   analysis: 'modal',
   nModes: 6,
 
@@ -40,6 +40,7 @@ export default {
       { desc: '3ª flexión, eje débil', indep: 0.002165, sap: 0.002166 },
     ],
     portico: res => res.period.slice(0, 5),   // valores de Pórtico
+    opensees: r => r.period.slice(0, 5),
   },
 
   extra: `### Convergencia (modo 1) — masa consistente vs. concentrada

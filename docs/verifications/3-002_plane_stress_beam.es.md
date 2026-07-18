@@ -4,7 +4,7 @@
 
 **Capacidad verificada:** continuo plano en TENSIÓN PLANA (plane-stress) — elemento de membrana QUAD.
 **Referencia:** CSI *Software Verification — SAP2000*, Example 3-002 (MacNeal & Harder 1985); independiente por el método de la carga unitaria (Cook & Young 1985).
-**Modelo Portico:** [`examples/verif_3-002_plane_stress.s3d`](../../examples/verif_3-002_plane_stress.s3d)
+**Modelo Pórtico:** [`examples/verif_3-002_plane_stress.s3d`](../../examples/verif_3-002_plane_stress.s3d)
 
 ## Descripción del problema
 
@@ -18,11 +18,11 @@ Voladizo recto de 6 in de largo × 0.2 in de canto × 0.1 in de espesor, modelad
 | Poisson ν | 0.3 |
 | Cargas (punta) | CC1 F_x=1 · CC2 F_z=1 · CC3 M=1 (par F_x) |
 
-## Modelo en Portico
+## Modelo en Pórtico
 
 - Elemento de **membrana en tensión plana** (`planeStrain:false`, #58): sólo GDL en-plano U_x, U_z activos; resto restringido en todos los nodos (como el modelo CSI).
 - Empotramiento sin efecto Poisson: nodo inferior izquierdo fija U_x,U_z; nodos izquierdos superiores sólo U_x. En CC2 se añade la reacción de −½ en el nodo superior izquierdo (igual que el original).
-- El QUAD de Portico es un cuadrilátero isoparamétrico **estándar (sin modos incompatibles de flexión)**; reproduce el elemento plano de SAP2000 «sin modos incompatibles».
+- El QUAD de Pórtico es un cuadrilátero isoparamétrico **estándar (sin modos incompatibles de flexión)**; reproduce el elemento plano de SAP2000 «sin modos incompatibles».
 
 ![Malla de membrana 6×1 del voladizo; deformada bajo la extensión axial (CC1, ×escala).](img/3-002_plane_stress_beam.svg)
 
@@ -30,9 +30,9 @@ Voladizo recto de 6 in de largo × 0.2 in de canto × 0.1 in de espesor, modelad
 
 ## Resultados — comparación
 
-Desplazamientos de la punta (promedio de las juntas 7 y 14). La columna SAP2000 corresponde al **elemento plano sin modos incompatibles** (malla 6×1), del mismo tipo que el QUAD de Portico.
+Desplazamientos de la punta (promedio de las juntas 7 y 14). La columna SAP2000 corresponde al **elemento plano sin modos incompatibles** (malla 6×1), del mismo tipo que el QUAD de Pórtico.
 
-| Caso | Descripción | Independiente (in) | SAP2000 (in) | dif. SAP | **Portico (in)** | **dif. Portico** |
+| Caso | Descripción | Independiente (in) | SAP2000 (in) | dif. SAP | **Pórtico (in)** | **dif. Pórtico** |
 | --- | --- | --- | --- | --- | --- | --- |
 | CC1 | Extensión axial · U_x = PL/EA | 0.000030 | 0.000030 | 0 % | **0.000030** | **0 %** |
 | CC2 | Corte+flexión · U_z (malla 6×1) | 0.108090 | 0.010100 | -90.66 % | **0.010088** | **-90.67 %** |
@@ -40,11 +40,11 @@ Desplazamientos de la punta (promedio de las juntas 7 y 14). La columna SAP2000 
 
 ### Tensión plana (CC1): exacta
 
-La extensión axial U_x = PL/EA = 1·6/(10⁷·0.2·0.1) = **3.000×10⁻⁵ in**, reproducida por Portico con **diferencia 0.000 %** e **independiente de la malla** — la constitutiva de **tensión plana** (#58) del elemento de membrana es exacta.
+La extensión axial U_x = PL/EA = 1·6/(10⁷·0.2·0.1) = **3.000×10⁻⁵ in**, reproducida por Pórtico con **diferencia 0.000 %** e **independiente de la malla** — la constitutiva de **tensión plana** (#58) del elemento de membrana es exacta.
 
 ### Flexión (CC2/CC3): elemento ≡ SAP2000 y convergencia
 
-En malla 6×1, el QUAD estándar (sin modos incompatibles) subestima la flexión por bloqueo — **igual que el elemento plano de SAP2000 «sin modos incompatibles»** (0.0101 in y 0.840×10⁻⁴ in), que Portico reproduce a <0.5 %. Es una característica documentada del elemento, no un error: con refinamiento de malla converge a la teoría de vigas (0.10809 / 9.0×10⁻⁴):
+En malla 6×1, el QUAD estándar (sin modos incompatibles) subestima la flexión por bloqueo — **igual que el elemento plano de SAP2000 «sin modos incompatibles»** (0.0101 in y 0.840×10⁻⁴ in), que Pórtico reproduce a <0.5 %. Es una característica documentada del elemento, no un error: con refinamiento de malla converge a la teoría de vigas (0.10809 / 9.0×10⁻⁴):
 
 | Malla | CC2 U_z [in] (→ 0.10809) | CC3 |U_x| [in] (→ 9.0×10⁻⁴) |
 |---|---|---|
@@ -54,4 +54,4 @@ En malla 6×1, el QUAD estándar (sin modos incompatibles) subestima la flexión
 
 ## Conclusión
 
-Portico reproduce el comportamiento de **tensión plana** con la **extensión axial exacta** (U_x = 3.000×10⁻⁵ in, **0.000 %**) e independiente de la malla, validando la constitutiva plane-stress (#58). En corte+flexión, el QUAD estándar de Portico **coincide con el elemento plano de SAP2000 «sin modos incompatibles»** (<0.5 %) y **converge a la teoría de vigas con el refinamiento de malla**, tal como documenta el propio manual CSI. **Capacidad de membrana en tensión plana verificada.**
+Pórtico reproduce el comportamiento de **tensión plana** con la **extensión axial exacta** (U_x = 3.000×10⁻⁵ in, **0.000 %**) e independiente de la malla, validando la constitutiva plane-stress (#58). En corte+flexión, el QUAD estándar de Pórtico **coincide con el elemento plano de SAP2000 «sin modos incompatibles»** (<0.5 %) y **converge a la teoría de vigas con el refinamiento de malla**, tal como documenta el propio manual CSI. **Capacidad de membrana en tensión plana verificada.**

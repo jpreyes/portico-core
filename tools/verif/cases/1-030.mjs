@@ -1,11 +1,11 @@
 // Caso de verificación 1-030 — Cargas móviles / líneas de influencia (#61).
 export default {
   id: '1-030',
-  slug: '1-030_lineas_influencia',
+  slug: '1-030_influence_lines',
   title: 'Líneas de influencia y carga móvil — viga simple',
   capability: 'cargas móviles: barrido de posiciones, líneas de influencia y envolventes de esfuerzos/reacciones',
   referenceText: 'Líneas de influencia clásicas de la viga simplemente apoyada (Hibbeler, *Structural Analysis*); base de CSiBridge para tránsito.',
-  s3d: 'examples/verif_1-030_lineas_influencia.s3d',
+  s3d: 'examples/verif_1-030_influence_lines.s3d',
   analysis: 'moving',
   lane: [1, 2, 3, 4, 5, 6],   // pista = los 6 elementos de la viga
 

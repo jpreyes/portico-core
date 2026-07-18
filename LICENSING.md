@@ -15,12 +15,12 @@ open-source license requires, and when you might need a **commercial license**.
 
 | Edition | What it is | License |
 |---|---|---|
-| **`portico-core`** (this repository) | The reusable base: 3D viewer + model + pre/post-processing + I/O + the `SolverBackend` interface + the **JavaScript solver**. A complete, self-contained structural-analysis application. | **AGPL-3.0-or-later** (free / open source) |
-| **PORTICO Pro** | `portico-core` plus the **Nodex** high-fidelity solver (C++/WASM), advanced multi-code design, hosted projects, reporting and support. | **Commercial** (proprietary) |
+| **`portico-core`** (this repository) | The reusable base: 3D viewer + model + pre/post-processing + I/O + the **JavaScript solver**. A complete, self-contained structural-analysis application that runs entirely in the browser. | **AGPL-3.0-or-later** (free / open source) |
+| **PORTICO Pro** | `portico-core` plus advanced multi-code design, hosted projects, reporting and support. | **Commercial** (proprietary) |
 
-The open core is genuinely useful on its own. The Pro edition adds the heavy,
-high-fidelity engine and the conveniences that firms pay for. The boundary between them
-is the documented `SolverBackend` seam — no forks, no hidden crippling of the core.
+The open core is genuinely useful on its own — the whole analysis engine is here, in
+JavaScript, with nothing held back. The Pro edition adds the conveniences that firms pay
+for, through the documented extension seams: no forks, no hidden crippling of the core.
 
 ---
 
@@ -105,9 +105,8 @@ license.
 That needs a commercial license — the AGPL would otherwise require your whole product to
 be AGPL.
 
-**Is the Nodex solver covered by the AGPL?**
-No. Nodex is the proprietary engine of PORTICO Pro and is not part of this repository.
-The AGPL applies to `portico-core` (the open base and its JavaScript solver).
+**Is any part of the solver held back from the open edition?**
+No. The entire analysis engine is in this repository, in JavaScript, under the AGPL.
 
 **Is this legal advice?**
 No. This page summarizes the licensing model in good faith; the binding terms are in the
@@ -123,5 +122,5 @@ For commercial licensing, OEM / white-label terms, or support agreements:
 **JP Reyes** — `jpreyes.c@gmail.com`
 Repository: https://github.com/jpreyes/portico-core
 
-© 2026 JP Reyes and PORTICO contributors. "PORTICO" and "Nodex" are names used by the
-project for its open and proprietary editions, respectively.
+© 2026 JP Reyes and PORTICO contributors. "PORTICO" is a name used by the project for
+its open and commercial editions.

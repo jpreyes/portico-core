@@ -31,9 +31,12 @@ for wall structures.
 ## 3. Materials, loads and mass
 
 - Concrete H30 (E=2.57·10⁷ kPa). Thicknesses: walls 0.25 m, slabs 0.2 m.
-- **Seismic mass:** self-weight of walls and slabs (the areas contribute ρ·t·A to the modal
-  automatically) **plus** the live load (D_sup + 0.25·L) = (3.0+0.25·2.0) kN/m² applied as **nodal
-  mass** by tributary area (additional total 1514 ton).
+- **Seismic mass:** the whole seismic mass is **lumped onto the rigid floor diaphragms** — one
+  concentrated mass per storey (302.75 ton/floor, 1514 ton total). It bundles the self-weight of
+  slabs and walls (7.5 kN/m²), the superimposed dead load (3.0 kN/m²) and the seismic fraction of
+  the live load (0.25·L = 0.5 kN/m²), each times the plan area. The area material is deliberately
+  given **ρ = 0**, so the shells add no distributed mass and there are no nodal masses: concentrating
+  the storey mass at diaphragm level is standard practice and yields clean lateral modes.
 
 ## 4. Modal analysis (PORTICO, with area elements)
 

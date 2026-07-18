@@ -27,18 +27,29 @@ import { Serializer } from '../model/serializer.js?v=2';
 import { StaticSolver } from '../solver/static_solver.js?v=2';
 import { ModalSolver } from '../solver/modal_solver.js?v=2';
 import { ModalResults } from '../solver/modal_results.js?v=2';
+import { SpectrumSolver } from '../solver/spectrum_solver.js?v=2';
 import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from '../solver/assembler.js?v=2';
 import { assembleKg } from '../solver/geometric.js?v=2';
 import { makeFactor } from '../solver/linsolve.js?v=2';
 import { solveBuckling } from '../solver/buckling.js?v=2';
 import { StagedSolver } from '../solver/staged.js?v=2';
 import { checkElement, listDesignCodes, getDesignCode, registerDesignCode } from '../design/design.js?v=2';
-import { checkDeflection, checkDrift } from '../design/serviceability.js?v=2';
+import { checkDeflection, checkDrift, driftLimit } from '../design/serviceability.js?v=2';
+import { interstoryDrifts, buildStoryLevels } from '../solver/drift.js?v=2';
 import { polygonProps, compositeProps } from '../design/polygon_props.js?v=2';
 import { jointSCWB, strongColumnWeakBeam } from '../design/seismic.js?v=2';
+import { buildSpectrum } from '../design/nch433_spectrum.js?v=2';
 import { resolveMaterial } from '../design/material_props.js?v=2';
 import { resolveSectionProps } from '../design/section_props.js?v=2';
 import { registerFormat, listFormats, exportModel, importModel } from '../io/index.js?v=2';
+import { solvePlastic } from '../solver/plastic.js?v=2';
+import { pDelta as pDeltaAnalysis } from '../solver/geometric_analysis.js?v=2';
+import { buildNLTrussProblem, buildCorotProblem, remapCorotSteps, setupPushoverControl, buildFormFindProblem } from '../solver/nl_frame.js?v=2';
+import { solveNonlinear, solveNonlinearDC } from '../solver/nl_lite.js?v=2';
+import { solveCorotBeam } from '../solver/corotbeam.js?v=2';
+import { buildShearStories, runShearHistory } from '../solver/shear_building.js?v=2';
+import { computeMovingLoad } from '../solver/moving_load.js?v=2';
+import { formFind } from '../solver/formfind.js?v=2';
 
 // ── numeric.js disponible como global (navegador) o cargado bajo demanda (Node) ──
 let _numReady = false;
@@ -66,6 +77,12 @@ function freeDOFof(model, ni) {
       .forEach((fx, li) => { if (!fx) out.push(d[li]); });
   }
   return out;
+}
+
+// Todos los casos estáticos a factor 1 — el patrón de referencia por defecto de los NL.
+function allStaticContribs(model) {
+  return [...model.loadCases.values()].filter(lc => lc.type !== 'spectrum')
+    .map(lc => ({ lcId: lc.id, factor: 1, selfWeight: !!lc.selfWeight }));
 }
 
 // Registro de análisis extensibles { name → async (model, opts, api) => result }
@@ -122,6 +139,20 @@ export class Portico {
     this._lastKind = 'modal';
     return this.modal;
   }
+  // Response spectrum (SRSS/CQC) on the modal results. CODE-AGNOSTIC: it takes any
+  // spectrum curve [{T,Sa}] — from Portico.spectrumNCh433() or hand-built — and combines
+  // the modes. If no modal has been solved yet, it solves one with `nModes` first.
+  //   opts = { spectrum:[{T,Sa}], saFactor=1, direction='X', zeta=0.05, method='CQC', nModes=6 }
+  // saFactor scales the raw Sa to model accel. units (m/s²); e.g. for an NCh433 elastic
+  // curve in g, saFactor = g/R* applies gravity and the reduction in one step.
+  async solveSpectrum(opts = {}) {
+    const { nModes = 6, ...params } = opts;
+    if (!params.spectrum || params.spectrum.length < 2) throw new Error('solveSpectrum: params.spectrum needs at least 2 [{T,Sa}] points');
+    if (!this.modal) await this.solveModal(nModes);
+    this.results = new SpectrumSolver().solve(this.modal, params);
+    this._lastKind = 'spectrum';
+    return this.results;
+  }
   // Modal con rigidez geométrica del estado de referencia (lcId).
   async solveModalKg(refLcId, nModes = 3) {
     await ensureNumeric(); apply2D(this.model);
@@ -164,6 +195,88 @@ export class Portico {
     return this.buckling;
   }
   async solveStaged(stages) { await ensureNumeric(); apply2D(this.model); this.results = new StagedSolver().solve(this.model, stages); this._lastKind = 'staged'; return this.results; }
+
+  // ── Análisis geométrico-no-lineal e inelástico (headless; js/solver/*) ────────
+  // Estos exponen los solvers que antes sólo se alcanzaban desde los drivers DOM de
+  // app.js. Cada uno arma el problema desde el modelo y devuelve el resultado neutro.
+
+  // PUSHOVER por rótulas plásticas (evento a evento). Capacidades uniformes desde
+  // Mp/Np/Vp salvo que se pase un Map capByElem; carga de referencia = todos los casos
+  // estáticos a factor 1 salvo `contribs`. → { ok, events, lambda, collapsed, u, … }.
+  async plasticHinge({ Mp = Infinity, Np = Infinity, Vp = Infinity, capByElem = null, contribs = null, residual = 1, thetaU = Infinity, deltaU = Infinity } = {}) {
+    await ensureNumeric(); apply2D(this.model);
+    let caps = capByElem;
+    if (!caps) { caps = new Map(); for (const el of this.model.elements.values()) caps.set(el.id, { N: Np, Vy: Vp, Vz: Vp, My: Mp, Mz: Mp }); }
+    const res = solvePlastic(this.model, { capByElem: caps, contribs: contribs || allStaticContribs(this.model), residual, thetaU, deltaU });
+    if (!res.ok) throw new Error('plasticHinge: ' + res.reason);
+    this._lastKind = 'plastic'; this.plastic = res; return res;
+  }
+  // P-DELTA: (K + Kg(u))·u = F por iteración tangente. → campo amplificado + amplificación.
+  async pDelta(opts = {}) {
+    await ensureNumeric(); apply2D(this.model);
+    const res = pDeltaAnalysis(this.model, opts);
+    if (!res.ok) throw new Error('pDelta: ' + res.reason);
+    this._lastKind = 'pdelta'; this.pdelta = res; return res;
+  }
+  // NO LINEAL geométrico ESTÁTICO: gran desplazamiento de barra/cable (control de carga).
+  async nonlinearStatic({ contribs = null, nSteps = 12, maxIter = 60, tol = 1e-8, slack = 1e-6 } = {}) {
+    await ensureNumeric(); apply2D(this.model);
+    const P = buildNLTrussProblem(this.model, { contribs });
+    if (!P.ok) throw new Error('nonlinearStatic: ' + P.reason);
+    const res = solveNonlinear({ X: P.X, elems: P.elems, free: P.free, Fref: P.Fref, nSteps, maxIter, tol, slack });
+    this._lastKind = 'nl'; this.nl = { ...res, X: P.X, nodeIds: P.nodeIds, elemIds: P.elemIds };
+    return this.nl;
+  }
+  // Gran ROTACIÓN: viga corotacional plana (2D X–Z). Pasos remapeados a nodal [ux,0,uz].
+  async corotational({ nSteps = 12, maxIter = 80, tol = 1e-9 } = {}) {
+    await ensureNumeric(); apply2D(this.model);
+    const P = buildCorotProblem(this.model);
+    if (!P.ok) throw new Error('corotational: ' + P.reason);
+    const res = solveCorotBeam({ coords: P.coords, elems: P.elems, free: P.free, Fref: P.Fref, nSteps, maxIter, tol });
+    const steps = remapCorotSteps({ coords: P.coords, elems: P.elems, steps: res.steps, nNode: P.nodeIds.length });
+    this._lastKind = 'corot'; this.corot = { steps, converged: res.converged, X: P.X, nodeIds: P.nodeIds, elemIds: P.elemIds };
+    return this.corot;
+  }
+  // PUSHOVER por control de desplazamiento (traza el camino completo, snap-through
+  // incluido). El GDL de control sale de un probe lineal; imperfección opcional.
+  async pushover({ contribs = null, imp = 0, nSteps = 60 } = {}) {
+    await ensureNumeric(); apply2D(this.model);
+    const P = buildNLTrussProblem(this.model, { contribs });
+    if (!P.ok) throw new Error('pushover: ' + P.reason);
+    const setup = setupPushoverControl(P, imp);
+    if (!setup.ok) throw new Error('pushover: ' + setup.reason);
+    const res = solveNonlinearDC({ X: setup.Ximp, elems: P.elems, free: P.free, Fref: P.Fref, controlDOF: setup.cDOF, targetDisp: setup.target, nSteps });
+    this._lastKind = 'pushover'; this.pushoverResult = { ...res, cDOF: setup.cDOF, nodeIds: P.nodeIds, elemIds: P.elemIds };
+    return this.pushoverResult;
+  }
+  // TIME-HISTORY no lineal del edificio de corte equivalente (desde los diafragmas).
+  // Requiere el acelerograma (ag, dt). Newmark-β + resortes de entrepiso bilineales.
+  async timeHistoryNL({ dir = 'X', zeta = 0.05, alpha = 0.03, ag = null, dt = null, agName = '', driftCode = 'NCh433', stories = null } = {}) {
+    await ensureNumeric(); apply2D(this.model);
+    const st = stories || buildShearStories(this.model, dir);
+    if (!st.length) throw new Error('timeHistoryNL: el modelo no tiene diafragmas (pisos)');
+    if (!ag || ag.length < 2) throw new Error('timeHistoryNL: se requiere un acelerograma (ag, dt)');
+    const res = runShearHistory({ stories: st, dir, zeta, alpha, ag, dt, agName, driftCode });
+    this._lastKind = 'th'; this.timeHistory = res; return res;
+  }
+  // CARGAS MÓVILES / línea de influencia. cfg = { laneIds, mode:'il'|'env', nPos,
+  // respType, … } (ver computeMovingLoad). → { mode, xs, ys, max, min, … }.
+  async movingLoad(cfg) {
+    await ensureNumeric(); apply2D(this.model);
+    this.moving = computeMovingLoad(this.model, cfg); this._lastKind = 'moving';
+    return this.moving;
+  }
+  // FORM-FINDING por densidades de fuerza. REPOSICIONA los nodos libres a la geometría de
+  // equilibrio (muta el modelo). `selEls` restringe la red; vacío = todo el modelo.
+  async formFinding({ selEls = [], q0 = 10, axes = [2] } = {}) {
+    await ensureNumeric(); apply2D(this.model);
+    const P = buildFormFindProblem(this.model, selEls);
+    if (!P.ok) throw new Error('formFinding: ' + P.reason);
+    const res = formFind({ coords: P.coords, fixed: P.fixed, branches: P.branches, q: P.branches.map(() => q0), loads: P.loads, axes });
+    if (!res.ok) throw new Error('formFinding: ' + res.note);
+    for (const i of res.freeIdx) { const nd = this.model.nodes.get(P.nodeIds[i]); nd.x = res.coords[3 * i]; nd.y = res.coords[3 * i + 1]; nd.z = res.coords[3 * i + 2]; }
+    this._lastKind = 'formfind'; return res;
+  }
 
   // Análisis extensible registrado por el usuario.
   static registerAnalysis(name, fn) { _analyses.set(name, fn); }
@@ -223,9 +336,35 @@ export class Portico {
   checkDeflection(opts) { return checkDeflection(opts); }
   checkDrift(opts) { return checkDrift(opts); }
 
+  // Interstory drifts for one direction, checked against a code limit. Composes the
+  // generic drift primitive (js/solver/drift.js) with driftLimit(code) — the primitive
+  // stays code-agnostic; only the limit is per-norm, so a new code is one row there.
+  //   opts = { results, direction='X', mode='auto'|'cm'|'ext', code='NCh433' }
+  // `results` defaults to the last solveSpectrum output. Returns [{story, z, h, drift,
+  // limit, ratio, ok, code, label?}]. Run once per direction for a full building.
+  storyDrifts({ results, direction = 'X', mode = 'auto', code = 'NCh433' } = {}) {
+    const res = results || this.results;
+    if (!res || typeof res.getNodeDisp !== 'function')
+      throw new Error('storyDrifts: needs results with getNodeDisp — run solveSpectrum first or pass { results }');
+    const idx = { X: 0, Y: 1, Z: 2 }[direction];
+    if (idx === undefined) throw new Error(`storyDrifts: bad direction "${direction}"`);
+    const dispOf = id => { try { return res.getNodeDisp(id)[idx]; } catch { return 0; } };
+    const levels = buildStoryLevels(this.model, dispOf, { mode });
+    const lim = driftLimit(code);
+    return interstoryDrifts(levels).map(s => ({
+      ...s, limit: lim, ratio: lim > 1e-12 ? +(s.drift / lim).toFixed(4) : Infinity,
+      ok: s.drift <= lim, code,
+    }));
+  }
+
   // ── Sección poligonal / compuesta (#70) ─────────────────────────────────────
   static polygonProps(o) { return polygonProps(o); }
   static compositeProps(o) { return compositeProps(o); }
+
+  // ── Espectro de diseño NCh433/DS61 ───────────────────────────────────────────
+  // { soil, zone, category, Ro, Tstar, Tmax, dT, applyRstar } → { curve, text, Rstar,
+  // Sa0, params }. Fuente única del espectro (antes había 4 copias divergentes).
+  static spectrumNCh433(o) { return buildSpectrum(o); }
 
   // ── Detallado sísmico columna fuerte-viga débil (#68) ────────────────────────
   // MnOf opcional: capacidad nominal de flexión por barra (kN·m). Por defecto

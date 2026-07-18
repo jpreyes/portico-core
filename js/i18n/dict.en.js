@@ -767,7 +767,7 @@ export const EN = {
   "Rápido optimizado (Cholesky bandeado + RCM) — recomendado": "Fast optimized (banded Cholesky + RCM) — recommended",
   "Completo / pesado (matriz densa, sin reordenamiento) — exacto, más lento": "Complete / heavy (dense matrix, no reordering) — exact, slower",
   "Aplica al estático, modal, espectro y time-history. El modo rápido condensa en banda (factorización única, O(n·b)); el completo arma y factoriza la matriz densa tal cual (O(n³)), útil para verificación.": "Applies to static, modal, response-spectrum and time-history. The fast mode condenses into a band (single factorization, O(n·b)); the complete one assembles and factorizes the dense matrix as-is (O(n³)), useful for verification.",
-  // Unified stability verdict (shared vocabulary with Nodex)
+  // Unified stability verdict
   "Aviso de estabilidad:": "Stability warning:",
   "Deriva de entrepiso excesiva:": "Excessive inter-story drift:",
   "Desplazamiento máximo desproporcionado:": "Disproportionate maximum displacement:",

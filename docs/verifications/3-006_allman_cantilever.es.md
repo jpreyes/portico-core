@@ -4,7 +4,7 @@
 
 **Capacidad verificada:** continuo plano con elemento de membrana TRIANGULAR con GDL de giro en el plano (Allman 1984) — supera el bloqueo por corte del CST.
 **Referencia:** D. J. Allman, *A compatible triangular element including vertex rotations for plane elasticity analysis*, Computers & Structures 19 (1984). Solución independiente: teoría de vigas de Euler-Bernoulli + corte de Timoshenko.
-**Modelo Portico:** [`examples/verif_3-006_allman_cantilever.s3d`](../../examples/verif_3-006_allman_cantilever.s3d)
+**Modelo Pórtico:** [`examples/verif_3-006_allman_cantilever.s3d`](../../examples/verif_3-006_allman_cantilever.s3d)
 
 ## Descripción del problema
 
@@ -18,7 +18,7 @@ Voladizo recto de **10 × 1** (espesor 1, E=1000, ν=0) cargado con una fuerza t
 | Carga de punta | P = 1 (transversal) |
 | Flecha teórica | δ = PL³/3EI + PL/GAₛ = 4.0240 |
 
-## Modelo en Portico
+## Modelo en Pórtico
 
 - Cada celda rectangular se divide en **2 triángulos** de membrana; empotramiento en el borde izquierdo.
 - El triángulo **Allman** activa el GDL de giro en el plano (`area.drilling=true`): 3 GDL/nodo [u, v, ωz]. Se construye a partir del triángulo de deformación lineal (LST) sustituyendo los GDL de medio-lado por las rotaciones de esquina.
@@ -33,7 +33,7 @@ Voladizo recto de **10 × 1** (espesor 1, E=1000, ν=0) cargado con una fuerza t
 
 Flecha de punta de los triángulos **Allman** y **CST** comparada con la teoría de vigas (δ=4.0240), al refinar la malla. (La columna «SAP2000» repite la teoría como referencia independiente.) A igualdad de malla, el Allman se acerca mucho más; el CST subestima por bloqueo por corte.
 
-| Elemento · malla | Descripción | Independiente (—) | SAP2000 (—) | dif. SAP | **Portico (—)** | **dif. Portico** |
+| Elemento · malla | Descripción | Independiente (—) | SAP2000 (—) | dif. SAP | **Pórtico (—)** | **dif. Pórtico** |
 | --- | --- | --- | --- | --- | --- | --- |
 | Allman 8×2 | flecha de punta | 4.0240 | 4.0240 | 0 % | **1.7560** | **-56.36 %** |
 | Allman 16×4 | flecha de punta | 4.0240 | 4.0240 | 0 % | **2.5669** | **-36.21 %** |
@@ -50,4 +50,4 @@ El elemento pasa el *patch test* de deformación/tensión constante (verificado 
 
 ## Conclusión
 
-El **triángulo de membrana Allman** de Portico añade un GDL de giro en el plano por nodo y **supera el bloqueo por corte del CST**: converge a la teoría de vigas (δ=4.0240) y, a igualdad de malla, es sustancialmente más preciso que el CST. Pasa el *patch test* de tensión constante y posee exactamente los 3 modos de cuerpo rígido. **Capacidad de membrana triangular con drilling verificada.**
+El **triángulo de membrana Allman** de Pórtico añade un GDL de giro en el plano por nodo y **supera el bloqueo por corte del CST**: converge a la teoría de vigas (δ=4.0240) y, a igualdad de malla, es sustancialmente más preciso que el CST. Pasa el *patch test* de tensión constante y posee exactamente los 3 modos de cuerpo rígido. **Capacidad de membrana triangular con drilling verificada.**

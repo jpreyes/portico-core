@@ -15,7 +15,7 @@ import { areaStress, areaBendingStress, vonMises, areaLocalFrame } from './solve
 import { ModalSolver, guyanReduce }        from './solver/modal_solver.js?v=2';
 import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './solver/assembler.js?v=2';
 import { assembleSparseGlobal, extractFreeCSR } from './solver/sparse.js?v=2';
-import { corotBeamForceTangent } from './solver/corotbeam.js?v=2';
+import { solveCorotBeam } from './solver/corotbeam.js?v=2';
 import { insertInfill } from './model/macromodel.js?v=2';
 import { listMacros, getMacro, insertMacro } from './model/macro_registry.js?v=2';
 import { assembleKg } from './solver/geometric.js?v=2';
@@ -23,14 +23,19 @@ import { makeFactor } from './solver/linsolve.js?v=2';
 import { ModalResults }                    from './solver/modal_results.js?v=2';
 import { parseAccelerogram, accStats, scaleToPGA, DEMO_PRESETS, G as GACC } from './solver/accelerograms.js?v=2';
 import { tendonEquivalentLoads, applyTendon, tendonEcc } from './solver/tendon.js?v=2';
-import { buildLane, influenceLine, responseReaction, responseSection } from './solver/moving_load.js?v=2';
-import { newmarkNonlinear, shearBuilding, rayleighDamping } from './solver/nl_timehistory.js?v=2';
-import { checkDrift } from './design/serviceability.js?v=2';
+import { computeMovingLoad } from './solver/moving_load.js?v=2';
+import { buildShearStories, runShearHistory, shearFreqs } from './solver/shear_building.js?v=2';
+import { solvePlastic } from './solver/plastic.js?v=2';
+import { linearBuckling, pDelta } from './solver/geometric_analysis.js?v=2';
+import { buildNLTrussProblem, buildCorotProblem, remapCorotSteps, buildFormFindProblem, setupPushoverControl } from './solver/nl_frame.js?v=2';
+import { driftLimit } from './design/serviceability.js?v=2';
+import { buildSpectrum } from './design/nch433_spectrum.js?v=2';
 import { selectProfile, steelCandidates, predimensionar, candidatesForFamily } from './design/autodesign.js?v=2';
 import { jointSCWB } from './design/seismic.js?v=2';
 import { resolveMaterial } from './design/material_props.js?v=2';
 import { resolveSectionProps } from './design/section_props.js?v=2';
-import { autoDetectDiaphragms, computeFloorCR, applyDiaphragmConstraints } from './solver/diaphragm.js?v=2';
+import { autoDetectDiaphragms, computeFloorCR } from './solver/diaphragm.js?v=2';
+import { interstoryDrifts, buildStoryLevels } from './solver/drift.js?v=2';
 import { splitElement, splitByLength, discretizeAll, joinElements, intersectElements } from './model/discretize.js?v=2';
 import { localAxes, stiffnessMatrix, massMatrix, transformMatrix, globalStiffness, applyReleases } from './solver/timoshenko.js?v=2';
 import { blockCells, cornerGridIndices } from './model/mesher.js?v=2';
@@ -40,8 +45,13 @@ import { smoothAreasInModel } from './model/mesh_quality.js?v=2';
 import { listFormats, exportModel, importModel } from './io/index.js?v=2';
 import { extensions } from './ext/extensions.js?v=2';
 import { loadBranding, getBranding } from './branding.js?v=2';
-import { solverRegistry } from './solver/backend.js?v=2';
+import { SpectrumSolver }    from './solver/spectrum_solver.js?v=2';
+import { modalTimeHistory }  from './solver/timehistory.js?v=2';
+import { StagedSolver }      from './solver/staged.js?v=2';
+import { solveNonlinear, solveNonlinearDC } from './solver/nl_lite.js?v=2';
+import { formFind }          from './solver/formfind.js?v=2';
 import { i18n } from './i18n/i18n.js?v=2';
+import { reportHTML, reportDocx, reportDocxCover, reportDocxBody } from './report/report.js?v=2';
 
 // Load categories (#106) — for automatic combinations and design.
 const LOAD_TYPES = [
@@ -1834,13 +1844,12 @@ class App {
     }, 20));
   }
 
-  // ── Unified stability surfacing (backend-agnostic) ───────────────────────────
+  // ── Unified stability surfacing ──────────────────────────────────────────────
   // After a static run, assess every solved case for excessive drift / displacement
-  // (assessStabilitySanity, works for JS Results AND Nodex WasmResults) plus the
-  // solver's own `warnings`, and show a PROMINENT banner with the SAME text whatever
-  // the active backend. This is what catches a near-mechanism that "solves" with
-  // garbage (e.g. a model rescued by a rigid diaphragm) — invisible to the matrix
-  // solve alone. See js/solver/stability.js + NODEX-CONTRACT.md.
+  // (assessStabilitySanity) plus the solver's own `warnings`, and show a PROMINENT
+  // banner. This is what catches a near-mechanism that "solves" with garbage (e.g. a
+  // model rescued by a rigid diaphragm) — invisible to the matrix solve alone.
+  // See js/solver/stability.js.
   _surfaceStabilityWarnings() {
     if (!this._resultsByCase) return;
     const lines = [];
@@ -1863,7 +1872,7 @@ class App {
     this.toast('⚠ ' + i18n.t('Aviso de estabilidad:') + ' ' + uniq.slice(0, 3).join('  ·  '), 'warn', 9000);
   }
 
-  // Localized message for a structured stability warning (shared codes with Nodex).
+  // Localized message for a structured stability warning.
   _stabilityMsg(w) {
     const p = w.params || {};
     const tail = i18n.t('Posible inestabilidad o modelo mal restringido.');
@@ -1921,33 +1930,6 @@ class App {
   // once and factorizing once (banded Cholesky with RCM). If the worker fails or the
   // matrix is not SPD, it uses the dense fallback solver.
   async _solveStaticCases(staticLcs) {
-    // ── Backends hook (multi-solver) ────────────────────────────────────────────
-    // By default the active backend is 'js' → this block is skipped and the JS
-    // pipeline (sparse/dense worker) below is used, UNCHANGED. If an upper layer
-    // registered and activated another backend in the solverRegistry (e.g. Nodex
-    // C++/WASM), it solves through it; if it doesn't cover some case or fails, it
-    // falls back to the full JS pipeline (fast path intact). Each backend returns an
-    // object compatible with `Results`.
-    const backend = solverRegistry.active;
-    if (backend && backend.name !== 'js') {
-      try {
-        const bmap = new Map();
-        let ok = true;
-        for (const lc of staticLcs) {
-          const opts = { selfWeight: !!lc.selfWeight };
-          const can = backend.canSolve(this.model, lc.id, opts);
-          if (!can || !can.ok) { ok = false; break; }
-          const res = await backend.solveStatic(this.model, lc.id, opts);
-          if (!res) { ok = false; break; }
-          bmap.set(lc.id, res);
-        }
-        if (ok) return bmap;
-        console.warn(`Backend "${backend.name}" no cubre todos los casos; se usa el solver JS.`);
-      } catch (e) {
-        console.warn(`Backend "${backend.name}" falló (${e?.message || e}); se usa el solver JS.`);
-      }
-    }
-
     const model = this.model;
     const nodeIndex = buildNodeIndex(model);
     const nDOF = nodeIndex.size * 6;
@@ -2890,7 +2872,7 @@ class App {
 
     return new Promise(resolve => setTimeout(async () => {
       try {
-        this._results = await solverRegistry.solveSpectrum(this._modalResults, params);
+        this._results = new SpectrumSolver().solve(this._modalResults, params);
 
         // Store by direction so combos can reference it (legacy [ESP])
         this._spectrumResults.set('esp' + params.direction, { result: this._results, params });
@@ -3055,7 +3037,7 @@ class App {
       let w;
       try { w = new Worker(new URL('./solver/timehistory_worker.js?v=2', import.meta.url), { type: 'module' }); }
       catch (e) {
-        try { solverRegistry.solveTimeHistoryModal({ modes: modes.map(m => ({ ...m, phi: new Float64Array(0) })), ag, dt, zeta }).then(r => resolve({ q: r.q, peakModal: r.peakModal }), reject); }
+        try { const r = modalTimeHistory({ modes: modes.map(m => ({ ...m, phi: new Float64Array(0) })), ag, dt, zeta }); resolve({ q: r.q, peakModal: r.peakModal }); }
         catch (err) { reject(err); }
         return;
       }
@@ -3106,7 +3088,7 @@ class App {
         La componente vertical (−Z) de cada caso × su factor se reparte a los nodos (regla tributaria) y se convierte en masa m = W/g, activa en X, Y y Z. Así el peso muerto/sobrecarga participa en modal, espectro y time-history.</div>
       ${lcRows}
       <div class="prop-row" style="margin-top:8px">
-        <label style="flex:1;display:flex;align-items:center;gap:6px"><input type="checkbox" id="msrc-sw" ${ms.selfWeight ? 'checked' : ''}> Incluir peso propio (ρ·A·L)</label>
+        <label style="flex:1;display:flex;align-items:center;gap:6px"><input type="checkbox" id="msrc-sw" ${ms.selfWeight ? 'checked' : ''}> Incluir peso propio (ρ·A·L·g)</label>
         <div class="prop-field" style="width:140px"><label>g (m/s²)</label><input type="number" id="msrc-g" value="${ms.g || 9.80665}" step="0.001" min="0.001" style="width:100px"></div>
       </div>
       <div style="color:var(--text-muted);font-size:11px;margin-top:6px">Si el material ya tiene densidad ρ&gt;0, su masa estructural ya está incluida — no marques «peso propio» para no duplicarla.</div>`;
@@ -3511,7 +3493,7 @@ class App {
     this._showProgress('Etapas constructivas…', 'Análisis lineal incremental por fases (acumulando estado)');
     await new Promise(r => setTimeout(r, 20));
     try {
-      const res = await solverRegistry.solveStaged(model, stages);
+      const res = new StagedSolver().solve(model, stages);
       this._stagedResult = { res, stages, info: stages.map((s, i) => `${i + 1}. ${s.name}`).join(' · ') };
       const last = res.stages[res.stages.length - 1];
       this.toast(`Etapas OK · ${res.stages.length} fases · δmax acumulado ${res.getMaxDisp().toExponential(2)} m · activos finales ${last ? last.active.size : 0}`, 'ok');
@@ -3717,17 +3699,7 @@ class App {
     this._showProgress('Cargas móviles…', cfg.mode === 'il' ? 'Barrido de carga unitaria (línea de influencia)' : 'Barrido del tren (envolvente)');
     await new Promise(r => setTimeout(r, 20));
     try {
-      const lane = buildLane(model, cfg.laneIds);
-      const resp = cfg.respType === 'reaction' ? responseReaction(cfg.nodeId, cfg.comp) : responseSection(cfg.elemId, cfg.xi, cfg.key);
-      let result;
-      if (cfg.mode === 'il') {
-        const il = influenceLine(model, lane, resp, { nPos: cfg.nPos, P: 1 });
-        result = { mode: 'il', lane, label: cfg.label, unit: cfg.unit, xs: il.s, ys: il.value, max: il.max, min: il.min, sMax: il.sMax, sMin: il.sMin };
-      } else {
-        const env = await solverRegistry.solveMovingLoads(model, lane, cfg.train, { [cfg.label]: resp }, { nPos: cfg.nPos });
-        const e = env.env[cfg.label];
-        result = { mode: 'env', lane, label: cfg.label, unit: cfg.unit, xs: env.positions, ys: env.series[cfg.label], max: e.max, min: e.min, sMax: e.atMax, sMin: e.atMin, trainLen: env.trainLen };
-      }
+      const result = computeMovingLoad(model, cfg);   // js/solver/moving_load.js
       this._movingResult = result;
       this.toast(`${i18n.t('Cargas móviles OK')} · ${cfg.label} · ${i18n.t('máx')} ${result.max.toExponential(3)} ${cfg.unit} · ${i18n.t('mín')} ${result.min.toExponential(3)} ${cfg.unit}`, 'ok');
       this._movingPlotOverlay(result);
@@ -3884,7 +3856,7 @@ class App {
     }
     const dir0 = this._lastNLTH?.dir || 'X';
     let stories;
-    try { stories = this._nlthBuildStories(dir0); }
+    try { stories = buildShearStories(model, dir0); }   // js/solver/shear_building.js
     catch (e) { this.toast(`${i18n.t('No se pudo armar el edificio de shear:')} ${e.message}`, 'error'); return; }
     if (!stories.length) { this.toast('No se identificaron pisos (diafragmas).', 'warn'); return; }
 
@@ -3894,7 +3866,7 @@ class App {
     if (!ag || ag.length < 2) { this.toast('Acelerograma vacío o no reconocido.', 'warn'); return; }
     this._lastNLTH = { dir, zeta, alpha };
 
-    const m = st.map(s => s.m), k = st.map(s => s.k), Vy = st.map(s => s.Vy);
+    const m = st.map(s => s.m), k = st.map(s => s.k);
     if (m.some(v => !(v > 0)) || k.some(v => !(v > 0))) { this.toast('Cada piso necesita masa y rigidez > 0 (edite la tabla).', 'warn'); return; }
     const n = st.length;
 
@@ -3902,33 +3874,11 @@ class App {
     this._showProgress('Time-history no lineal…', 'Integración directa Newmark-β + Newton (rótulas elastoplásticas)');
     await new Promise(r => setTimeout(r, 20));
     try {
-      const ws = this._shearFreqs(m, k);                 // frequencies of the shear building
-      const w1 = ws[0], wN = ws[n - 1] || ws[0];
-      const sb = shearBuilding({ m, k, Fy: Vy, alpha: m.map(() => alpha) });
-      const { C } = rayleighDamping(sb.M, sb.resist.K0(), n, zeta, w1, wN);
-      const res = newmarkNonlinear({ M: sb.M, resist: sb.resist, C, ag, dt, store: 'full', monitorDof: n - 1 });
-
-      // Per-story derived: yield drift dy=Vy/k, peak drift, yielded flag.
-      const dy = st.map((s, i) => s.Vy / s.k);
-      const driftPeak = new Array(n).fill(0);
-      for (const u of res.U) for (let i = 0; i < n; i++) { const d = Math.abs(u[i] - (i > 0 ? u[i - 1] : 0)); if (d > driftPeak[i]) driftPeak[i] = d; }
-      const yielded = st.map((s, i) => driftPeak[i] > dy[i] * 1.0001);
-      // Interstory drift Δ/h vs code limit (NCh433 by default, #68).
-      const driftCode = this._lastNLTH?.driftCode || 'NCh433';
-      let worstDrift = { ratio: 0, story: 0, dr: 0 };
-      for (let i = 0; i < n; i++) {
-        const h = st[i].z - (i > 0 ? st[i - 1].z : 0);
-        const c = checkDrift({ drift: driftPeak[i], h, code: driftCode });
-        if (c.ratio > worstDrift.ratio) worstDrift = { ratio: c.ratio, story: i, dr: c.demand, limit: c.limit };
-      }
-      const stats = accStats(ag, dt);
-      const T1 = 2 * Math.PI / w1;
-
-      this._nlthResult = { stories: st, dir, zeta, alpha, ag, dt, agName, nSteps: res.U.length, U: res.U,
-        monDof: n - 1, peak: res.peak, peakStep: res.peakStep, dy, driftPeak, yielded, stats, T1, w1, springs: sb.springs,
-        driftCode, worstDrift };
-      const nY = yielded.filter(Boolean).length;
-      this.toast(`Time-history NL OK · ${n} ${i18n.t('pisos')} · ${dir} · T₁=${T1.toFixed(3)}s · ${i18n.t('u_techo máx')} ${res.peak.toExponential(2)} m · ${nY} ${i18n.t('piso(s) en fluencia')}`, 'ok');
+      // Newmark-β + drift/yield post-processing (js/solver/shear_building.js).
+      const result = runShearHistory({ stories: st, dir, zeta, alpha, ag, dt, agName, driftCode: this._lastNLTH?.driftCode || 'NCh433' });
+      this._nlthResult = result;
+      const nY = result.yielded.filter(Boolean).length;
+      this.toast(`Time-history NL OK · ${n} ${i18n.t('pisos')} · ${dir} · T₁=${result.T1.toFixed(3)}s · ${i18n.t('u_techo máx')} ${result.peak.toExponential(2)} m · ${nY} ${i18n.t('piso(s) en fluencia')}`, 'ok');
       this._nlthOpenOverlay();
       this._updateResultsIndicator?.();
     } catch (err) {
@@ -3937,59 +3887,6 @@ class App {
       if (btn) btn.classList.remove('running');
       this._hideProgress();
     }
-  }
-
-  // Natural frequencies of the shear building (tridiagonal K, diagonal M) via the
-  // symmetric eigenproblem A = D^{-1/2}·K·D^{-1/2}. Returns ascending ω.
-  _shearFreqs(m, k) {
-    const n = m.length;
-    const num = window.numeric;
-    const K = Array.from({ length: n }, () => new Array(n).fill(0));
-    for (let i = 0; i < n; i++) { K[i][i] += k[i]; if (i > 0) { K[i - 1][i - 1] += k[i]; K[i][i - 1] -= k[i]; K[i - 1][i] -= k[i]; } }
-    const A = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => K[i][j] / Math.sqrt(m[i] * m[j])));
-    let ev;
-    try { ev = num.eig(A).lambda.x.slice(); } catch (e) { ev = [Math.min(...k) / Math.max(...m)]; }
-    return ev.map(l => Math.sqrt(Math.max(l, 1e-12))).sort((a, b) => a - b);
-  }
-
-  // Reduces the model to a shear building: stories = diaphragms by z, diaphragm mass,
-  // interstory stiffness from a static lateral analysis ∝ mass.
-  _nlthBuildStories(dir) {
-    const model = this.model;
-    const dias = [...model.diaphragms.values()].filter(d => (d.nodes || []).length).sort((a, b) => a.z - b.z);
-    if (!dias.length) return [];
-    const ci = dir === 'Y' ? 1 : 0;
-    const g = GACC || 9.80665;
-    // Mass per story (from the diaphragm).
-    const masses = dias.map(d => +d.mass?.m || 0);
-    // Lateral load ∝ mass, distributed over the diaphragm's nodes.
-    const lc = { id: -9, name: '_nlth', selfWeight: false, type: 'static', specDir: null, loads: [] };
-    dias.forEach((d, i) => {
-      const p = masses[i] || 1; const per = p / d.nodes.length;
-      for (const nid of d.nodes) { const F = [0, 0, 0, 0, 0, 0]; F[ci] = per; lc.loads.push({ type: 'nodal', nodeId: nid, F }); }
-    });
-    const view = { nodes: model.nodes, elements: model.elements, areas: model.areas, diaphragms: model.diaphragms,
-      materials: model.materials, sections: model.sections, links: model.links,
-      loadCases: new Map([[-9, lc]]), combinations: new Map(), mode: model.mode, units: model.units };
-    let R; try { R = new StaticSolver().solve(view, -9, false); } catch (e) { R = null; }
-    // Lateral displacement of each story = average of its nodes in the direction.
-    const uFloor = dias.map(d => {
-      if (!R) return 0; let s = 0, c = 0;
-      for (const nid of d.nodes) { const u = R.getNodeDisp(nid); if (u) { s += u[ci]; c++; } }
-      return c ? s / c : 0;
-    });
-    // Story shear (accumulated from the top) and interstory stiffness k=V/Δ.
-    const stories = [];
-    for (let i = 0; i < dias.length; i++) {
-      let V = 0; for (let j = i; j < dias.length; j++) V += (masses[j] || 1);   // ∝ mass
-      const uPrev = i > 0 ? uFloor[i - 1] : 0;
-      const drift = uFloor[i] - uPrev;
-      const k = (drift > 1e-12) ? V / drift : 0;
-      const massAbove = masses.slice(i).reduce((a, b) => a + b, 0);
-      const Vy = 0.15 * g * massAbove;                  // seed: Cy=0.15 · accumulated weight
-      stories.push({ z: dias[i].z, m: masses[i], k, Vy, label: `Piso ${i + 1} (z=${dias[i].z.toFixed(2)})`, nodes: dias[i].nodes });
-    }
-    return stories;
   }
 
   _nlthDefaults(stories, dir) {
@@ -4002,7 +3899,7 @@ class App {
     const overlay = document.getElementById('modal-overlay');
     document.getElementById('modal-title').textContent = i18n.t('Time-history NO LINEAL — edificio de corte (rótulas)');
     const d = this._lastNLTH || {};
-    const ws = this._shearFreqs(stories.map(s => s.m || 1), stories.map(s => s.k || 1));
+    const ws = shearFreqs(stories.map(s => s.m || 1), stories.map(s => s.k || 1));
     const T1 = stories.every(s => s.k > 0 && s.m > 0) ? (2 * Math.PI / ws[0]).toFixed(3) : '—';
     const rowsHTML = (sts) => sts.map((s, i) => `
       <tr>
@@ -4061,7 +3958,7 @@ class App {
       Vy: +document.querySelector(`[data-st="${i}"][data-f="Vy"]`).value || 0 }));
     const refreshT1 = () => {
       const st = readTable();
-      if (st.every(s => s.k > 0 && s.m > 0)) document.getElementById('nlth-t1').textContent = (2 * Math.PI / this._shearFreqs(st.map(s => s.m), st.map(s => s.k))[0]).toFixed(3);
+      if (st.every(s => s.k > 0 && s.m > 0)) document.getElementById('nlth-t1').textContent = (2 * Math.PI / shearFreqs(st.map(s => s.m), st.map(s => s.k))[0]).toFixed(3);
     };
     document.getElementById('nlth-rows').addEventListener('change', refreshT1);
     document.getElementById('nlth-reseed').addEventListener('click', () => {
@@ -4583,7 +4480,7 @@ class App {
       try {
         worker = new Worker(new URL('./solver/nl_worker.js?v=2', import.meta.url), { type: 'module' });
       } catch (e) {
-        try { (kind === 'dc' ? solverRegistry.solveNonlinearDC(opts) : solverRegistry.solveNonlinear(opts)).then(resolve, reject); return; }
+        try { resolve(kind === 'dc' ? solveNonlinearDC(opts) : solveNonlinear(opts)); return; }
         catch (err) { reject(err); }
         return;
       }
@@ -4608,70 +4505,16 @@ class App {
       this.toast('Modelo vacío: agregue nodos y elementos', 'warn'); return;
     }
 
-    // Node index (0-based) and reference coordinates
-    const nodeIds = [...this.model.nodes.keys()];
-    const idxOf = new Map(nodeIds.map((id, i) => [id, i]));
-    const nNode = nodeIds.length;
-    const X = new Float64Array(3 * nNode);
-    nodeIds.forEach((id, i) => { const n = this.model.nodes.get(id); X[3*i] = n.x; X[3*i+1] = n.y; X[3*i+2] = n.z; });
-
-    // Member/cable elements
-    const elems = [], elemIds = [];
-    for (const el of this.model.elements.values()) {
-      const n1 = this.model.nodes.get(el.n1), n2 = this.model.nodes.get(el.n2);
-      const mat = this.model.materials.get(el.matId), sec = this.model.sections.get(el.secId);
-      if (!n1 || !n2 || !mat || !sec) continue;
-      const L = Math.hypot(n2.x-n1.x, n2.y-n1.y, n2.z-n1.z);
-      if (L < 1e-12) continue;
-      const L0 = (el.L0factor || 1) * L;
-      elems.push({ n1: idxOf.get(el.n1), n2: idxOf.get(el.n2), EA: mat.E * sec.A, L0, cable: !!el.cable, compressionOnly: !!el.compressionOnly });
-      elemIds.push(el.id);
+    // Model → reduced truss/cable problem (js/solver/nl_frame.js).
+    const prob = buildNLTrussProblem(this.model);
+    if (!prob.ok) {
+      this.toast({
+        'no-elements': 'No hay elementos válidos para el análisis no lineal',
+        'no-free-dof': 'Todos los nodos están restringidos (sin GDL libres)',
+      }[prob.reason] || `No se pudo armar el problema no lineal (${prob.reason})`, 'warn');
+      return;
     }
-    if (!elems.length) { this.toast('No hay elementos válidos para el análisis no lineal', 'warn'); return; }
-
-    // Free DOFs (translations only; in 2D, uy fixed)
-    const is2D = this.model.mode === '2D';
-    const free = [];
-    nodeIds.forEach((id, i) => {
-      const r = this.model.nodes.get(id).restraints;
-      const fix = [r.ux, is2D ? 1 : r.uy, r.uz];
-      for (let c = 0; c < 3; c++) if (!fix[c]) free.push(3*i + c);
-    });
-    if (!free.length) { this.toast('Todos los nodos están restringidos (sin GDL libres)', 'warn'); return; }
-
-    // Reference load: combines all static cases at factor 1
-    const Fref = new Float64Array(3 * nNode);
-    const addNode = (id, fx, fy, fz) => { const i = idxOf.get(id); if (i==null) return; Fref[3*i]+=fx; Fref[3*i+1]+=fy; Fref[3*i+2]+=fz; };
-    const dirVec = (dir) => dir==='globalX' ? [1,0,0] : dir==='globalY' ? [0,1,0] : dir==='globalZ' ? [0,0,1] : [0,0,-1]; // gravity = −Z
-    let nCasos = 0;
-    for (const lc of this.model.loadCases.values()) {
-      if (lc.type === 'spectrum') continue;
-      nCasos++;
-      for (const load of (lc.loads || [])) {
-        if (load.type === 'nodal') addNode(load.nodeId, load.F[0]||0, load.F[1]||0, load.F[2]||0);
-        else if (load.type === 'dist') {
-          const el = this.model.elements.get(load.elemId);
-          if (!el) continue;
-          const n1 = this.model.nodes.get(el.n1), n2 = this.model.nodes.get(el.n2);
-          if (!n1 || !n2) continue;
-          const L = Math.hypot(n2.x-n1.x, n2.y-n1.y, n2.z-n1.z);
-          const half = (load.w || 0) * L / 2;
-          const g = dirVec(load.dir || 'gravity');
-          addNode(el.n1, half*g[0], half*g[1], half*g[2]);
-          addNode(el.n2, half*g[0], half*g[1], half*g[2]);
-        }
-      }
-      if (lc.selfWeight) {   // self-weight lumped to the nodes (−Z)
-        for (const el of this.model.elements.values()) {
-          const n1 = this.model.nodes.get(el.n1), n2 = this.model.nodes.get(el.n2);
-          const mat = this.model.materials.get(el.matId), sec = this.model.sections.get(el.secId);
-          if (!n1 || !n2 || !mat || !sec) continue;
-          const L = Math.hypot(n2.x-n1.x, n2.y-n1.y, n2.z-n1.z);
-          const w = mat.rho * sec.A * L / 2;   // half to each node
-          addNode(el.n1, 0, 0, -w); addNode(el.n2, 0, 0, -w);
-        }
-      }
-    }
+    const { X, elems, free, nodeIds, idxOf, elemIds, Fref, nCasos } = prob;
 
     const nSteps = Math.max(1, Math.min(200, Math.round(parseFloat(this._nlSteps) || 12)));
     this._showProgress('No lineal…', 'Resolviendo el sistema no lineal (Newton, control de carga) en segundo plano');
@@ -4704,76 +4547,28 @@ class App {
     }
     if (this.model.elements.size === 0) { this.toast('No hay elementos para el análisis', 'warn'); return; }
 
-    const nodeIds = [...this.model.nodes.keys()];
-    const idxOf = new Map(nodeIds.map((id, i) => [id, i]));
-    const nNode = nodeIds.length;
-    const coords = new Float64Array(2 * nNode);   // (x, z) of the plane
-    nodeIds.forEach((id, i) => { const n = this.model.nodes.get(id); coords[2*i] = n.x; coords[2*i+1] = n.z; });
-
-    const elems = [], elemIds = [];
-    for (const el of this.model.elements.values()) {
-      const n1 = this.model.nodes.get(el.n1), n2 = this.model.nodes.get(el.n2);
-      const mat = this.model.materials.get(el.matId), sec = this.model.sections.get(el.secId);
-      if (!n1 || !n2 || !mat || !sec) continue;
-      if (Math.hypot(n2.x-n1.x, n2.z-n1.z) < 1e-12) continue;
-      const mod = sec.mod || {};
-      elems.push({ n1: idxOf.get(el.n1), n2: idxOf.get(el.n2), EA: mat.E * sec.A * (mod.A ?? 1), EI: mat.E * sec.Iz * (mod.Iz ?? 1) });
-      elemIds.push(el.id);
+    // Model → reduced planar corotational problem (js/solver/nl_frame.js).
+    const prob = buildCorotProblem(this.model);
+    if (!prob.ok) {
+      this.toast({
+        'no-elements': 'No hay elementos válidos en el plano',
+        'no-free-dof': 'Todos los nodos están restringidos',
+      }[prob.reason] || `No se pudo armar el problema corotacional (${prob.reason})`, 'warn');
+      return;
     }
-    if (!elems.length) { this.toast('No hay elementos válidos en el plano', 'warn'); return; }
-
-    // Free DOFs: 3/node (u=ux, w=uz, θ=ry)
-    const free = [];
-    nodeIds.forEach((id, i) => {
-      const r = this.model.nodes.get(id).restraints;
-      const fix = [r.ux, r.uz, r.ry];
-      for (let c = 0; c < 3; c++) if (!fix[c]) free.push(3*i + c);
-    });
-    if (!free.length) { this.toast('Todos los nodos están restringidos', 'warn'); return; }
-
-    // Reference load: Fx→u, Fz→w, My→θ ; dist/self-weight lumped (transverse −Z)
-    const Fref = new Float64Array(3 * nNode);
-    const add = (id, fu, fw, fm) => { const i = idxOf.get(id); if (i == null) return; Fref[3*i] += fu; Fref[3*i+1] += fw; Fref[3*i+2] += fm; };
-    let nCasos = 0;
-    for (const lc of this.model.loadCases.values()) {
-      if (lc.type === 'spectrum') continue;
-      nCasos++;
-      for (const load of (lc.loads || [])) {
-        if (load.type === 'nodal') add(load.nodeId, load.F[0]||0, load.F[2]||0, load.F[4]||0);   // Fx, Fz, My
-        else if (load.type === 'dist') {
-          const el = this.model.elements.get(load.elemId); if (!el) continue;
-          const n1 = this.model.nodes.get(el.n1), n2 = this.model.nodes.get(el.n2); if (!n1 || !n2) continue;
-          const L = Math.hypot(n2.x-n1.x, n2.z-n1.z); const half = (load.w || 0) * L / 2;
-          add(el.n1, 0, -half, 0); add(el.n2, 0, -half, 0);   // transverse −Z lumping (approx.)
-        }
-      }
-      if (lc.selfWeight) for (const el of this.model.elements.values()) {
-        const n1 = this.model.nodes.get(el.n1), n2 = this.model.nodes.get(el.n2);
-        const mat = this.model.materials.get(el.matId), sec = this.model.sections.get(el.secId);
-        if (!n1 || !n2 || !mat || !sec) continue;
-        const w = mat.rho * sec.A * Math.hypot(n2.x-n1.x, n2.z-n1.z) / 2;
-        add(el.n1, 0, -w, 0); add(el.n2, 0, -w, 0);
-      }
-    }
+    const { coords, X, elems, free, nodeIds, idxOf, elemIds, Fref, nCasos } = prob;
 
     const nSteps = Math.max(1, Math.min(200, Math.round(parseFloat(this._nlSteps) || 12)));
     this._showProgress('Corotacional…', 'Gran rotación: Newton-Raphson por incrementos de carga');
     await new Promise(r => setTimeout(r, 20));
     let res;
-    try { res = await solverRegistry.solveCorotBeam({ coords, elems, free, Fref, nSteps, maxIter: 80, tol: 1e-9 }); }
+    try { res = solveCorotBeam({ coords, elems, free, Fref, nSteps, maxIter: 80, tol: 1e-9 }); }
     catch (e) { this.toast(`${i18n.t('Error corotacional:')} ${i18n.t(e.message)}`, 'error'); console.error(e); return; }
     finally { this._hideProgress(); }
 
     if (!res.steps.length) { this.toast('El análisis no produjo pasos (¿mecanismo?)', 'error'); return; }
     // Remap steps to the «Nonlinear» tab format: nodal u [ux, uy=0, uz=w].
-    const X = new Float64Array(3 * nNode);
-    nodeIds.forEach((id, i) => { const n = this.model.nodes.get(id); X[3*i] = n.x; X[3*i+1] = n.y; X[3*i+2] = n.z; });
-    const steps2 = res.steps.map(s => {
-      const u3 = new Float64Array(3 * nNode);
-      for (let i = 0; i < nNode; i++) { u3[3*i] = s.u[3*i]; u3[3*i+1] = 0; u3[3*i+2] = s.u[3*i+1]; }
-      const N = elems.map(el => corotBeamForceTangent(coords, s.u, el).N);
-      return { lambda: s.lambda, u: u3, N, taut: N.map(() => true), iters: s.iters, resid: s.resid };
-    });
+    const steps2 = remapCorotSteps({ coords, elems, steps: res.steps, nNode: nodeIds.length });
     this._nlResult = { res: { steps: steps2, converged: res.converged }, X, nodeIds, idxOf, elemIds, corot: true };
     if (!res.converged) this.toast(`${i18n.t('Corotacional: no convergió en el paso')} ${res.steps.length}/${nSteps}. ${i18n.t('Se muestran los pasos logrados.')}`, 'warn');
     else this.toast(`${i18n.t('Corotacional OK')} · ${res.steps.length} ${i18n.t('pasos')} · ${i18n.t('gran rotación')} · ${nCasos} ${i18n.t('caso(s)')}`, 'ok');
@@ -4861,37 +4656,6 @@ class App {
   // ── NL-lite Phase 2: geometric stiffness (P-Delta + linear buckling) ──────
   // Sets up the geometric problem: dense K, free DOFs and the COMBINED static load
   // (all cases at factor 1) as the reference load.
-  _buildGeomProblem() {
-    const model = this.model;
-    const nodeIndex = buildNodeIndex(model);
-    const { K, nDOF } = assembleK(model, nodeIndex);
-    const is2D = model.mode === '2D';
-    const freeDOF = [];
-    for (const node of model.nodes.values()) {
-      const d = getNodeDOFs(nodeIndex, node.id), r = node.restraints;
-      const rArr = [r.ux, is2D ? 1 : r.uy, r.uz, is2D ? 1 : r.rx, r.ry, is2D ? 1 : r.rz];
-      d.forEach((gi, li) => { if (!rArr[li]) freeDOF.push(gi); });
-    }
-    const F = new Float64Array(nDOF);
-    let nCasos = 0;
-    for (const lc of model.loadCases.values()) {
-      if (lc.type === 'spectrum') continue;
-      const Fi = assembleF(model, nodeIndex, lc.id, !!lc.selfWeight);
-      for (let i = 0; i < nDOF; i++) F[i] += Fi[i];
-      nCasos++;
-    }
-    return { nodeIndex, K, nDOF, freeDOF, F, nCasos };
-  }
-
-  _maxTransDisp(u) {
-    let mx = 0;
-    for (const node of this.model.nodes.values()) {
-      const d = getNodeDOFs(this._geomNI, node.id);
-      mx = Math.max(mx, Math.hypot(u[d[0]], u[d[1]], u[d[2]]));
-    }
-    return mx;
-  }
-
   // Linear BUCKLING by eigenvalues: (K + λ·Kg)·φ = 0 → λcr and buckling mode.
   // SUBSPACE ITERATION in a Web Worker (like the modal): extracts the smallest λcr in
   // a block, without blocking the UI or the dense num.eig O(n³) that used to hang. The
@@ -4914,48 +4678,22 @@ class App {
 
     try {
       this._applyAutoDiscIfEnabled();   // same mesh as the static analysis (#36)
-      const { nodeIndex, K, nDOF, freeDOF, F, nCasos } = this._buildGeomProblem();
-      this._geomNI = nodeIndex;
-      if (!freeDOF.length) throw new Error('Sin GDL libres');
-      if (!nCasos) throw new Error('Defina al menos un caso de carga: es la carga de referencia del pandeo.');
-
-      const nF = freeDOF.length;
-      // Kff and Ff in flat format (Float64Array nF×nF)
-      const Kff_flat = new Float64Array(nF * nF);
-      const Ff = new Float64Array(nF);
-      for (let i = 0; i < nF; i++) { Ff[i] = F[freeDOF[i]]; const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) Kff_flat[i * nF + j] = K[ri + freeDOF[j]]; }
-
-      // Reference state: K_ff·u = F_ff (banded Cholesky; gives the axial force for Kg).
       const dense = !!this._config?.analisis?.matrizDensa;
-      const fac = makeFactor(Kff_flat, nF, dense);
-      if (!fac.ok) throw new Error('Estado de referencia singular/inestable (mecanismo). Revise apoyos — p.ej. torsión libre del conjunto.');
-      const ufA = fac.solve(Ff);
-      const u = new Float64Array(nDOF); for (let i = 0; i < nF; i++) u[freeDOF[i]] = ufA[i];
-
-      const { Kg, Nmax, Nby } = assembleKg(this.model, nodeIndex, u);
-
-      // Flat Kgff for the worker (+ Kg magnitude = is there a buckling effect?).
-      // Works for members (Nmax) and for SHELLS (membrane stress → area Kg).
-      const Kgff_flat = new Float64Array(nF * nF);
-      let kgMax = 0;
-      for (let i = 0; i < nF; i++) { const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) { const v = Kg[ri + freeDOF[j]]; Kgff_flat[i * nF + j] = v; const av = Math.abs(v); if (av > kgMax) kgMax = av; } }
-      if (kgMax < 1e-12) throw new Error('La carga de referencia no genera rigidez geométrica (sin efecto de pandeo).');
-
-      // Subspace iteration in the Worker (doesn't block the UI)
-      const buckResult = await solverRegistry.solveBuckling({ Kff_flat, Kgff_flat, nF, nModes, dense });
-      if (buckResult.error) throw new Error(buckResult.error);
-      const rawModes = buckResult.modes;
-
-      // Expand each mode (vec in free DOFs) to the global vector indexed by nDOF.
-      const modes = rawModes.map(m => {
-        const vec = new Float64Array(nDOF);
-        for (let i = 0; i < nF; i++) vec[freeDOF[i]] = m.vec[i];
-        return { lambda: m.lambda, vec };
-      });
-      if (!modes.length) throw new Error('No se hallaron modos de pandeo (la carga de referencia no produce compresión). Revise su sentido.');
-
-      this._buckResult = { modes, nCasos, Nby };   // Nby = reference axial force per element
-      this.toast(`${i18n.t('Pandeo:')} λcr = ${modes[0].lambda.toFixed(3)} · ${i18n.t('carga crítica = λcr × carga de referencia')}`, 'ok');
+      const res = linearBuckling(this.model, { nModes, dense });   // js/solver/geometric_analysis.js
+      if (!res.ok) {
+        const msg = {
+          'no-free-dof':  'Sin GDL libres',
+          'no-loads':     'Defina al menos un caso de carga: es la carga de referencia del pandeo.',
+          'ref-singular': 'Estado de referencia singular/inestable (mecanismo). Revise apoyos — p.ej. torsión libre del conjunto.',
+          'no-kg':        'La carga de referencia no genera rigidez geométrica (sin efecto de pandeo).',
+          'no-modes':     'No se hallaron modos de pandeo (la carga de referencia no produce compresión). Revise su sentido.',
+          'solver-error': res.message,
+        }[res.reason] || `No se pudo correr pandeo (${res.reason})`;
+        throw new Error(msg);
+      }
+      this._geomNI = res.nodeIndex;
+      this._buckResult = { modes: res.modes, nCasos: res.nCasos, Nby: res.Nby };
+      this.toast(`${i18n.t('Pandeo:')} λcr = ${res.modes[0].lambda.toFixed(3)} · ${i18n.t('carga crítica = λcr × carga de referencia')}`, 'ok');
       this._buckOpenOverlay();
       this._updateResultsIndicator();
     } catch (err) {
@@ -5078,45 +4816,27 @@ class App {
   async runPDelta(opts = {}) {
     if (!this._config?.analisis?.nlLite) { this.toast('Active «Análisis no lineal (NL-lite)» en ⚙ Configuración', 'warn'); this.configDialog?.(); return; }
     this._applyAutoDiscIfEnabled();   // same mesh as the static (#36)
-    const { nodeIndex, K, nDOF, freeDOF, F, nCasos } = this._buildGeomProblem();
-    this._geomNI = nodeIndex;
-    if (!freeDOF.length) { this.toast('Sin GDL libres', 'warn'); return; }
-    if (!nCasos) { this.toast('Defina al menos un caso de carga.', 'warn'); return; }
-
-    const nF = freeDOF.length;
-    // Kff and Ff in flat format (Float64Array): input to the banded factorizer.
-    const Kff = new Float64Array(nF * nF);
-    const Ff = new Float64Array(nF);
-    for (let i = 0; i < nF; i++) { Ff[i] = F[freeDOF[i]]; const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) Kff[i * nF + j] = K[ri + freeDOF[j]]; }
     const dense = !!this._config?.analisis?.matrizDensa;
 
     this._showProgress('P-Delta…', 'Resolviendo (K + Kg(u))·u = F por iteración (motor en banda)');
     await new Promise(r => setTimeout(r, 20));
     try {
-      const fac0 = makeFactor(Kff, nF, dense);
-      if (!fac0.ok) { this.toast('Estado lineal inestable (mecanismo).', 'error'); return; }
-      const uf = fac0.solve(Ff);
-      if (!uf || uf.some(v => !isFinite(v))) { this.toast('Estado lineal singular.', 'error'); return; }
-      let u = new Float64Array(nDOF); for (let i = 0; i < nF; i++) u[freeDOF[i]] = uf[i];
-      const dLin = this._maxTransDisp(u);
-
-      let conv = false, it = 0;
-      for (it = 0; it < 25; it++) {
-        const { Kg } = assembleKg(this.model, nodeIndex, u);
-        const KT = new Float64Array(nF * nF);
-        for (let i = 0; i < nF; i++) { const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) KT[i * nF + j] = Kff[i * nF + j] + Kg[ri + freeDOF[j]]; }
-        const fac = makeFactor(KT, nF, dense);
-        if (!fac.ok) { this.toast('Tangente singular: la carga iguala o supera la de pandeo (λcr ≤ 1). Reduzca la carga o ejecute Pandeo.', 'error'); return; }
-        const uf2 = fac.solve(Ff);
-        if (!uf2 || uf2.some(v => !isFinite(v))) { this.toast('Divergió: la carga alcanza la de pandeo.', 'error'); return; }
-        const uNew = new Float64Array(nDOF); for (let i = 0; i < nF; i++) uNew[freeDOF[i]] = uf2[i];
-        let dn = 0, de = 0; for (let i = 0; i < nDOF; i++) { dn += (uNew[i] - u[i]) ** 2; de += uNew[i] ** 2; }
-        u = uNew;
-        if (de > 0 && Math.sqrt(dn / de) < 1e-6) { conv = true; it++; break; }
+      const res = pDelta(this.model, { dense });   // js/solver/geometric_analysis.js
+      if (!res.ok) {
+        const msg = {
+          'no-free-dof':      ['Sin GDL libres', 'warn'],
+          'no-loads':         ['Defina al menos un caso de carga.', 'warn'],
+          'linear-singular':  ['Estado lineal inestable (mecanismo).', 'error'],
+          'linear-nan':       ['Estado lineal singular.', 'error'],
+          'tangent-singular': ['Tangente singular: la carga iguala o supera la de pandeo (λcr ≤ 1). Reduzca la carga o ejecute Pandeo.', 'error'],
+          'diverged':         ['Divergió: la carga alcanza la de pandeo.', 'error'],
+        }[res.reason] || [`No se pudo correr P-Delta (${res.reason})`, 'error'];
+        this.toast(msg[0], msg[1]);
+        return;
       }
-      const dPD = this._maxTransDisp(u);
+      const { u, dLin, dPD, amp, conv, it, nodeIndex } = res;
+      this._geomNI = nodeIndex;
       this._pdResult = { u };
-      const amp = dLin > 1e-12 ? dPD / dLin : 1;
       this.toast(`P-Delta: δmax ${dLin.toExponential(2)} → ${dPD.toExponential(2)} m (${i18n.t('amplificación')} ×${amp.toFixed(2)}) · ${conv ? it + ' iter' : i18n.t('no convergió')}`, conv ? 'ok' : 'warn');
 
       const uByNode = new Map();
@@ -5139,83 +4859,24 @@ class App {
     const model = this.model;
     if (model.nodes.size === 0 || model.elements.size === 0) { this.toast('Modelo vacío', 'warn'); return; }
 
-    // ── Restrict the network to the TARGET elements (fix #29) ───────────────────
-    // If there are selected elements, only THOSE form the network; the rest stay
-    // intact. A node is an ANCHOR if it is restrained OR if it touches a NON-
-    // participating element (boundary with the structure that is NOT formed) → so the
-    // columns and their nodes aren't destroyed when forming, e.g., only the beam.
-    // Without a selection, the whole model is formed (good for cable nets, not frames).
-    const selEls = this._selElems();
-    const hasSel = selEls.length > 0;
-    const partSet = new Set(hasSel ? selEls : [...model.elements.keys()]);
-    const boundary = new Set();
-    if (hasSel) for (const el of model.elements.values()) {
-      if (!partSet.has(el.id)) { boundary.add(el.n1); boundary.add(el.n2); }
+    // Model → force-density network (js/solver/nl_frame.js): anchors, branches and the
+    // combined node loads (shares lumpReferenceLoad3D with the truss builder).
+    const prob = buildFormFindProblem(model, this._selElems());
+    if (!prob.ok) {
+      this.toast({
+        'few-anchors': 'El form-finding necesita ≥ 2 nodos ancla (apoyos, o bordes de la selección). Restrinja algunos nodos o seleccione los elementos a formar.',
+        'no-branches': 'Sin elementos para formar la red.',
+      }[prob.reason] || `No se pudo armar el form-finding (${prob.reason})`, 'warn');
+      return;
     }
-
-    const nodeIds = [...model.nodes.keys()];
-    const idxOf = new Map(nodeIds.map((id, i) => [id, i]));
-    const n = nodeIds.length;
-    const coords = new Float64Array(3 * n);
-    const fixed = [];
-    nodeIds.forEach((id, i) => {
-      const nd = model.nodes.get(id);
-      coords[3 * i] = nd.x; coords[3 * i + 1] = nd.y; coords[3 * i + 2] = nd.z;
-      const r = nd.restraints;
-      // anchor = translation restraint OR boundary with non-participating structure
-      fixed.push(!!(r.ux || r.uy || r.uz) || boundary.has(id));
-    });
-    if (fixed.filter(Boolean).length < 2) { this.toast('El form-finding necesita ≥ 2 nodos ancla (apoyos, o bordes de la selección). Restrinja algunos nodos o seleccione los elementos a formar.', 'warn'); return; }
-
-    const branches = [];
-    for (const id of partSet) {
-      const el = model.elements.get(id); if (!el) continue;
-      const i = idxOf.get(el.n1), j = idxOf.get(el.n2);
-      if (i != null && j != null) branches.push([i, j]);
-    }
-    if (!branches.length) { this.toast('Sin elementos para formar la red.', 'warn'); return; }
+    const { coords, fixed, branches, nodeIds, loads, hasLoad, hasSel } = prob;
 
     const ffOpts = opts.silent ? { q0: 10, axes: [2] } : await this._formFindDialog(hasSel);
     if (!ffOpts) return;
     const { q0, axes } = ffOpts;
     const q = branches.map(() => q0);
 
-    // Combined external loads (all static cases) on the free nodes.
-    const loads = nodeIds.map(() => [0, 0, 0]);
-    let hasLoad = false;
-    const dirVec = d => d === 'globalX' ? [1, 0, 0] : d === 'globalY' ? [0, 1, 0] : d === 'globalZ' ? [0, 0, 1] : [0, 0, -1];
-    for (const lc of model.loadCases.values()) {
-      if (lc.type === 'spectrum') continue;
-      for (const ld of (lc.loads || [])) {
-        if (ld.type === 'nodal') {
-          const i = idxOf.get(ld.nodeId);
-          if (i != null) { loads[i][0] += ld.F[0] || 0; loads[i][1] += ld.F[1] || 0; loads[i][2] += ld.F[2] || 0; hasLoad = true; }
-        } else if (ld.type === 'dist') {
-          const el = model.elements.get(ld.elemId); if (!el) continue;
-          const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2); if (!n1 || !n2) continue;
-          const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z);
-          const half = (ld.w || 0) * L / 2, g = dirVec(ld.dir || 'gravity');
-          const a = idxOf.get(el.n1), b = idxOf.get(el.n2);
-          if (a != null) for (let c = 0; c < 3; c++) loads[a][c] += half * g[c];
-          if (b != null) for (let c = 0; c < 3; c++) loads[b][c] += half * g[c];
-          hasLoad = true;
-        }
-      }
-      if (lc.selfWeight) {
-        for (const el of model.elements.values()) {
-          const mat = model.materials.get(el.matId), sec = model.sections.get(el.secId);
-          const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2);
-          if (!mat || !sec || !n1 || !n2) continue;
-          const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z);
-          const wgt = mat.rho * sec.A * L / 2;
-          const a = idxOf.get(el.n1), b = idxOf.get(el.n2);
-          if (a != null) loads[a][2] -= wgt; if (b != null) loads[b][2] -= wgt;
-          hasLoad = true;
-        }
-      }
-    }
-
-    const res = await solverRegistry.solveFormFind({ coords, fixed, branches, q, loads: hasLoad ? loads : null, axes });
+    const res = formFind({ coords, fixed, branches, q, loads, axes });
     if (!res.ok) { this.toast(i18n.t('Form-finding:') + ' ' + res.note, 'error'); return; }
 
     // Reposition the free nodes to the equilibrium geometry (undo with Ctrl+Z).
@@ -5278,33 +4939,6 @@ class App {
   // ── NL-lite Phase 4: bilinear material + PLASTIC HINGES ────────────────────
   // Assembles K (dense) with the current releases (formed hinges) and stores per
   // element {ed, T, KeCond} to recover the end moments.
-  _plasticAssemble(nodeIndex, releasesByElem) {
-    const model = this.model;
-    const nDOF = nodeIndex.size * 6;
-    const K = new Float64Array(nDOF * nDOF);
-    const elems = [];
-    for (const el of model.elements.values()) {
-      const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2);
-      const mat = model.materials.get(el.matId), sec = model.sections.get(el.secId);
-      if (!n1 || !n2 || !mat || !sec) continue;
-      const { ex, ey, ez, L } = localAxes(n1, n2);
-      let Ke = stiffnessMatrix(L, mat, sec);
-      const rel = releasesByElem.get(el.id);
-      const relBool = rel ? rel.map(r => !!r) : null;
-      if (relBool && relBool.some(Boolean)) Ke = applyReleases(Ke, relBool);
-      const T = transformMatrix(ex, ey, ez);
-      const KG = globalStiffness(Ke, T);
-      const ed = [...getNodeDOFs(nodeIndex, el.n1), ...getNodeDOFs(nodeIndex, el.n2)];
-      for (let i = 0; i < 12; i++) for (let j = 0; j < 12; j++) K[ed[i] * nDOF + ed[j]] += KG[i][j];
-      elems.push({ id: el.id, ed, T, KeCond: Ke, L });
-    }
-    // Rigid-diaphragm constraints (penalty), like assembleK: without this the master
-    // nodes (without elements) have zero stiffness → singular K → false «mechanism
-    // from the start» in models with diaphragms.
-    applyDiaphragmConstraints(K, model, nodeIndex, nDOF);
-    return { K, nDOF, elems };
-  }
-
   // EVENT-BY-EVENT incremental analysis with plastic hinges (plastic pushover).
   // Elastic-perfectly-plastic material: each end forms a hinge upon reaching the
   // plastic moment Mp; that rotational DOF is released and its moment is fixed at Mp.
@@ -5346,203 +4980,28 @@ class App {
       else if (selEls.length && soloSel) mp = Infinity;   // doesn't hinge → stays elastic
       capByElem.set(el.id, { N: Np, Vy: Vp, Vz: Vp, My: mp, Mz: mp });
     }
-    const capOf = (eid, axis) => (capByElem.get(eid) || {})[axis] ?? Infinity;
-    // yield components per element (local DOF, axis, rotational?)
-    const COMPS = [
-      { end: 1, dl: 0, axis: 'N', rot: false }, { end: 1, dl: 1, axis: 'Vy', rot: false }, { end: 1, dl: 2, axis: 'Vz', rot: false },
-      { end: 1, dl: 4, axis: 'My', rot: true }, { end: 1, dl: 5, axis: 'Mz', rot: true },
-      { end: 2, dl: 7, axis: 'Vy', rot: false }, { end: 2, dl: 8, axis: 'Vz', rot: false },
-      { end: 2, dl: 10, axis: 'My', rot: true }, { end: 2, dl: 11, axis: 'Mz', rot: true },
-    ];
-    const dropMode = (thetaU !== Infinity || deltaU !== Infinity);   // there is a drop (brittle or ductile-with-drop)
-
-    // Plastic deformation of the hinge RELATIVE TO THE CHORD of the element (not the
-    // raw deformation of the released DOF, which includes the rigid-body
-    // rotation/translation of the span). ul = LOCAL element displacements (12), L = length.
-    //   · Moment (Mz): nodal rotation − chord rotation in the x-y plane = θz − (uy2−uy1)/L
-    //   · Moment (My): θy + (uz2−uz1)/L  (sign of the local frame [ux,uy,uz,rx,ry,rz])
-    //   · Axial (N):    relative elongation ux2−ux1
-    //   · Shear (V):    relative transverse slip uy2−uy1 / uz2−uz1
-    const plasticRate = (ul, c, L) => {
-      switch (c.axis) {
-        case 'N':  return ul[6] - ul[0];
-        case 'Vy': return ul[7] - ul[1];
-        case 'Vz': return ul[8] - ul[2];
-        case 'Mz': return ul[c.dl] - (ul[7] - ul[1]) / L;
-        case 'My': return ul[c.dl] + (ul[8] - ul[2]) / L;
-        default:   return ul[c.dl];
-      }
-    };
-
-    const nodeIndex = buildNodeIndex(model);
-    const nDOF = nodeIndex.size * 6;
-    const is2D = model.mode === '2D';
-    const freeDOF = [];
-    for (const node of model.nodes.values()) {
-      const d = getNodeDOFs(nodeIndex, node.id), r = node.restraints;
-      const rArr = [r.ux, is2D ? 1 : r.uy, r.uz, is2D ? 1 : r.rx, r.ry, is2D ? 1 : r.rz];
-      d.forEach((gi, li) => { if (!rArr[li]) freeDOF.push(gi); });
-    }
-    if (!freeDOF.length) { this.toast('Sin GDL libres', 'warn'); return; }
-    const nF = freeDOF.length;
-
-    // Reference load per the chosen pattern (#45): all / one case / one combo.
-    const F = new Float64Array(nDOF);
     const { contribs, label: patLabel } = this._resolvePattern(popts.pattern);
-    let nCasos = 0;
-    for (const c of contribs) {
-      const Fi = assembleF(model, nodeIndex, c.lcId, c.selfWeight);
-      for (let i = 0; i < nDOF; i++) F[i] += c.factor * Fi[i];
-      nCasos++;
-    }
-    if (!nCasos) { this.toast('Defina al menos un caso de carga (patrón de carga del pushover).', 'warn'); return; }
-    // Null load pattern → no moment grows with λ → "no hinges form" would be
-    // misleading (the loads are the problem, not Mp). Clear diagnosis (#46).
-    let Fnorm = 0; for (let i = 0; i < nDOF; i++) Fnorm += F[i] * F[i]; Fnorm = Math.sqrt(Fnorm);
-    if (Fnorm < 1e-12) { this.toast('El patrón de carga es nulo (los casos no tienen cargas, o el peso propio no está activo). Asigne cargas antes de correr rótulas.', 'warn'); return; }
 
-    const releasesByElem = new Map();
-    for (const el of model.elements.values()) releasesByElem.set(el.id, (el.releases || Array(12).fill(0)).slice());
-    const Macc = new Map(), hinged = new Set();
-    const thetaP = new Map(), dropped = new Set();   // plastic deformation of each hinge + already-dropped hinges
-    let lambda = 0; const u = new Float64Array(nDOF);
-    const events = []; let collapsed = false;
-    const maxEvents = 12 * model.elements.size + 24;
-
-    // Applies the DROP of a set of hinges: sheds the retained moment/force
-    // −(1−ε)·X_form, redistributes and forms IN CASCADE those that exceed capacity
-    // (brittle → drop immediately). Returns true if a mechanism forms.
-    const applyDrops = (queue0) => {
-      let queue = queue0, guard2 = 0;
-      while (queue.length && guard2++ < 600) {
-        const { K: Kd, elems: elemsD } = this._plasticAssemble(nodeIndex, releasesByElem);
-        const eb = new Map(elemsD.map(e => [e.id, e]));
-        const Kffd = new Float64Array(nF * nF);
-        for (let i = 0; i < nF; i++) { const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) Kffd[i * nF + j] = Kd[ri + freeDOF[j]]; }
-        const facd = makeFactor(Kffd, nF, false);
-        if (!facd.ok) return true;   // mechanism after the drop
-        const G = new Float64Array(nDOF);
-        for (const c of queue) {
-          const e = eb.get(c.elemId); if (!e) continue;
-          const shed = -(1 - residual) * c.M_form;
-          for (let i = 0; i < 12; i++) G[e.ed[i]] += e.T[c.dofLocal][i] * shed;   // T^T: local→global
-          Macc.set(c.key, residual * c.M_form); dropped.add(c.key);
-        }
-        const Gf = new Float64Array(nF); for (let i = 0; i < nF; i++) Gf[i] = G[freeDOF[i]];
-        const duf = facd.solve(Gf);
-        const duJ = new Float64Array(nDOF); for (let i = 0; i < nF; i++) duJ[freeDOF[i]] = duf[i];
-        for (let i = 0; i < nDOF; i++) u[i] += duJ[i];
-        const over = [];
-        for (const e of elemsD) {
-          const ue = e.ed.map(d => duJ[d]);
-          const ul = new Array(12).fill(0); for (let i = 0; i < 12; i++) { let s = 0; for (let j = 0; j < 12; j++) s += e.T[i][j] * ue[j]; ul[i] = s; }
-          const fl = new Array(12).fill(0); for (let i = 0; i < 12; i++) { let s = 0; for (let j = 0; j < 12; j++) s += e.KeCond[i][j] * ul[j]; fl[i] = s; }
-          for (const c of COMPS) {
-            const key = `${e.id}:${c.end}:${c.axis}`;
-            if (hinged.has(key)) { if (!dropped.has(key)) thetaP.set(key, (thetaP.get(key) || 0) + plasticRate(ul, c, e.L)); continue; }
-            const cap = capOf(e.id, c.axis); if (!isFinite(cap)) continue;
-            const M1 = (Macc.get(key) || 0) + fl[c.dl]; Macc.set(key, M1);
-            if (Math.abs(M1) > cap * (1 + 1e-6)) over.push({ key, elemId: e.id, dofLocal: c.dl, end: c.end, axis: c.axis, rot: c.rot, M_form: Math.sign(M1) * cap });
-          }
-        }
-        let dctrl2 = 0; for (const node of model.nodes.values()) { const d = getNodeDOFs(nodeIndex, node.id); dctrl2 = Math.max(dctrl2, Math.hypot(u[d[0]], u[d[1]], u[d[2]])); }
-        const next = [];
-        for (const o of over) {
-          releasesByElem.get(o.elemId)[o.dofLocal] = 1; hinged.add(o.key); thetaP.set(o.key, 0);
-          const nd = model.elements.get(o.elemId);
-          events.push({ lambda, elemId: o.elemId, nodeId: o.end === 1 ? nd.n1 : nd.n2, axis: o.axis, dctrl: dctrl2, cascade: true });
-          Macc.set(o.key, o.M_form);
-          if ((o.rot ? thetaU : deltaU) === 0) next.push({ key: o.key, elemId: o.elemId, dofLocal: o.dofLocal, end: o.end, axis: o.axis, M_form: o.M_form });   // brittle → drops instantly
-        }
-        queue = next;
-      }
-      return false;
-    };
-
+    // Blocking event-by-event solve (js/solver/plastic.js) — yield once so the
+    // progress overlay paints before it takes over the main thread.
     this._showProgress('Rótulas plásticas…', 'Análisis incremental evento a evento (motor en banda)');
     await new Promise(r => setTimeout(r, 20));
-    for (let k = 0; k < maxEvents; k++) {
-      const { K, elems } = this._plasticAssemble(nodeIndex, releasesByElem);
-      const Kff = new Float64Array(nF * nF);
-      for (let i = 0; i < nF; i++) { const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) Kff[i * nF + j] = K[ri + freeDOF[j]]; }
-      const fac = makeFactor(Kff, nF, false);
-      if (!fac.ok) { collapsed = true; break; }   // mechanism → collapse
-
-      const Ff = new Float64Array(nF); for (let i = 0; i < nF; i++) Ff[i] = F[freeDOF[i]];
-      const uf = fac.solve(Ff);
-      const uUnit = new Float64Array(nDOF); for (let i = 0; i < nF; i++) uUnit[freeDOF[i]] = uf[i];
-
-      // Forces/rates per COMPONENT (N, Vy, Vz, My, Mz) at non-hinged ends + plastic
-      // deformation of the already-formed (not dropped) hinges.
-      const rates = [], hingeDef = [];
-      for (const e of elems) {
-        const ue = e.ed.map(d => uUnit[d]);
-        const ul = new Array(12).fill(0);
-        for (let i = 0; i < 12; i++) { let s = 0; for (let j = 0; j < 12; j++) s += e.T[i][j] * ue[j]; ul[i] = s; }
-        const fl = new Array(12).fill(0);
-        for (let i = 0; i < 12; i++) { let s = 0; for (let j = 0; j < 12; j++) s += e.KeCond[i][j] * ul[j]; fl[i] = s; }
-        for (const c of COMPS) {
-          const key = `${e.id}:${c.end}:${c.axis}`;
-          if (hinged.has(key)) { if (!dropped.has(key)) hingeDef.push({ key, dl: c.dl, rot: c.rot, vrate: plasticRate(ul, c, e.L) }); continue; }
-          const cap = capOf(e.id, c.axis); if (!isFinite(cap)) continue;   // no capacity → doesn't yield
-          rates.push({ key, elemId: e.id, end: c.end, axis: c.axis, dofLocal: c.dl, rot: c.rot, mr: fl[c.dl], cap });
-        }
-      }
-
-      // Δλ to the next YIELD (the force reaches ±cap of the component)
-      let dlam = Infinity;
-      const cand = [];
-      for (const r of rates) {
-        if (Math.abs(r.mr) < 1e-12) continue;
-        const M0 = Macc.get(r.key) || 0;
-        let best = Infinity;
-        for (const tgt of [r.cap, -r.cap]) { const dl = (tgt - M0) / r.mr; if (dl > 1e-9 && dl < best) best = dl; }
-        if (isFinite(best)) { cand.push({ r, dl: best }); if (best < dlam) dlam = best; }
-      }
-      // Δλ to the next DROP (plastic deformation reaches θu/δu) — ductile-with-drop
-      if (dropMode) for (const h of hingeDef) {
-        const defCap = h.rot ? thetaU : deltaU; if (!isFinite(defCap) || defCap === 0) continue;
-        if (Math.abs(h.vrate) < 1e-15) continue;
-        const dl = (defCap - Math.abs(thetaP.get(h.key) || 0)) / Math.abs(h.vrate);
-        if (dl < dlam) dlam = Math.max(0, dl);
-      }
-      if (!isFinite(dlam)) break;   // no more yielding or drops → done
-
-      lambda += dlam;
-      for (const r of rates) Macc.set(r.key, (Macc.get(r.key) || 0) + dlam * r.mr);
-      for (const h of hingeDef) thetaP.set(h.key, (thetaP.get(h.key) || 0) + dlam * h.vrate);
-      for (let i = 0; i < nDOF; i++) u[i] += dlam * uUnit[i];
-      let dctrl = 0;
-      for (const node of model.nodes.values()) { const d = getNodeDOFs(nodeIndex, node.id); dctrl = Math.max(dctrl, Math.hypot(u[d[0]], u[d[1]], u[d[2]])); }
-      const tol = Math.max(1e-9, dlam * 1e-6);
-
-      // FORM the components that yield at this λ (N/V/M hinge)
-      const fragilNow = [];
-      for (const c of cand) {
-        if (c.dl > dlam + tol) continue;
-        releasesByElem.get(c.r.elemId)[c.r.dofLocal] = 1; hinged.add(c.r.key); thetaP.set(c.r.key, 0);
-        const nd = model.elements.get(c.r.elemId);
-        events.push({ lambda, elemId: c.r.elemId, nodeId: c.r.end === 1 ? nd.n1 : nd.n2, axis: c.r.axis, dctrl });
-        if ((c.r.rot ? thetaU : deltaU) === 0) fragilNow.push({ key: c.r.key, elemId: c.r.elemId, dofLocal: c.r.dofLocal, end: c.r.end, axis: c.r.axis, M_form: Macc.get(c.r.key) || 0 });
-      }
-      // DROPS from reaching ultimate deformation (ductile-with-drop)
-      const reached = [];
-      if (dropMode) for (const h of hingeDef) {
-        const defCap = h.rot ? thetaU : deltaU; if (!isFinite(defCap) || defCap === 0) continue;
-        if (Math.abs(thetaP.get(h.key) || 0) >= defCap - 1e-9) { const p = h.key.split(':'); reached.push({ key: h.key, elemId: +p[0], dofLocal: h.dl, end: +p[1], axis: p[2], M_form: Macc.get(h.key) || 0 }); }
-      }
-      // Process the drops (brittle-immediate + θu/δu-reached) with cascade
-      const dq = fragilNow.concat(reached);
-      if (dq.length && applyDrops(dq)) { collapsed = true; break; }
-    }
+    const res = solvePlastic(model, { capByElem, contribs, residual, thetaU, deltaU });
     this._hideProgress();
 
-    if (!events.length) {
-      this.toast(collapsed
-        ? 'La estructura es inestable desde el inicio (mecanismo): revise apoyos y conexiones; no es un problema de Mp.'
-        : 'Ningún extremo alcanza Mp: suba el patrón de carga o baje Mp (con el Mp dado la carga de referencia no produce ese momento).', 'warn');
+    if (!res.ok) {
+      const msg = {
+        'no-free-dof':  'Sin GDL libres',
+        'no-loads':     'Defina al menos un caso de carga (patrón de carga del pushover).',
+        'null-pattern': 'El patrón de carga es nulo (los casos no tienen cargas, o el peso propio no está activo). Asigne cargas antes de correr rótulas.',
+        'no-hinges':    res.collapsed
+          ? 'La estructura es inestable desde el inicio (mecanismo): revise apoyos y conexiones; no es un problema de Mp.'
+          : 'Ningún extremo alcanza Mp: suba el patrón de carga o baje Mp (con el Mp dado la carga de referencia no produce ese momento).',
+      }[res.reason] || `No se pudo correr rótulas (${res.reason})`;
+      this.toast(msg, 'warn');
       return;
     }
+    const { events, lambda, collapsed, u, nodeIndex, nCasos } = res;
     this._plasticResult = { events, lambda, collapsed, u: Float64Array.from(u), nodeIndex, Mp, capByElem, nCasos, patLabel, hingeMode, residual, thetaU, deltaU, Np, Vp };
 
     // Show the collapse mechanism (deformed shape) + hinge sequence, with a
@@ -5796,53 +5255,6 @@ class App {
 
   // ── NL-lite: builds the nonlinear problem (bars/cables) from the model ──────
   // `pattern` (#45): reference load pattern (all / one case / one combo).
-  _buildNLProblem(pattern) {
-    const model = this.model;
-    const nodeIds = [...model.nodes.keys()];
-    const idxOf = new Map(nodeIds.map((id, i) => [id, i]));
-    const nNode = nodeIds.length;
-    const X = new Float64Array(3 * nNode);
-    nodeIds.forEach((id, i) => { const n = model.nodes.get(id); X[3 * i] = n.x; X[3 * i + 1] = n.y; X[3 * i + 2] = n.z; });
-    const elems = [], elemIds = [];
-    for (const el of model.elements.values()) {
-      const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2);
-      const mat = model.materials.get(el.matId), sec = model.sections.get(el.secId);
-      if (!n1 || !n2 || !mat || !sec) continue;
-      const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z); if (L < 1e-12) continue;
-      elems.push({ n1: idxOf.get(el.n1), n2: idxOf.get(el.n2), EA: mat.E * sec.A, L0: (el.L0factor || 1) * L, cable: !!el.cable, compressionOnly: !!el.compressionOnly });
-      elemIds.push(el.id);
-    }
-    const is2D = model.mode === '2D';
-    const free = [];
-    nodeIds.forEach((id, i) => { const r = model.nodes.get(id).restraints; const fix = [r.ux, is2D ? 1 : r.uy, r.uz]; for (let c = 0; c < 3; c++) if (!fix[c]) free.push(3 * i + c); });
-    const Fref = new Float64Array(3 * nNode); let nCasos = 0;
-    const addN = (id, fx, fy, fz) => { const i = idxOf.get(id); if (i == null) return; Fref[3 * i] += fx; Fref[3 * i + 1] += fy; Fref[3 * i + 2] += fz; };
-    const dirVec = d => d === 'globalX' ? [1, 0, 0] : d === 'globalY' ? [0, 1, 0] : d === 'globalZ' ? [0, 0, 1] : [0, 0, -1];
-    const { contribs, label: patLabel } = this._resolvePattern(pattern);
-    for (const c of contribs) {
-      const lc = model.loadCases.get(c.lcId); if (!lc) continue; nCasos++;
-      const fac = c.factor;
-      for (const ld of (lc.loads || [])) {
-        if (ld.type === 'nodal') addN(ld.nodeId, fac * (ld.F[0] || 0), fac * (ld.F[1] || 0), fac * (ld.F[2] || 0));
-        else if (ld.type === 'dist') {
-          const el = model.elements.get(ld.elemId); if (!el) continue;
-          const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2); if (!n1 || !n2) continue;
-          const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z);
-          const half = fac * (ld.w || 0) * L / 2, g = dirVec(ld.dir || 'gravity');
-          addN(el.n1, half * g[0], half * g[1], half * g[2]); addN(el.n2, half * g[0], half * g[1], half * g[2]);
-        }
-      }
-      if (c.selfWeight) for (const el of model.elements.values()) {
-        const mat = model.materials.get(el.matId), sec = model.sections.get(el.secId);
-        const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2);
-        if (!mat || !sec || !n1 || !n2) continue;
-        const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z), w = fac * mat.rho * sec.A * L / 2;
-        addN(el.n1, 0, 0, -w); addN(el.n2, 0, 0, -w);
-      }
-    }
-    return { X, elems, elemIds, free, Fref, nodeIds, idxOf, nNode, nCasos, patLabel };
-  }
-
   /** HTML dialog — pushover: initial imperfection + load pattern (#45). */
   _pushoverDialog() {
     return new Promise(resolve => {
@@ -5891,30 +5303,28 @@ class App {
     const imp = parseFloat(pd.imp) || 0;
     this._lastPattern = pd.pattern;
 
-    const P = this._buildNLProblem(pd.pattern);
-    if (!P.free.length) { this.toast('Sin GDL libres', 'warn'); return; }
-    if (!P.nCasos) { this.toast('Defina un caso de carga (patrón de referencia).', 'warn'); return; }
-
-    // Linear response (1 step, 1 iteration from u=0) → control DOF + imperfection shape
-    const lin = await solverRegistry.solveNonlinear({ X: P.X, elems: P.elems, free: P.free, Fref: P.Fref, nSteps: 1, maxIter: 1, tol: 1e-30 });
-    const uLin = lin.steps[0]?.u || new Float64Array(P.X.length);
-    let cDOF = P.free[0], best = -1;
-    for (const d of P.free) { const v = Math.abs(uLin[d]); if (v > best) { best = v; cDOF = d; } }
-    if (best < 1e-30) {
-      let frefN = 0; for (const d of P.free) frefN += P.Fref[d] * P.Fref[d]; frefN = Math.sqrt(frefN);
-      this.toast(frefN < 1e-12
-        ? 'El patrón de carga es nulo (asigne cargas en algún caso antes de correr el pushover).'
-        : 'La carga no produce desplazamiento: el pushover por control de desplazamiento idealiza las barras como RETICULADO (sólo axial/cables, sin flexión). Para pórticos a flexión use «Rótulas plásticas».', 'warn');
+    // Model → reduced truss problem for the chosen reference pattern (js/solver/nl_frame.js).
+    const { contribs } = this._resolvePattern(pd.pattern);
+    const P = buildNLTrussProblem(model, { contribs });
+    if (!P.ok) {
+      this.toast({
+        'no-free-dof': 'Sin GDL libres',
+        'no-elements': 'No hay elementos válidos para el pushover',
+      }[P.reason] || `No se pudo armar el pushover (${P.reason})`, 'warn');
       return;
     }
+    if (!P.nCasos) { this.toast('Defina un caso de carga (patrón de referencia).', 'warn'); return; }
 
-    const Ximp = Float64Array.from(P.X);
-    if (imp > 0) {
-      let nrm = 0; for (const d of P.free) nrm += uLin[d] * uLin[d]; nrm = Math.sqrt(nrm) || 1;
-      for (const d of P.free) Ximp[d] += imp * uLin[d] / nrm;
+    // Control DOF + imperfection + target displacement (linear probe).
+    const setup = setupPushoverControl(P, imp);
+    if (!setup.ok) {
+      this.toast({
+        'null-pattern': 'El patrón de carga es nulo (asigne cargas en algún caso antes de correr el pushover).',
+        'no-response': 'La carga no produce desplazamiento: el pushover por control de desplazamiento idealiza las barras como RETICULADO (sólo axial/cables, sin flexión). Para pórticos a flexión use «Rótulas plásticas».',
+      }[setup.reason] || `Pushover: ${setup.reason}`, 'warn');
+      return;
     }
-    const linCtrl = uLin[cDOF] || 1e-3;
-    const target = linCtrl * 25;   // pushes well past limit points (traces the full snap-through)
+    const { cDOF, Ximp, target } = setup;
     this._showProgress('Pushover…', 'Trazando la trayectoria de equilibrio (control de desplazamiento) en segundo plano');
     await new Promise(r => setTimeout(r, 20));
     let res;
@@ -6109,11 +5519,6 @@ class App {
   <svg id="sp-graph" viewBox="0 0 420 200" style="width:100%;height:170px;background:var(--bg-elev,#1b1b1b);border:1px solid var(--border);border-radius:6px"></svg>
 </div>`;
 
-      // ── NCh433/DS61 tables (same as assistant/rules.json) ─────────────────
-      const SUELOS = { A:{S:0.9,To:0.15,p:2.0}, B:{S:1.0,To:0.30,p:1.5}, C:{S:1.05,To:0.40,p:1.6}, D:{S:1.2,To:0.75,p:1.0}, E:{S:1.3,To:1.2,p:1.0} };
-      const AO = { '1':0.20, '2':0.30, '3':0.40 };
-      const CAT = { I:0.6, II:1.0, III:1.2, IV:1.2 };
-
       const $ = (id) => document.getElementById(id);
 
       const drawGraph = () => {
@@ -6132,18 +5537,14 @@ class App {
       };
 
       const genNCh433 = () => {
-        const su = SUELOS[$('sp-suelo').value]; const Ao = AO[$('sp-zona').value]; const I = CAT[$('sp-cat').value];
-        const Ro = parseFloat($('sp-Ro').value) || 11; const Tstar = parseFloat($('sp-Tstar').value);
-        const Rstar = (Tstar > 0) ? 1 + Tstar / (0.10 * su.To + Tstar / Ro) : 1;
-        const alpha = (T) => (1 + 4.5 * Math.pow(T / su.To, su.p)) / (1 + Math.pow(T / su.To, 3));
-        const lines = [];
-        for (let T = 0; T <= 3.0001; T += 0.05) {
-          const Tr = +T.toFixed(2);
-          lines.push(`${Tr.toFixed(2)}, ${(su.S * Ao * I * alpha(Tr) / Rstar).toFixed(4)}`);
-        }
-        $('sp-spectrum').value = lines.join('\n');
+        const Ro = parseFloat($('sp-Ro').value) || 11, Tstar = parseFloat($('sp-Tstar').value);
+        // Single source of truth: js/design/nch433_spectrum.js (was 4 drifted copies).
+        const { text, Rstar, Sa0, params } = buildSpectrum({
+          soil: $('sp-suelo').value, zone: $('sp-zona').value, category: $('sp-cat').value, Ro, Tstar,
+        });
+        $('sp-spectrum').value = text;
         $('sp-unit').value = '9.81';
-        $('sp-rstar').textContent = `R* = ${Rstar.toFixed(4)} (To=${su.To}, Ro=${Ro}${Tstar>0?`, T*=${Tstar}`:''}). Sa(0)=${(su.S*Ao*I/Rstar).toFixed(4)} g.`;
+        $('sp-rstar').textContent = `R* = ${Rstar.toFixed(4)} (To=${params.To}, Ro=${Ro}${Tstar>0?`, T*=${Tstar}`:''}). Sa(0)=${Sa0.toFixed(4)} g.`;
         drawGraph();
       };
 
@@ -6201,17 +5602,12 @@ class App {
           this.toast('El espectro necesita al menos 2 puntos (T,Sa)', 'error');
           return null;
         }
-        const su = SUELOS[$('sp-suelo').value];
-        const TstarV = parseFloat($('sp-Tstar').value);
-        const RoV = parseFloat($('sp-Ro').value) || 11;
-        const RstarV = (TstarV > 0) ? 1 + TstarV / (0.10 * su.To + TstarV / RoV) : 1;
-        const nch433 = {
-          zona: $('sp-zona').value, suelo: $('sp-suelo').value, cat: $('sp-cat').value,
-          Ao: AO[$('sp-zona').value], I: CAT[$('sp-cat').value],
-          S: su.S, To: su.To, p: su.p, Ro: RoV,
-          Tstar: TstarV > 0 ? TstarV : null, Rstar: RstarV,
-          unidadSa: $('sp-unit').options[$('sp-unit').selectedIndex]?.text || '',
-        };
+        // Same source of truth as genNCh433; params is shaped to match this object.
+        const { params: sp } = buildSpectrum({
+          soil: $('sp-suelo').value, zone: $('sp-zona').value, category: $('sp-cat').value,
+          Ro: parseFloat($('sp-Ro').value) || 11, Tstar: parseFloat($('sp-Tstar').value),
+        });
+        const nch433 = { ...sp, unidadSa: $('sp-unit').options[$('sp-unit').selectedIndex]?.text || '' };
         const caseSel = $('sp-case')?.value;
         const targetLcId = (forceNew || !caseSel || caseSel === '__new') ? null : +caseSel;
         return {
@@ -8624,7 +8020,7 @@ class App {
           const diseno = await this._computeDesign();
           const deflex = this._computeBeamDeflections(diseno?.params);
           const drift  = this._computeDrift();
-          return this._reportHTML(imgs, diseno, deflex, drift);
+          return reportHTML(this, imgs, diseno, deflex, drift);
         })();
 
     const win = window.open('', '_blank');
@@ -8655,10 +8051,10 @@ class App {
       const diseno = await this._computeDesign();
       const deflex = this._computeBeamDeflections(diseno?.params);
       const drift  = this._computeDrift();
-      docs.push({ name: entry.name, html: this._reportHTML(imgs, diseno, deflex, drift) });
+      docs.push({ name: entry.name, html: reportHTML(this, imgs, diseno, deflex, drift) });
     }
     this._projectSwitch(orig);
-    if (!docs.length) return this._reportHTML({ base: null, deformada: null, modos: [] }, null, null, null);
+    if (!docs.length) return reportHTML(this, { base: null, deformada: null, modos: [] }, null, null, null);
     const bodyOf = (h) => { const i = h.indexOf('<body>') + 6, j = h.indexOf('</body>'); return h.slice(i, j); };
     const head = docs[0].html.slice(0, docs[0].html.indexOf('<body>') + 6);
     const sections = docs.map((d, i) => `
@@ -8689,7 +8085,7 @@ class App {
         const diseno = await this._computeDesign();
         const deflex = this._computeBeamDeflections(diseno?.params);
         const drift  = this._computeDrift();
-        d = this._reportDocx(Docx, imgs, diseno, deflex, drift);
+        d = reportDocx(this, Docx, imgs, diseno, deflex, drift);
       }
       this._downloadBlob(d.blob(), multi ? 'memoria_proyecto.docx' : 'memoria_calculo.docx');
       this.toast(i18n.t('Memoria Word (.docx) descargada') + (multi ? ` — ${this._project.models.length} ${i18n.t('modelos')}` : ''), 'ok');
@@ -8700,13 +8096,6 @@ class App {
   }
 
   // Builds the Word document for ONE model: cover page + sections 1–8.
-  _reportDocx(Docx, imgs, diseno, deflex, drift) {
-    const d = new Docx();
-    this._reportDocxCover(d);
-    d.pageBreak();
-    this._reportDocxBody(d, imgs, diseno, deflex, drift);
-    return d;
-  }
 
   // G7: Word report that ITERATES over all the project's models (one chapter each,
   // with the same information as the HTML/PDF). Switches to each model to capture its
@@ -8715,7 +8104,7 @@ class App {
     const d = new Docx();
     const orig = this._project.activeId;
     this._stashActiveModel();
-    this._reportDocxCover(d, { nModelos: this._project.models.length });
+    reportDocxCover(this, d, { nModelos: this._project.models.length });
     let i = 0;
     for (const entry of this._project.models) {
       this._projectSwitch(entry.id);
@@ -8728,164 +8117,15 @@ class App {
       const drift  = this._computeDrift();
       d.pageBreak();
       d.heading(`${i18n.t('Modelo')} ${++i} · ${entry.name || (i18n.t('Modelo') + ' ' + entry.id)}`, 1);
-      this._reportDocxBody(d, imgs, diseno, deflex, drift);
+      reportDocxBody(this, d, imgs, diseno, deflex, drift);
     }
     this._projectSwitch(orig);
     return d;
   }
 
   // Cover page of the Word report (institution/logo, title and identification table).
-  _reportDocxCover(d, opts = {}) {
-    const cm = this._report();
-    const proyecto = (document.title || '').replace(/^●\s*/, '').replace(/\s*—\s*[^—]*$/, '').trim() || i18n.t('Modelo sin título');
-    const fecha = new Date().toLocaleDateString(i18n.getLocale() === 'en' ? 'en-US' : 'es-CL', { year: 'numeric', month: 'long', day: 'numeric' });
-    const U = this.model.units || 'kN-m';
-    const tieneLogoPro = !!(this._brandingPro && cm.logoEmpresa);
-    if (tieneLogoPro) d.image(cm.logoEmpresa, '', 2 * 914400);   // company logo (if PNG/JPEG)
-    if (!tieneLogoPro)
-      d.paragraph([{ text: cm.institucion || '', bold: true, color: '0A3A57', size: 13 }], { align: 'center' })
-       .paragraph([{ text: cm.subInstitucion || '', color: '5C6A7D', size: 10 }], { align: 'center' });
-    d.spacer();
-    d.paragraph([{ text: cm.kicker || i18n.t('ANÁLISIS Y DISEÑO ESTRUCTURAL'), color: '0D9488', bold: true, size: 11 }], { align: 'center' });
-    d.paragraph([{ text: cm.titulo || i18n.t('Memoria de Cálculo'), bold: true, color: '0A3A57', size: 26 }], { align: 'center' });
-    d.paragraph([{ text: proyecto, size: 13 }], { align: 'center' });
-    if (opts.nModelos > 1) d.paragraph([{ text: `${i18n.t('Proyecto de')} ${opts.nModelos} ${i18n.t('modelos')}`, color: '0D9488', size: 10 }], { align: 'center' });
-    d.spacer();
-    d.table(null, [
-      [{ text: i18n.t('Proyecto'), bold: true }, proyecto],
-      [{ text: i18n.t('Fecha'), bold: true }, fecha],
-      [{ text: i18n.t('Unidades'), bold: true }, U.replace('-', ' · ')],
-      [{ text: i18n.t('Proyectista'), bold: true }, cm.proyectista || ''],
-      [{ text: i18n.t('Revisó'), bold: true }, cm.revisor || ''],
-    ]);
-    d.paragraph([{ text: i18n.t('Documento de carácter orientativo. Los resultados deben ser validados por un profesional competente antes de cualquier uso en obra.'), italic: true, color: '5C6A7D', size: 9 }], { align: 'center' });
-    if (this._brandingPro && cm.descripcion) d.paragraph(cm.descripcion);
-  }
 
   // Sections 1–8 of the report for the ACTIVE model (appended to `d`).
-  _reportDocxBody(d, imgs, diseno, deflex, drift) {
-    const m = this.model;
-    const cm = this._report();   // effective report: per-project + global defaults (#41)
-    const fmt = (v, dec = 3) => (v == null || !isFinite(v)) ? '—'
-      : (Math.abs(v) >= 1e5 || (Math.abs(v) > 0 && Math.abs(v) < 1e-3) ? (+v).toExponential(2) : (+v).toFixed(dec));
-    const stripTags = s => String(s ?? '').replace(/<[^>]+>/g, '');
-
-    // ── 1. Design basis ──
-    d.heading(i18n.t('1. Bases de cálculo'), 1);
-    const s = m.getStats();
-    d.heading(i18n.t('1.1 Modelo estructural'), 2);
-    d.table([i18n.t('Magnitud'), i18n.t('Cantidad')], [
-      [i18n.t('Nodos'), String(s.nodes)], [i18n.t('Elementos (barras)'), String(s.elements)],
-      [i18n.t('Áreas (membrana/placa/shell)'), String(m.areas?.size || 0)],
-      [i18n.t('Materiales'), String(s.materials)], [i18n.t('Secciones'), String(s.sections)],
-      [i18n.t('Diafragmas rígidos'), String(m.diaphragms?.size || 0)],
-      [i18n.t('Casos de carga'), String(m.loadCases?.size || 0)], [i18n.t('Combinaciones'), String(m.combinations?.size || 0)],
-    ]);
-
-    d.heading(i18n.t('1.2 Materiales'), 2);
-    d.table([i18n.t('Material'), 'E', 'G', 'ν', 'ρ'],
-      [...m.materials.values()].map(mt => [mt.name, fmt(mt.E, 0), fmt(mt.G, 0), fmt(mt.nu, 2), fmt(mt.rho, 3)]));
-
-    d.heading(i18n.t('1.3 Secciones'), 2);
-    const secCount = new Map();
-    for (const el of m.elements.values()) secCount.set(el.secId, (secCount.get(el.secId) || 0) + 1);
-    d.table([i18n.t('Sección'), 'A', 'Iy', 'Iz', 'J', i18n.t('N° elem.')],
-      [...m.sections.values()].map(sec => [sec.name, fmt(sec.A, 5), fmt(sec.Iy, 6), fmt(sec.Iz, 6), fmt(sec.J, 6), String(secCount.get(sec.id) || 0)]));
-
-    // ── 2. Loads and combinations ──
-    d.heading(i18n.t('2. Cargas y combinaciones'), 1);
-    const dirLabel = { gravity: i18n.t('Gravedad (−Z)'), globalX: i18n.t('Global +X'), globalY: i18n.t('Global +Y'), globalZ: i18n.t('Global +Z'), localY: i18n.t('Local y'), localZ: i18n.t('Local z') };
-    for (const lc of [...m.loadCases.values()].filter(l => l.type !== 'spectrum')) {
-      d.heading(`${lc.name}${lc.selfWeight ? '  ' + i18n.t('(+ peso propio)') : ''}`, 3);
-      const rows = (lc.loads || []).map(ld => {
-        if (ld.type === 'nodal') { const F = ld.F || []; return [i18n.t('Puntual'), `${i18n.t('Nodo')} ${ld.nodeId}`, `F=(${fmt(F[0], 1)}, ${fmt(F[1], 1)}, ${fmt(F[2], 1)}) kN`]; }
-        if (ld.type === 'temp') return [i18n.t('Temperatura'), `${i18n.t('Elem')} ${ld.elemId}`, `ΔT = ${fmt(ld.dT, 1)} °C`];
-        return [i18n.t('Distribuida'), `${i18n.t('Elem')} ${ld.elemId}`, `w = ${fmt(ld.w, 2)} kN/m · ${dirLabel[ld.dir] || ld.dir || i18n.t('gravedad')}`];
-      });
-      if (rows.length) d.table([i18n.t('Tipo'), i18n.t('Aplicada en'), i18n.t('Valor')], rows);
-      else d.paragraph([{ text: lc.selfWeight ? i18n.t('Solo peso propio.') : i18n.t('Sin cargas asignadas.'), italic: true, color: '5C6A7D' }]);
-    }
-    const lcName = id => m.loadCases.get(id)?.name || m.combinations?.get(id)?.name || `LC${id}`;
-    if (m.combinations?.size) {
-      d.heading(i18n.t('2.1 Combinaciones'), 2);
-      d.table([i18n.t('Combinación'), i18n.t('Definición')],
-        [...m.combinations.values()].map(c => [c.name, (c.factors || []).map(f => `${fmt(f.factor, 2)}·${lcName(f.lcId)}`).join('  +  ') || '—']));
-    }
-
-    // ── 3. Figures ──
-    d.heading(i18n.t('3. Modelo y deformada'), 1);
-    if (imgs.base) d.image(imgs.base, i18n.t('Modelo estructural (geometría base)'));
-    if (imgs.deformada) d.image(imgs.deformada, i18n.t('Deformada (resultado estático)'));
-
-    // ── 4. Modal analysis ──
-    if (this._modalResults) {
-      d.heading(i18n.t('4. Análisis modal'), 1);
-      const { rows } = this._modalResults.getParticipation();
-      d.paragraph(`${i18n.t('Modos extraídos:')} ${this._modalResults.nModes}.`);
-      d.table([i18n.t('Modo'), 'f (Hz)', 'T (s)', 'Mx %', 'My %', 'Mrz %', 'ΣMx', 'ΣMy', 'ΣMrz'],
-        rows.slice(0, 12).map(r => [String(r.mode), fmt(r.freq, 3), fmt(r.period, 3),
-          fmt(r.pct[0], 1), fmt(r.pct[1], 1), fmt(r.pct[2], 1), fmt(r.cumPct[0], 1), fmt(r.cumPct[1], 1), fmt(r.cumPct[2], 1)]));
-      for (const md of imgs.modos) d.image(md.img, `${i18n.t('Modo')} ${md.n} — f = ${fmt(md.freq, 3)} Hz · T = ${fmt(md.period, 3)} s`);
-    }
-
-    // ── 5. Strength verification (D/C) ──
-    d.heading(i18n.t('5. Verificación de resistencia (D/C)'), 1);
-    if (diseno?.filas?.length) {
-      const f = diseno.filas;
-      const colorR = r => r > 1 ? 'DC2626' : r > 0.9 ? 'B45309' : '15803D';
-      const estado = r => r > 1 ? i18n.t('NO CUMPLE') : r > 0.9 ? i18n.t('ajustado') : i18n.t('cumple');
-      const alcance = diseno.envolvente ? i18n.t('envolvente de las combinaciones') : `${i18n.t('el estado')} «${diseno.caso || i18n.t('activo')}»`;
-      d.paragraph(`${i18n.t('Verificación por')} ${alcance}. ${i18n.t('La razón D/C = demanda/capacidad debe ser ≤ 1.0.')}`);
-      d.table([i18n.t('Elem'), i18n.t('Sección'), i18n.t('Material'), 'N (kN)', 'M (kN·m)', 'V (kN)', i18n.t('D/C máx'), i18n.t('Gobierna'), i18n.t('Estado')],
-        f.slice(0, 60).map(x => [
-          `#${x.id}`, x.sec, x.mat, fmt(x.forces.N, 1),
-          fmt(Math.max(x.forces.My, x.forces.Mz), 1), fmt(Math.max(x.forces.Vy, x.forces.Vz), 1),
-          { text: fmt(x.ratioMax, 2), bold: true, color: colorR(x.ratioMax) },
-          String(x.governs ?? '—'),
-          { text: estado(x.ratioMax), color: colorR(x.ratioMax) },
-        ]));
-      const nNo = f.filter(x => x.ratioMax > 1).length, nAj = f.filter(x => x.ratioMax > 0.9 && x.ratioMax <= 1).length;
-      const shown = f.length > 60 ? `${i18n.t('Se muestran los 60 elementos más solicitados de')} ${f.length}. ` : '';
-      d.paragraph(`${shown}${i18n.t('Resumen:')} ${f.length - nNo - nAj} ${i18n.t('cumplen')} · ${nAj} ${i18n.t('ajustados')} · ${nNo} ${i18n.t('no cumplen')}.`);
-    } else {
-      d.paragraph([{ text: i18n.t('No hay resultados de análisis para verificar. Ejecute el análisis estático (F5) con sus combinaciones de carga antes de generar la memoria.'), italic: true, color: '5C6A7D' }]);
-    }
-
-    // ── 6. Service: beam deflections ──
-    d.heading(i18n.t('6. Deformaciones de vigas (servicio)'), 1);
-    if (deflex?.rows?.length) {
-      const colorR = r => r > 1 ? 'DC2626' : r > 0.9 ? 'B45309' : '15803D';
-      d.paragraph(`${i18n.t('Flecha de vigas bajo')} «${deflex.caso}» ${i18n.t('sin mayorar, respecto a la cuerda del vano.')} ${i18n.t('Límite de servicio')} L/${deflex.limSobre}.`);
-      d.table([i18n.t('Viga'), i18n.t('Sección'), 'L (m)', 'δ (mm)', 'δ adm (mm)', 'δ/δadm', i18n.t('Estado')],
-        deflex.rows.slice(0, 60).map(x => [
-          `#${x.id}`, x.sec, fmt(x.L, 2), fmt(x.delta * 1000, 2), fmt(x.lim * 1000, 2),
-          { text: fmt(x.ratio, 2), bold: true, color: colorR(x.ratio) },
-          { text: x.ratio > 1 ? i18n.t('NO CUMPLE') : x.ratio > 0.9 ? i18n.t('ajustado') : i18n.t('cumple'), color: colorR(x.ratio) },
-        ]));
-    } else d.paragraph([{ text: stripTags(deflex?.note || i18n.t('Sin datos de deformaciones de vigas.')), italic: true, color: '5C6A7D' }]);
-
-    // ── 7. Seismic drifts ──
-    d.heading(i18n.t('7. Derivas sísmicas de entrepiso (NCh433)'), 1);
-    if (drift?.dirs?.length) {
-      for (const D of drift.dirs) {
-        d.heading(`${i18n.t('Dirección sísmica')} ${D.dir}`, 3);
-        d.table([i18n.t('Piso'), 'Z (m)', 'h (m)', 'δ/h (CM)', '·/0.002', 'δ/h (ext.)', '·/0.002'],
-          D.stories.map(st => [String(st.piso), fmt(st.z, 2), fmt(st.h, 2),
-            st.driftCM == null ? '—' : fmt(st.driftCM, 5), st.ratioCM == null ? '—' : fmt(st.ratioCM, 2),
-            fmt(st.driftExt, 5), fmt(st.ratioExt, 2)]));
-      }
-      d.paragraph([{ text: i18n.t('Límite NCh433: 0.002 (2/1000·h). Calculada con los desplazamientos del espectro de respuesta.'), color: '5C6A7D', size: 9 }]);
-    } else d.paragraph([{ text: stripTags(drift?.note || i18n.t('Sin datos de derivas sísmicas.')), italic: true, color: '5C6A7D' }]);
-
-    // ── 8. Limitations ──
-    d.heading(i18n.t('8. Alcances y limitaciones'), 1);
-    const limits = (this._brandingPro && cm.limitaciones)
-      ? cm.limitaciones.split('\n').map(x => x.trim()).filter(Boolean)
-      : this._ACAD_LIMITS;
-    for (const li of limits) d.paragraph([{ text: '• ' + stripTags(li), size: 9, color: '5C6A7D' }]);
-    d.spacer();
-    d.paragraph([{ text: (this._brandingPro && cm.footer) ? cm.footer : this._ACAD_FOOTER, italic: true, color: '5C6A7D', size: 9 }], { align: 'center' });
-  }
 
   _downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
@@ -9015,54 +8255,34 @@ class App {
   // EXTERNAL nodes (max level displacement). Both ≤ 0.002·h (2/1000 of the story
   // height). Uses the seismic displacements (spectrum F6+F7).
   _computeDrift() {
-    const limit = 0.002;
+    // Limit from the code layer (js/design/serviceability.js), not a hardcoded 0.002; the
+    // drift math is the generic primitive (js/solver/drift.js). Here we only assemble the
+    // report shape: CM (diaphragm master) and external drift side by side, per direction.
+    const limit = driftLimit('NCh433');
     const out = { limit, dirs: [], note: '', hasCM: false };
     const spec = this._spectrumResults;
     const dirDefs = [['X', 0, 'espX'], ['Y', 1, 'espY']].filter(([, , k]) => spec?.get(k)?.result);
     if (!dirDefs.length) { out.note = 'Las derivas usan los resultados sísmicos: ejecute Análisis Modal (F6) y Espectro de Respuesta (F7) en X y/o Y.'; return out; }
 
-    // Floor levels: diaphragms (master = CM) if they exist; otherwise group nodes by z.
-    let levels;
-    const diaphs = [...this.model.diaphragms.values()];
-    if (diaphs.length) {
-      levels = diaphs.map(d => ({ z: d.z, masterId: d.masterId, nodeIds: (d.nodes || []).filter(id => this.model.nodes.has(id)) }));
-      out.hasCM = true;
-    } else {
-      const byZ = new Map();
-      for (const n of this.model.nodes.values()) {
-        if (Math.abs(n.z) < 0.01) continue;   // base level
-        const zk = Math.round(n.z * 100) / 100;
-        if (!byZ.has(zk)) byZ.set(zk, []);
-        byZ.get(zk).push(n.id);
-      }
-      levels = [...byZ.entries()].map(([z, ids]) => ({ z, masterId: null, nodeIds: ids }));
-      out.note = 'Sin diafragmas rígidos: la deriva entre centros de masa requiere definir diafragmas (Análisis → diafragmas). Se reporta solo la deriva entre nodos externos por nivel de Z.';
+    out.hasCM = this.model.diaphragms.size > 0;
+    if (!out.hasCM) out.note = 'Sin diafragmas rígidos: la deriva entre centros de masa requiere definir diafragmas (Análisis → diafragmas). Se reporta solo la deriva entre nodos externos por nivel de Z.';
+    // Level set is direction-independent; probe it once to detect "no stories".
+    if (!buildStoryLevels(this.model, () => 0, { mode: 'ext' }).length) {
+      out.note = 'No hay niveles de entrepiso (todos los nodos están en la base).'; return out;
     }
-    levels.sort((a, b) => a.z - b.z);
-    if (!levels.length) { out.note = 'No hay niveles de entrepiso (todos los nodos están en la base).'; return out; }
 
     for (const [dir, idx, key] of dirDefs) {
       const res = spec.get(key).result;
       const dispH = id => { try { return Math.abs(res.getNodeDisp(id)[idx]); } catch { return 0; } };
-      const lvlData = levels.map(L => ({
-        z: L.z,
-        cm: L.masterId != null ? dispH(L.masterId) : null,
-        ext: L.nodeIds.reduce((mx, id) => Math.max(mx, dispH(id)), 0),
-      }));
-      // Base (ground) reference at z=0 with u=0
-      let prev = { z: 0, cm: 0, ext: 0 };
-      const stories = [];
-      lvlData.forEach((cur, i) => {
-        const h = cur.z - prev.z;
-        if (h <= 1e-6) { prev = cur; return; }
-        const driftCM = (cur.cm != null && prev.cm != null) ? Math.abs(cur.cm - prev.cm) / h : null;
-        const driftExt = Math.abs(cur.ext - prev.ext) / h;
-        stories.push({
-          piso: i + 1, z: cur.z, h,
-          driftCM, ratioCM: driftCM != null ? driftCM / limit : null, okCM: driftCM != null ? driftCM <= limit : null,
-          driftExt, ratioExt: driftExt / limit, okExt: driftExt <= limit,
-        });
-        prev = cur;
+      const dExt = interstoryDrifts(buildStoryLevels(this.model, dispH, { mode: 'ext' }));
+      const dCM = out.hasCM ? interstoryDrifts(buildStoryLevels(this.model, dispH, { mode: 'cm' })) : [];
+      const stories = dExt.map((se, i) => {
+        const dc = dCM[i] ? dCM[i].drift : null;
+        return {
+          piso: se.story, z: se.z, h: se.h,
+          driftCM: dc, ratioCM: dc != null ? dc / limit : null, okCM: dc != null ? dc <= limit : null,
+          driftExt: se.drift, ratioExt: se.drift / limit, okExt: se.drift <= limit,
+        };
       });
       out.dirs.push({ dir, stories });
     }
@@ -9134,415 +8354,8 @@ class App {
     return out;
   }
 
-  _reportHTML(imgs, diseno, deflex, drift) {
-    const m = this.model;
-    const fmt = (v, d = 3) => (v == null || !isFinite(v)) ? '—'
-      : (Math.abs(v) >= 1e5 || (Math.abs(v) > 0 && Math.abs(v) < 1e-3) ? (+v).toExponential(2) : (+v).toFixed(d));
-    const proyecto = (document.title || '').replace(/^●\s*/, '').replace(/\s*—\s*[^—]*$/, '').trim() || i18n.t('Modelo sin título');
-    const fecha = new Date().toLocaleDateString(i18n.getLocale() === 'en' ? 'en-US' : 'es-CL', { year:'numeric', month:'long', day:'numeric' });
-    const U = m.units || 'kN-m';
-    const cm = this._report();   // effective report: per-project + global defaults (#41)
-    const clasif = (n) => { n = String(n||'').toLowerCase();
-      if (/(horm|concret|h\s*\d|fc)/.test(n)) return 'concrete';
-      if (/(mader|pino|wood|gl\b|lvl|conif)/.test(n)) return 'timber';
-      return 'steel'; };
-    const dp = diseno?.params || null;
-
-    // ── Materials ───────────────────────────────────────────────────────────
-    const matRows = [...m.materials.values()].map(mt => `<tr>
-      <td>${esc(mt.name)}</td><td>${fmt(mt.E,0)}</td><td>${fmt(mt.G,0)}</td>
-      <td>${fmt(mt.nu,2)}</td><td>${fmt(mt.rho,3)}</td></tr>`).join('') || `<tr><td colspan="5">${i18n.t('Sin materiales')}</td></tr>`;
-
-    // ── Sections (with count of elements using each) ────────────────────────
-    const secCount = new Map();
-    for (const el of m.elements.values()) secCount.set(el.secId, (secCount.get(el.secId) || 0) + 1);
-    const modTxt = (md) => { const o = md || {}; const a=o.A??1,iy=o.Iy??1,iz=o.Iz??1,j=o.J??1;
-      return (a===1&&iy===1&&iz===1&&j===1) ? '—' : `A·${a} Iy·${iy} Iz·${iz} J·${j}`; };
-    const secRows = [...m.sections.values()].map(s => `<tr>
-      <td>${esc(s.name)}</td><td>${fmt(s.A,5)}</td><td>${fmt(s.Iy,6)}</td><td>${fmt(s.Iz,6)}</td>
-      <td>${fmt(s.J,6)}</td><td>${fmt(s.Avy,5)}</td><td>${fmt(s.Avz,5)}</td>
-      <td>${modTxt(s.mod)}</td><td>${secCount.get(s.id) || 0}</td></tr>`).join('') || `<tr><td colspan="9">${i18n.t('Sin secciones')}</td></tr>`;
-
-    // ── Classification of cases and loads ───────────────────────────────────
-    const tipoCaso = (lc) => {
-      if (lc.type === 'spectrum') return i18n.t('Sísmica (espectro)');
-      const n = (lc.name || '').toLowerCase();
-      if (/vient|wind/.test(n)) return i18n.t('Viento');
-      if (/niev|snow/.test(n)) return i18n.t('Nieve');
-      if (/sism|seism|\bsx\b|\bsy\b|\beq\b/.test(n)) return i18n.t('Sísmica');
-      if (/sobre|live|\bcv\b|uso/.test(n)) return i18n.t('Sobrecarga de uso');
-      if (/event|acc/.test(n)) return i18n.t('Eventual');
-      if (/perm|muert|\bcm\b|dead|propio/.test(n) || lc.selfWeight) return i18n.t('Permanente');
-      return i18n.t('Carga');
-    };
-    const dirLabel = { gravity:i18n.t('Gravedad ↓ (−Z)'), globalX:i18n.t('Global +X'), globalY:i18n.t('Global +Y'),
-      globalZ:i18n.t('Global +Z'), localY:i18n.t('Local y'), localZ:i18n.t('Local z'), x:i18n.t('Global +X'), y:i18n.t('Global +Y'), z:i18n.t('Global +Z') };
-
-    const casosStatic = [...m.loadCases.values()].filter(lc => lc.type !== 'spectrum');
-    const cargasHTML = casosStatic.map(lc => {
-      const loadRows = (lc.loads || []).map(ld => {
-        if (ld.type === 'nodal') {
-          const [Fx,Fy,Fz,Mx,My,Mz] = ld.F || [];
-          return `<tr><td>${i18n.t('Puntual')}</td><td>${i18n.t('Nodo')} ${ld.nodeId}</td><td>—</td>
-            <td>F=(${fmt(Fx,2)}, ${fmt(Fy,2)}, ${fmt(Fz,2)}) kN · M=(${fmt(Mx,2)}, ${fmt(My,2)}, ${fmt(Mz,2)}) kN·m</td></tr>`;
-        }
-        if (ld.type === 'temp') {
-          return `<tr><td>${i18n.t('Temperatura')}</td><td>${i18n.t('Elem')} ${ld.elemId}</td><td>${i18n.t('Uniforme')}</td><td>ΔT = ${fmt(ld.dT,1)} °C</td></tr>`;
-        }
-        return `<tr><td>${i18n.t('Distribuida')}</td><td>${i18n.t('Elem')} ${ld.elemId}</td>
-          <td>${esc(dirLabel[ld.dir] || ld.dir || i18n.t('Gravedad'))}</td><td>w = ${fmt(ld.w,2)} kN/m</td></tr>`;
-      }).join('');
-      const cuerpo = loadRows || `<tr><td colspan="4" class="muted">${lc.selfWeight ? i18n.t('Solo peso propio') : i18n.t('Sin cargas asignadas')}</td></tr>`;
-      return `<h3>${esc(lc.name)} <span class="tag">${tipoCaso(lc)}</span>${lc.selfWeight ? ` <span class="tag tag-pp">${i18n.t('+ peso propio')}</span>` : ''}</h3>
-        <table><thead><tr><th>${i18n.t('Tipo')}</th><th>${i18n.t('Aplicada en')}</th><th>${i18n.t('Dirección')}</th><th>${i18n.t('Valor')}</th></tr></thead>
-        <tbody>${cuerpo}</tbody></table>`;
-    }).join('') || `<p class="muted">${i18n.t('No hay casos de carga estáticos definidos.')}</p>`;
-
-    // ── Seismic (spectra with their NCh433/DS61 parameters) ─────────────────
-    let sismoHTML = '';
-    const espectros = [...this._spectrumResults.values()].filter(e => e?.params);
-    if (espectros.length) {
-      sismoHTML = espectros.map(({ params: p }) => {
-        const k = p.nch433 || {};
-        const tabla = `<table><tbody>
-          <tr><th>${i18n.t('Dirección sísmica')}</th><td>${esc(p.direction)}</td><th>${i18n.t('Método combinación')}</th><td>${esc(p.method)}</td></tr>
-          <tr><th>${i18n.t('Zona sísmica')}</th><td>${esc(k.zona ?? '—')} (A₀ = ${fmt(k.Ao,2)} g)</td><th>${i18n.t('Tipo de suelo')}</th><td>${esc(k.suelo ?? '—')} (S=${fmt(k.S,2)}, T₀=${fmt(k.To,2)}, p=${fmt(k.p,2)})</td></tr>
-          <tr><th>${i18n.t('Categoría de importancia')}</th><td>${esc(k.cat ?? '—')} (I = ${fmt(k.I,2)})</td><th>${i18n.t('Amortiguamiento ζ')}</th><td>${fmt(p.zeta,2)}</td></tr>
-          <tr><th>R₀</th><td>${fmt(k.Ro,1)}</td><th>R* / T*</th><td>R*=${fmt(k.Rstar,3)} ${k.Tstar ? `(T*=${fmt(k.Tstar,3)} s)` : `(${i18n.t('elástico')})`}</td></tr>
-        </tbody></table>`;
-        return `<h3>${i18n.t('Espectro de respuesta — dirección')} ${esc(p.direction)}</h3>
-          ${tabla}
-          <div class="spec-graph">${this._reportSpectrumSVG(p.spectrum)}</div>
-          <p class="muted">Sa(T) = S·A₀·I·α(T)/R* (NCh433 / DS61). ${i18n.t('Unidad de Sa:')} ${esc(k.unidadSa || 'g')}.</p>`;
-      }).join('');
-    } else {
-      sismoHTML = `<p class="muted">${i18n.t('No se ha ejecutado un análisis de espectro de respuesta. Ejecute «Análisis → Espectro de Respuesta (F7)» para documentar zona sísmica, suelo, importancia y el espectro de diseño.')}</p>`;
-    }
-
-    // ── Modal (3 modes) ─────────────────────────────────────────────────────
-    let modalHTML = '';
-    if (this._modalResults) {
-      const { rows } = this._modalResults.getParticipation();
-      const partRows = rows.slice(0, Math.max(3, Math.min(rows.length, 12))).map(r => `<tr>
-        <td>${r.mode}</td><td>${fmt(r.freq,3)}</td><td>${fmt(r.period,3)}</td>
-        <td>${fmt(r.pct[0],1)}</td><td>${fmt(r.pct[1],1)}</td><td>${fmt(r.pct[2],1)}</td>
-        <td>${fmt(r.cumPct[0],1)}</td><td>${fmt(r.cumPct[1],1)}</td><td>${fmt(r.cumPct[2],1)}</td></tr>`).join('');
-      const modeImgs = imgs.modos.map(md => `<figure>
-        <img src="${md.img}" alt="${i18n.t('Modo')} ${md.n}">
-        <figcaption>${i18n.t('Modo')} ${md.n} — f = ${fmt(md.freq,3)} Hz · T = ${fmt(md.period,3)} s</figcaption></figure>`).join('');
-      modalHTML = `
-        <p>${i18n.t('Modos extraídos:')} ${this._modalResults.nModes}. ${i18n.t('Frecuencias y períodos de los primeros modos:')}</p>
-        <table><thead><tr><th>${i18n.t('Modo')}</th><th>f (Hz)</th><th>T (s)</th>
-          <th>Mx (%)</th><th>My (%)</th><th>Mrz (%)</th><th>ΣMx</th><th>ΣMy</th><th>ΣMrz</th></tr></thead>
-          <tbody>${partRows}</tbody></table>
-        <p class="muted">${i18n.t('Mx/My/Mrz = masa modal participante (%). Σ = acumulada.')}</p>
-        ${modeImgs ? `<div class="figrow">${modeImgs}</div>` : ''}`;
-    } else {
-      modalHTML = `<p class="muted">${i18n.t('No se ha ejecutado el análisis modal. Ejecute «Análisis → Análisis Modal (F6)» para documentar los modos de vibrar.')}</p>`;
-    }
-
-    // ── Model images ────────────────────────────────────────────────────────
-    const idsNota = cm.mostrarIds ? ' — ' + i18n.t('con IDs de nodos y elementos') : '';
-    const figBase = imgs.base ? `<figure><img src="${imgs.base}" alt="${i18n.t('Modelo base')}"><figcaption>${i18n.t('Modelo estructural (geometría base')}${idsNota})</figcaption></figure>` : '';
-    const figDef  = imgs.deformada ? `<figure><img src="${imgs.deformada}" alt="${i18n.t('Deformada')}"><figcaption>${i18n.t('Deformada (resultado estático')}${idsNota})</figcaption></figure>`
-      : `<p class="muted">${i18n.t('Deformada no disponible — ejecute el análisis estático (F5).')}</p>`;
-
-    const s = m.getStats();
-
-    // ── Design methods (only materials present) ─────────────────────────────
-    const tipos = new Set([...m.materials.values()].map(mt => clasif(mt.name)));
-    const nombreTipo = { steel:i18n.t('Acero estructural'), concrete:i18n.t('Hormigón armado'), timber:i18n.t('Madera') };
-    const metodosHTML = dp ? [...tipos].map(t => {
-      const p = dp[t] || {};
-      let det = '';
-      if (t === 'steel')    det = `Fy = ${fmt(p.Fy_MPa,0)} MPa · Fu = ${fmt(p.Fu_MPa,0)} MPa · E = ${fmt(p.E_MPa,0)} MPa · φ_b=${p.phi?.bending} φ_v=${p.phi?.shear} φ_c=${p.phi?.axial_compresion}`;
-      if (t === 'concrete') det = `f′c = ${fmt(p.fc_MPa,0)} MPa · fy = ${fmt(p.fy_rebar_MPa,0)} MPa · cuantía ρ = ${fmt(p.long_reinf_ratio,3)} · rec. = ${fmt(p.cover_mm,0)} mm · φ_b=${p.phi?.bending} φ_v=${p.phi?.shear}`;
-      if (t === 'timber')   det = `Fb = ${fmt(p.Fb_MPa,1)} · Fv = ${fmt(p.Fv_MPa,1)} · Fc = ${fmt(p.Fc_MPa,1)} · Ft = ${fmt(p.Ft_MPa,1)} MPa · ∏Ki = ${fmt(Object.values(p.modification_factors||{}).reduce((a,b)=>a*b,1),2)}`;
-      return `<tr><th>${nombreTipo[t]}</th><td>${esc(p.method||'—')}<br><span class="muted">${det}</span></td></tr>`;
-    }).join('') : `<tr><td colspan="2" class="muted">${i18n.t('Parámetros de diseño no disponibles.')}</td></tr>`;
-
-    // ── Standards and codes ─────────────────────────────────────────────────
-    const normas = [
-      [i18n.t('Acción sísmica'), 'NCh433.Of96 Mod.2009 · DS61 (espectro de diseño)'],
-      [i18n.t('Cargas y sobrecargas'), 'NCh1537.Of2009 (permanentes y sobrecargas de uso)'],
-      [i18n.t('Combinaciones de carga'), 'NCh3171.Of2010 (disposiciones generales)'],
-      [i18n.t('Viento'), 'NCh432.Of2010'],
-      [i18n.t('Nieve'), 'NCh431.Of2010'],
-      [i18n.t('Acero estructural'), 'NCh427/1 · ANSI/AISC 360-16 (LRFD)'],
-      [i18n.t('Hormigón armado'), 'NCh430 · ACI 318'],
-      [i18n.t('Madera estructural'), 'NCh1198 (tensiones admisibles modificadas)'],
-    ].map(([a,b]) => `<tr><th>${a}</th><td>${esc(b)}</td></tr>`).join('');
-
-    // ── Model load combinations ─────────────────────────────────────────────
-    const lcName = id => m.loadCases.get(id)?.name || m.combinations?.get(id)?.name || `LC${id}`;
-    const comboRows = [...(m.combinations?.values() || [])].map(c =>
-      `<tr><td>${esc(c.name)}</td><td>${(c.factors||[]).map(f => `${fmt(f.factor,2)}·${esc(lcName(f.lcId))}`).join('  +  ') || '—'}</td></tr>`).join('')
-      || `<tr><td colspan="2" class="muted">${i18n.t('No hay combinaciones definidas.')}</td></tr>`;
-
-    // ── Allowable deflections ───────────────────────────────────────────────
-    const fl = dp?.deflection_limits || {};
-    const flechasHTML = `<table><tbody>
-      <tr><th>${i18n.t('Viga — carga total')}</th><td>L / ${fl.beam_total_load_L_over ?? 300}</td>
-          <th>${i18n.t('Viga — sobrecarga')}</th><td>L / ${fl.beam_live_load_L_over ?? 360}</td></tr>
-      <tr><th>${i18n.t('Voladizo')}</th><td>L / ${fl.cantilever_L_over ?? 150}</td>
-          <th>${i18n.t('δ máx del modelo')}</th><td>${this._results?.getMaxDisp ? fmt(this._results.getMaxDisp(),5)+' m' : '—'}</td></tr>
-    </tbody></table>
-    <p class="muted">${i18n.t('Límites como fracción de la luz L. La verificación de flecha por elemento debe contrastarse con la luz libre de cada vano.')}</p>`;
-
-    // ── Element design: STRENGTH verification bending/shear/axial ──
-    // (the service DEFLECTIONS go in their own section, not here).
-    let disenoHTML;
-    const rClass = r => r > 1.0 ? 'r-bad' : r > 0.9 ? 'r-warn' : 'r-ok';
-    if (diseno && diseno.filas && diseno.filas.length) {
-      const f = diseno.filas;
-      const malo = x => x.ratioMax > 1;
-      const aj   = x => !malo(x) && x.ratioMax > 0.9;
-      const nNo = f.filter(malo).length;
-      const nAj = f.filter(aj).length;
-      const nOk = f.length - nNo - nAj;
-      const top = f.slice(0, 60);
-      const rows = top.map(x => `<tr>
-        <td>#${x.id}</td><td>${esc(x.sec)}</td><td>${esc(x.mat)}</td><td title="${esc(x.combo||'')}">${esc((x.combo||'').slice(0,14))}</td>
-        <td>${fmt(x.forces.N,1)}</td><td>${fmt(Math.max(x.forces.My,x.forces.Mz),1)}</td><td>${fmt(Math.max(x.forces.Vy,x.forces.Vz),1)}</td>
-        <td class="${rClass(x.bending.ratio)}">${fmt(x.bending.ratio,2)}</td>
-        <td class="${rClass(x.shear.ratio)}">${fmt(x.shear.ratio,2)}</td>
-        <td class="${rClass(x.axial.ratio)}">${fmt(x.axial.ratio,2)}</td>
-        <td class="${rClass(x.interaction?.ratio)}">${fmt(x.interaction?.ratio,2)}</td>
-        <td>${x.governs}</td>
-        <td class="${rClass(x.ratioMax)}"><b>${fmt(x.ratioMax,2)}</b></td>
-        <td class="${malo(x)?'r-bad':aj(x)?'r-warn':'r-ok'}">${malo(x)?i18n.t('NO CUMPLE'):aj(x)?i18n.t('ajustado'):i18n.t('cumple')}</td></tr>`).join('');
-      const alcance = diseno.envolvente ? i18n.t('envolvente de las combinaciones de carga') : `${i18n.t('el estado')} «${esc(diseno.caso||i18n.t('activo'))}»`;
-      const shown = f.length > 60 ? `${i18n.t('Se muestran los 60 elementos más solicitados de')} ${f.length}. ` : '';
-      disenoHTML = `
-        <p>${i18n.t('Verificación de')} <b>${i18n.t('resistencia')}</b> ${i18n.t('por')} <b>${alcance}</b>:
-        ${i18n.t('para cada elemento se reporta la combinación más desfavorable. La razón')} <b>D/C = ${i18n.t('demanda/capacidad')}</b> ${i18n.t('debe ser ≤ 1.0.')}
-        ${i18n.t('Las deformaciones (servicio) se verifican en la sección de deformaciones de vigas. Parámetros en')} <code>assistant/design_params.json</code>.</p>
-        <table style="font-size:9.5px"><thead><tr>
-          <th>${i18n.t('Elem')}</th><th>${i18n.t('Sección')}</th><th>${i18n.t('Material')}</th><th>${i18n.t('Combo')}</th><th>N (kN)</th><th>M (kN·m)</th><th>V (kN)</th>
-          <th>${i18n.t('flex.')}</th><th>${i18n.t('corte')}</th><th>${i18n.t('axial')}</th><th>${i18n.t('interac.')}</th><th>${i18n.t('Gobierna')}</th><th>${i18n.t('D/C máx')}</th><th>${i18n.t('Estado')}</th>
-        </tr></thead><tbody>${rows}</tbody></table>
-        <p class="muted">${shown}
-        ${i18n.t('Resumen:')} <b class="r-ok">${nOk} ${i18n.t('cumplen')}</b> · <b class="r-warn">${nAj} ${i18n.t('ajustados')}</b> · <b class="r-bad">${nNo} ${i18n.t('no cumplen')}</b>.
-        ${i18n.t('D/C: flexión/corte/axial e interacción flexo-axial. Colores: verde ≤ 0.90 · ámbar 0.90–1.00 · rojo > 1.00.')}</p>`;
-    } else {
-      disenoHTML = `<p class="muted">${i18n.t('No hay resultados de análisis para verificar. Ejecute el análisis estático (F5) con sus combinaciones de carga antes de generar la memoria.')}</p>`;
-    }
-
-    // ── Beam deflections (service · unfactored live load) ───────────────────
-    let deflexHTML;
-    if (deflex && deflex.rows && deflex.rows.length) {
-      const dr = deflex.rows.slice(0, 60);
-      const rows = dr.map(x => `<tr>
-        <td>#${x.id}</td><td>${esc(x.sec)}</td><td>${fmt(x.L,2)}</td>
-        <td>${fmt(x.delta*1000,2)}</td><td>L/${deflex.limSobre} = ${fmt(x.lim*1000,2)}</td>
-        <td class="${rClass(x.ratio)}"><b>${fmt(x.ratio,2)}</b></td>
-        <td class="${x.ratio>1?'r-bad':x.ratio>0.9?'r-warn':'r-ok'}">${x.ratio>1?i18n.t('NO CUMPLE'):x.ratio>0.9?i18n.t('ajustado'):i18n.t('cumple')}</td></tr>`).join('');
-      const nNo = deflex.rows.filter(x => x.ratio > 1).length;
-      const shown = deflex.rows.length > 60 ? `${i18n.t('Se muestran las 60 vigas más deformadas de')} ${deflex.rows.length}. ` : '';
-      const resumen = nNo ? `<b class="r-bad">${nNo} ${i18n.t('viga(s) superan el límite.')}</b> ` : i18n.t('Todas cumplen el límite de servicio.') + ' ';
-      deflexHTML = `
-        <p>${i18n.t('Flecha de las')} <b>${i18n.t('vigas')}</b> ${i18n.t('(elementos casi horizontales) bajo el caso de')} <b>${i18n.t('sobrecarga de uso')} «${esc(deflex.caso)}» ${i18n.t('sin mayorar')}</b>
-        ${i18n.t('(factor 1.0), medida respecto a la cuerda recta del vano. Límite de servicio')} L/${deflex.limSobre}.</p>
-        <table style="font-size:9.5px"><thead><tr>
-          <th>${i18n.t('Viga')}</th><th>${i18n.t('Sección')}</th><th>L (m)</th><th>δ (mm)</th><th>${i18n.t('δ admisible (mm)')}</th><th>δ/δadm</th><th>${i18n.t('Estado')}</th>
-        </tr></thead><tbody>${rows}</tbody></table>
-        <p class="muted">${shown}
-        ${resumen}
-        ${i18n.t('δ = flecha relativa máxima en el vano por sobrecarga de uso (sin mayorar).')}</p>`;
-    } else {
-      deflexHTML = `<p class="muted">${esc(deflex?.note || i18n.t('Sin datos de deformaciones de vigas.'))}</p>`;
-    }
-
-    // ── Seismic story drifts (NCh433) ─────────────────────────────────────────
-    let driftHTML;
-    if (drift && drift.dirs && drift.dirs.length) {
-      const cls = ok => ok === false ? 'r-bad' : ok === true ? 'r-ok' : '';
-      const lblOk = ok => ok === false ? i18n.t('NO CUMPLE') : ok === true ? i18n.t('cumple') : '—';
-      const cell = (v, d = 5) => v == null ? '—' : fmt(v, d);
-      driftHTML = drift.dirs.map(D => {
-        const rows = D.stories.map(s => `<tr>
-          <td>${s.piso}</td><td>${fmt(s.z,2)}</td><td>${fmt(s.h,2)}</td>
-          <td>${cell(s.driftCM)}</td><td class="${cls(s.okCM)}">${cell(s.ratioCM,2)}</td><td class="${cls(s.okCM)}">${lblOk(s.okCM)}</td>
-          <td>${cell(s.driftExt)}</td><td class="${cls(s.okExt)}">${cell(s.ratioExt,2)}</td><td class="${cls(s.okExt)}">${lblOk(s.okExt)}</td></tr>`).join('');
-        return `<h3>${i18n.t('Dirección sísmica')} ${esc(D.dir)}</h3>
-        <table style="font-size:9.5px"><thead><tr>
-          <th>${i18n.t('Piso')}</th><th>Z (m)</th><th>h (m)</th>
-          <th>δ/h (CM)</th><th>·/0.002</th><th>${i18n.t('Estado CM')}</th>
-          <th>δ/h (ext.)</th><th>·/0.002</th><th>${i18n.t('Estado ext.')}</th>
-        </tr></thead><tbody>${rows || `<tr><td colspan="9" class="muted">${i18n.t('Sin entrepisos.')}</td></tr>`}</tbody></table>`;
-      }).join('');
-      driftHTML += `<p class="muted">${i18n.t('Deriva de entrepiso δ/h = desplazamiento relativo entre pisos consecutivos ÷ altura de entrepiso.')}
-        <b>${i18n.t('Límite NCh433: 0.002')}</b> ${i18n.t('(2/1000) tanto entre')} <b>${i18n.t('centros de masa')}</b> (Art. 5.9.2) ${i18n.t('como entre')} <b>${i18n.t('nodos externos')}</b> ${i18n.t('del piso (Art. 5.9.3).')}
-        ${i18n.t('Calculada con los desplazamientos del espectro de respuesta.')}${drift.hasCM ? '' : ` <i>${i18n.t('Sin diafragmas: se reporta solo la deriva entre nodos externos.')}</i>`}</p>`;
-    } else {
-      driftHTML = `<p class="muted">${esc(drift?.note || i18n.t('Sin datos de derivas sísmicas.'))}</p>`;
-    }
-
-    // ── Cover page (configurable per project) ───────────────────────────────
-    // The logo/institution come from the report configuration (empty by default
-    // in the open edition). The company logo (PRO) is shown if loaded.
-    const tieneLogoPro = !!(this._brandingPro && cm.logoEmpresa);
-    const logosAcad = '';
-    const logoEmp = tieneLogoPro ? `<div class="cover-logo-emp"><img src="${esc(cm.logoEmpresa)}" alt="${i18n.t('Empresa')}"></div>` : '';
-    const portada = `<section class="cover">
-      ${logoEmp}${logosAcad}
-      <div class="cover-inst">${esc(cm.institucion || '')}<br><span>${esc(cm.subInstitucion || '')}</span></div>
-      <svg class="cover-frame" viewBox="0 0 360 200" aria-hidden="true">
-        <path d="M60 175 V55 H300 V175" fill="none" stroke="#0a3a57" stroke-width="4" stroke-linecap="round"/>
-        <path d="M46 188 L74 188 L60 175 Z" fill="#0d9488"/><path d="M286 188 L314 188 L300 175 Z" fill="#0d9488"/>
-        <path d="M44 188 H76 M284 188 H316" stroke="#0a3a57" stroke-width="2"/>
-        <circle cx="60" cy="55" r="5" fill="#0e7fc0"/><circle cx="300" cy="55" r="5" fill="#0e7fc0"/>
-      </svg>
-      <div class="cover-kicker">${esc(cm.kicker || i18n.t('ANÁLISIS Y DISEÑO ESTRUCTURAL'))}</div>
-      <h1 class="cover-title">${esc(cm.titulo || i18n.t('Memoria de Cálculo'))}</h1>
-      <div class="cover-proj">${esc(proyecto)}</div>
-      ${tieneLogoPro ? '' : `<div class="cover-badge">${i18n.t('Generado con PORTICO — análisis estructural 3D')}</div>`}
-      <table class="cover-meta"><tbody>
-        <tr><th>${i18n.t('Proyecto')}</th><td>${esc(proyecto)}</td></tr>
-        <tr><th>${i18n.t('Fecha')}</th><td>${esc(fecha)}</td></tr>
-        <tr><th>${i18n.t('Unidades')}</th><td>${esc(U.replace('-',' · '))}</td></tr>
-        <tr><th>${i18n.t('Proyectista')}</th><td>${esc(cm.proyectista) || '&nbsp;'}</td></tr>
-        <tr><th>${i18n.t('Revisó')}</th><td>${esc(cm.revisor) || '&nbsp;'}</td></tr>
-      </tbody></table>
-      <p class="cover-note">${i18n.t('Documento de carácter orientativo. Los resultados deben ser validados por un profesional competente antes de cualquier uso en obra.')}</p>
-    </section>`;
-    const descripcionHTML = (this._brandingPro && cm.descripcion) ? `<p>${esc(cm.descripcion)}</p>` : '';
-    // Footer and limitations: academic by default; editable only with a professional token.
-    const footerTxt = (this._brandingPro && cm.footer) ? cm.footer : this._ACAD_FOOTER;
-    const limitItems = (this._brandingPro && cm.limitaciones)
-      ? cm.limitaciones.split('\n').map(s => s.trim()).filter(Boolean).map(esc)
-      : this._ACAD_LIMITS;
-    const limitHTML = limitItems.map(li => `<li>${li}</li>`).join('');
-
-    return `<!DOCTYPE html><html lang="${i18n.getLocale()}"><head><meta charset="utf-8">
-<base href="${esc(location.origin)}/">
-<title>${esc(cm.titulo || i18n.t('Memoria de Cálculo'))} — ${esc(proyecto)}</title>
-<style>
-  :root{--ink:#1b2533;--mut:#5c6a7d;--bd:#cdd6e3;--ac:#0e7fc0;--head:#0a3a57;--teal:#0d9488;}
-  *{box-sizing:border-box;}
-  body{font-family:'Segoe UI',system-ui,sans-serif;color:var(--ink);margin:0;padding:30px 40px 64px;font-size:12px;line-height:1.5;}
-  h1{font-size:22px;color:var(--head);margin:0 0 2px;}
-  h2{font-size:15px;color:var(--head);border-bottom:2px solid var(--ac);padding-bottom:3px;margin:24px 0 10px;}
-  h3{font-size:13px;color:var(--head);margin:15px 0 6px;}
-  .sub{color:var(--mut);font-size:12px;margin:0 0 4px;}
-  table{width:100%;border-collapse:collapse;margin:6px 0 12px;font-size:11px;}
-  th,td{border:1px solid var(--bd);padding:4px 7px;text-align:left;vertical-align:top;}
-  th{background:#eef3f9;color:var(--head);font-weight:600;}
-  td{font-variant-numeric:tabular-nums;}
-  code{background:#eef3f9;padding:0 4px;border-radius:3px;font-size:11px;}
-  .muted{color:var(--mut);}
-  .tag{display:inline-block;background:var(--ac);color:#fff;font-size:9px;padding:1px 7px;border-radius:9px;vertical-align:middle;font-weight:600;}
-  .tag-pp{background:#15803d;}
-  figure{margin:8px 0;text-align:center;}
-  img{max-width:100%;border:1px solid var(--bd);border-radius:6px;background:#f6f8fb;}
-  figcaption{color:var(--mut);font-size:10px;margin-top:3px;}
-  .figrow{display:flex;flex-wrap:wrap;gap:10px;}
-  .figrow figure{flex:1 1 30%;min-width:200px;margin:4px 0;}
-  .spec-graph{border:1px solid var(--bd);border-radius:6px;padding:6px;background:#f6f8fb;max-width:480px;}
-  .r-ok{background:#e8f6ed;color:#15803d;} .r-warn{background:#fdf3e2;color:#b45309;} .r-bad{background:#fde8e8;color:#dc2626;font-weight:700;}
-  .print-btn{position:fixed;top:12px;right:12px;background:var(--ac);color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:10;}
-  .page-footer{position:fixed;bottom:0;left:0;right:0;height:42px;display:flex;align-items:center;justify-content:space-between;
-    padding:0 40px;font-size:9px;color:var(--mut);border-top:1px solid var(--bd);background:#fff;}
-  .page-footer b{color:var(--head);}
-  .cover{min-height:88vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;page-break-after:always;}
-  .cover-logos{display:flex;gap:22px;align-items:center;justify-content:center;margin-bottom:10px;flex-wrap:wrap;}
-  .cover-logos img{height:46px;width:auto;border:none;background:none;border-radius:0;}
-  .cover-logo-emp{margin-bottom:8px;} .cover-logo-emp img{height:54px;width:auto;border:none;background:none;}
-  .cover-inst{font-size:12px;letter-spacing:.5px;color:var(--head);font-weight:600;margin-bottom:6px;}
-  .cover-inst span{display:block;font-weight:400;color:var(--mut);font-size:10px;letter-spacing:0;}
-  .cover-frame{width:240px;height:auto;margin:14px 0;}
-  .cover-kicker{letter-spacing:3px;font-size:12px;color:var(--teal);font-weight:600;}
-  .cover-title{font-size:38px;color:var(--head);margin:4px 0 2px;letter-spacing:1px;}
-  .cover-proj{font-size:16px;color:var(--ink);margin-bottom:14px;}
-  .cover-badge{max-width:480px;font-size:11px;color:var(--mut);border:1px dashed var(--bd);border-radius:8px;padding:8px 12px;margin-bottom:18px;}
-  .cover-meta{max-width:420px;font-size:12px;} .cover-meta th{width:120px;}
-  .cover-note{max-width:480px;font-size:10px;color:var(--mut);margin-top:16px;font-style:italic;}
-  @media print{.print-btn{display:none;} h2{break-after:avoid;} table,figure{break-inside:avoid;} body{padding:0 40px 64px;}}
-</style></head><body>
-<button class="print-btn" onclick="window.print()">${i18n.t('🖨 Imprimir / Guardar PDF')}</button>
-<div class="page-footer"><span><b>PORTICO</b> · ${esc(cm.titulo || i18n.t('Memoria de Cálculo'))} — ${esc(proyecto)}</span>
-  <span>${esc(footerTxt)}</span>
-  <span>${esc(fecha)}</span></div>
-
-${portada}
-
-<h2>${i18n.t('1. Bases de cálculo')}</h2>
-
-<h3>${i18n.t('1.1 Descripción del modelo')}</h3>
-${descripcionHTML}
-<table><tbody>
-  <tr><th>${i18n.t('Nodos')}</th><td>${s.nodes}</td><th>${i18n.t('Elementos')}</th><td>${s.elements}</td></tr>
-  <tr><th>${i18n.t('Materiales')}</th><td>${s.materials}</td><th>${i18n.t('Secciones')}</th><td>${s.sections}</td></tr>
-  <tr><th>${i18n.t('Modo del proyecto')}</th><td>${esc(m.mode || '3D')}</td><th>${i18n.t('Casos de carga')}</th><td>${m.loadCases.size}</td></tr>
-</tbody></table>
-${figBase}
-
-<h3>${i18n.t('1.2 Métodos de diseño')}</h3>
-<table><tbody>${metodosHTML}</tbody></table>
-
-<h3>${i18n.t('1.3 Normas y códigos')}</h3>
-<table><tbody>${normas}</tbody></table>
-
-<h3>${i18n.t('1.4 Materiales y propiedades mecánicas')}</h3>
-<table><thead><tr><th>${i18n.t('Material')}</th><th>E (kN/m²)</th><th>G (kN/m²)</th><th>ν</th><th>ρ (t/m³)</th></tr></thead>
-<tbody>${matRows}</tbody></table>
-
-<h3>${i18n.t('1.5 Secciones')}</h3>
-<table><thead><tr><th>${i18n.t('Sección')}</th><th>A (m²)</th><th>Iy (m⁴)</th><th>Iz (m⁴)</th><th>J (m⁴)</th><th>Avy (m²)</th><th>Avz (m²)</th><th>${i18n.t('Modif. rigidez')}</th><th>${i18n.t('# elem')}</th></tr></thead>
-<tbody>${secRows}</tbody></table>
-
-<h3>${i18n.t('1.6 Cargas y sobrecargas')}</h3>
-${cargasHTML}
-
-<h3>${i18n.t('1.7 Acción sísmica')}</h3>
-${sismoHTML}
-
-<h3>${i18n.t('1.8 Combinaciones de carga')}</h3>
-<table><thead><tr><th>${i18n.t('Combinación')}</th><th>${i18n.t('Factores')}</th></tr></thead><tbody>${comboRows}</tbody></table>
-
-<h3>${i18n.t('1.9 Flechas admisibles')}</h3>
-${flechasHTML}
-
-<h2>${i18n.t('2. Análisis estructural')}</h2>
-<h3>${i18n.t('2.1 Modelo deformado')}</h3>
-${figDef}
-<h3>${i18n.t('2.2 Análisis modal — modos de vibrar')}</h3>
-${modalHTML}
-
-<h2>${i18n.t('3. Diseño de elementos (resistencia)')}</h2>
-${disenoHTML}
-
-<h2>${i18n.t('4. Verificaciones de servicio')}</h2>
-<h3>${i18n.t('4.1 Deformaciones de vigas — sobrecarga de uso (sin mayorar)')}</h3>
-${deflexHTML}
-<h3>${i18n.t('4.2 Derivas sísmicas de entrepiso — NCh433 (límite 2/1000·h)')}</h3>
-${driftHTML}
-
-<h2>${i18n.t('5. Limitaciones y alcances')}</h2>
-<ul style="font-size:11px;line-height:1.6">${limitHTML}</ul>
-</body></html>`;
-  }
 
   // SVG of the Sa(T) spectrum for the calculation report.
-  _reportSpectrumSVG(pts) {
-    if (!Array.isArray(pts) || pts.length < 2) return `<p class="muted">${i18n.t('Sin curva.')}</p>`;
-    const W = 460, H = 220, ml = 46, mr = 12, mt = 12, mb = 30;
-    const Tmax = Math.max(...pts.map(p => p.T)) || 1;
-    const Smax = Math.max(...pts.map(p => p.Sa)) || 1;
-    const sx = t => ml + (t / Tmax) * (W - ml - mr);
-    const sy = s => H - mb - (s / Smax) * (H - mt - mb);
-    const poly = pts.map(p => `${sx(p.T).toFixed(1)},${sy(p.Sa).toFixed(1)}`).join(' ');
-    const gx = [0,0.25,0.5,0.75,1].map(f => { const t=+(f*Tmax).toFixed(2);
-      return `<line x1="${sx(t)}" y1="${mt}" x2="${sx(t)}" y2="${H-mb}" stroke="#dde5ef"/><text x="${sx(t)}" y="${H-10}" fill="#5c6a7d" font-size="9" text-anchor="middle">${t}</text>`; }).join('');
-    const gy = [0,0.25,0.5,0.75,1].map(f => { const sv=+(f*Smax).toFixed(3);
-      return `<line x1="${ml}" y1="${sy(sv)}" x2="${W-mr}" y2="${sy(sv)}" stroke="#dde5ef"/><text x="${ml-5}" y="${sy(sv)+3}" fill="#5c6a7d" font-size="9" text-anchor="end">${sv}</text>`; }).join('');
-    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
-      ${gy}${gx}
-      <polyline points="${poly}" fill="none" stroke="#0e7fc0" stroke-width="2"/>
-      <text x="${ml}" y="${mt-1}" fill="#5c6a7d" font-size="9">Sa</text>
-      <text x="${W-mr}" y="${H-2}" fill="#5c6a7d" font-size="9" text-anchor="end">T (s)</text>
-    </svg>`;
-  }
 
   // ── Toast notifications ────────────────────────────────────────────────────
   toast(msg, type = '', ms = 3000) {

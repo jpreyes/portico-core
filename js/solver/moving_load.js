@@ -180,3 +180,36 @@ export const responseDisp = (nodeId, comp = 'uz') => {
   const map = { ux: 0, uy: 1, uz: 2, rx: 3, ry: 4, rz: 5 };
   return (res) => res.getNodeDisp(nodeId)[map[comp]];
 };
+
+/**
+ * Compose a full moving-load analysis from a resolved config: build the lane, pick the
+ * response probe (a support reaction or a section force), then run either the influence
+ * line (unit load sweep) or the train envelope, and shape the flat result the plot
+ * consumes. Headless — the dialog and the chart stay in the caller (app.js). This is the
+ * composition runMovingLoad performed inline; the primitives above are unchanged.
+ *
+ * @param {Model}  model
+ * @param {object} cfg
+ * @param {number[]} cfg.laneIds        lane element ids, in travel order
+ * @param {'il'|'env'} cfg.mode         influence line or train envelope
+ * @param {number}  cfg.nPos            sweep positions
+ * @param {'reaction'|'section'} cfg.respType
+ * @param {number} [cfg.nodeId] @param {string} [cfg.comp]           (reaction)
+ * @param {number} [cfg.elemId] @param {number} [cfg.xi] @param {string} [cfg.key]  (section)
+ * @param {string}  cfg.label @param {string} cfg.unit
+ * @param {{offset:number,P:number}[]} [cfg.train]   (env mode)
+ * @returns {{mode, lane, label, unit, xs:number[], ys:number[], max, min, sMax, sMin, trainLen?}}
+ */
+export function computeMovingLoad(model, cfg) {
+  const lane = buildLane(model, cfg.laneIds);
+  const resp = cfg.respType === 'reaction'
+    ? responseReaction(cfg.nodeId, cfg.comp)
+    : responseSection(cfg.elemId, cfg.xi, cfg.key);
+  if (cfg.mode === 'il') {
+    const il = influenceLine(model, lane, resp, { nPos: cfg.nPos, P: 1 });
+    return { mode: 'il', lane, label: cfg.label, unit: cfg.unit, xs: il.s, ys: il.value, max: il.max, min: il.min, sMax: il.sMax, sMin: il.sMin };
+  }
+  const env = movingLoadEnvelope(model, lane, cfg.train, { [cfg.label]: resp }, { nPos: cfg.nPos });
+  const e = env.env[cfg.label];
+  return { mode: 'env', lane, label: cfg.label, unit: cfg.unit, xs: env.positions, ys: env.series[cfg.label], max: e.max, min: e.min, sMax: e.atMax, sMin: e.atMin, trainLen: env.trainLen };
+}

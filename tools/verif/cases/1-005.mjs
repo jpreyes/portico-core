@@ -2,11 +2,11 @@
 // Materializa el Model A del original CSI (rodillo con asentamiento Uz=−0.5").
 export default {
   id: '1-005',
-  slug: '1-005_asentamiento_apoyo',
+  slug: '1-005_support_settlement',
   title: 'Asentamiento de apoyo (desplazamiento prescrito)',
   capability: 'desplazamiento prescrito de nodo/apoyo (asentamiento), partición libre/prescrito en el solver',
   referenceText: 'CSI *Software Verification — SAP2000*, Example 1-005 (Model A); resultados independientes por el método de la carga unitaria (Cook & Young 1985, p. 244).',
-  s3d: 'examples/verif_1-005a_asentamiento.s3d',
+  s3d: 'examples/verif_1-005a_settlement.s3d',
   analysis: 'static',
   lcId: 1,
 
@@ -34,6 +34,7 @@ export default {
       { idx: 'M_y', desc: 'Momento de empotramiento en el nodo 1', indep: -906.250, sap: -906.250 },
     ],
     portico: res => { const R = res.getReaction(1); return [R[2], R[4]]; },
+    opensees: r => [r.reaction['1'][2], r.reaction['1'][4]],
   },
 
   conclusion: 'Pórtico reproduce las reacciones del Model A con **diferencia 0.000 %** (F_z = 6.293 kip, M_y = −906.250 kip-in), idénticas a la solución independiente y a SAP2000. El **desplazamiento prescrito** (asentamiento de apoyo, #54) y la **reacción del GDL prescrito** quedan validados contra el manual CSI. **Capacidad de asentamiento de apoyo verificada.**',

@@ -7,7 +7,7 @@ import { Results } from './postprocess.js?v=2';
 import { STABILITY, nearSingularWarning } from './stability.js?v=2';
 
 // Structured mechanism error (singular matrix). Carries `err.stability` so the UI
-// shows the SAME verdict vocabulary as Nodex (see NODEX-CONTRACT.md).
+// shows the verdict vocabulary of js/solver/stability.js.
 function mechanismError(message) {
   const e = new Error(message);
   e.stability = { code: STABILITY.MECHANISM, severity: 'error', message };

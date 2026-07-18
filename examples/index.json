@@ -1,5 +1,23 @@
 [
   {
+    "file": "portico_simple.s3d",
+    "title": "Pórtico simple · empieza por aquí",
+    "description": "Marco 3D de dos niveles con diafragmas rígidos y tres casos de carga listos: muerta, viva y sismo en X.",
+    "note": "El modelo más chico que ya se parece a un edificio: córrelo, mira la deformada y los diagramas."
+  },
+  {
+    "file": "tutorial_building_valdivia.s3d",
+    "title": "Tutorial 1 · Edificio de hormigón de 5 pisos (Valdivia)",
+    "description": "Edificio completo de marcos: 96 nodos, 200 barras y diafragma rígido por piso. Acompaña al tutorial paso a paso.",
+    "note": "Guía escrita en docs/examples/tutorial_building_valdivia.md"
+  },
+  {
+    "file": "tutorial_shear_wall_building_valdivia.s3d",
+    "title": "Tutorial 2 · Edificio de muros de 5 pisos (Valdivia)",
+    "description": "El mismo edificio resuelto con muros y losas: 260 elementos de área (muros = membrana, losas = placa).",
+    "note": "Guía escrita en docs/examples/tutorial_shear_wall_building_valdivia.md"
+  },
+  {
     "file": "verif_1-005a_settlement.s3d",
     "title": "1-005 · Asentamiento de apoyo (desplazamiento prescrito)",
     "description": "Desplazamiento prescrito en un apoyo; partición libre/prescrito del solver.",

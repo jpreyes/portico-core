@@ -33,15 +33,15 @@ function PnAISC(L) {
   return 0.9 * Fcr * A;
 }
 
-const eng = (fuerzas, member) => checkElement({ fuerzas, sec, mat, codeId: 'AISC360-16:LRFD', member });
+const eng = (forces, member) => checkElement({ forces, sec, mat, codeId: 'AISC360-16:LRFD', member });
 
 export default {
   id: '4-001',
-  slug: '4-001_diseno_acero',
+  slug: '4-001_steel_design',
   title: 'Diseño de acero AISC 360-16 (LRFD) — resistencias φRn',
   capability: 'motor de diseño multinorma — resistencias de diseño de AISC 360-16 (tracción D2, compresión E3, flexión F2 con pandeo lateral-torsional, corte G2)',
   referenceText: 'ANSI/AISC 360-16, *Specification for Structural Steel Buildings*, capítulos D, E, F, G. Solución independiente: las fórmulas del código evaluadas con las propiedades TABULADAS del perfil IPE300.',
-  s3d: 'examples/verif_4-001_diseno_acero.s3d',
+  s3d: 'examples/verif_4-001_steel_design.s3d',
   analysis: 'static',
   lcIds: [1],
 

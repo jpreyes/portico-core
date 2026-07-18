@@ -16,20 +16,16 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 ### Añadido
 
-- **Veredicto de estabilidad unificado** (core JS ↔ backend enchufable, p.ej. Nodex):
-  veredicto estructurado de mecanismo / casi-singular en `Results.warnings` y
-  `err.stability`, más una sanity de deriva / desplazamiento agnóstica al backend en el
-  post que caza el casi-mecanismo que "resuelve" con basura (p.ej. bases en rodillo
-  rescatadas por un diafragma rígido). Se muestra en un banner prominente, idéntico sea
-  cual sea el backend activo. Vocabulario compartido en
-  [`NODEX-CONTRACT.md`](NODEX-CONTRACT.md) y `js/solver/stability.js`.
+- **Veredicto de estabilidad unificado**: veredicto estructurado de mecanismo /
+  casi-singular en `Results.warnings` y `err.stability`, más una sanity de deriva /
+  desplazamiento en el post que caza el casi-mecanismo que "resuelve" con basura (p.ej.
+  bases en rodillo rescatadas por un diafragma rígido). Se muestra en un banner
+  prominente. Vocabulario en `js/solver/stability.js`.
 - **Exportador `.ndx`** (`js/io/formats/ndx.js`): serializa el modelo al DSL de texto
-  NODEX que consume la capa (privada) nodex-compiler para el análisis complejo — mismo
-  patrón de adaptador *downstream* que OpenSees/Abaqus/SAP2000. Cubre el subconjunto
-  L1/L2 (nodos, apoyos, materiales, secciones, barras con liberaciones, masas nodales,
-  cargas nodales / distribuidas y la intención `solve`), con un *escape hatch* crudo para
-  los `analysis.kind` avanzados. La gramática es provisional a la espera de
-  nodex-compiler. Test de round-trip: `test_ndx.mjs`.
+  NODEX — mismo patrón de adaptador *downstream* que OpenSees/Abaqus/SAP2000. Cubre el
+  subconjunto L1/L2 (nodos, apoyos, materiales, secciones, barras con liberaciones, masas
+  nodales, cargas nodales / distribuidas y la intención `solve`), con un *escape hatch*
+  crudo para los `analysis.kind` avanzados. Test de round-trip: `test_ndx.mjs`.
 - **Solver iterativo (PCG) para mallas grandes** (`js/solver/pcg.js`): un Gradiente
   Conjugado Precondicionado matrix-free (Jacobi / IC0 Cholesky incompleto) para `K·u = F`
   en CSR, alternativa al Cholesky en banda cuando el factor de banda choca con el muro de
@@ -46,6 +42,23 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
   (superficie media + espesor; `IfcWall` → membrana, losa/placa/otros → shell); las tres
   dimensiones parecidas → **bloque 3D**, omitido con aviso. Antes estos archivos no importaban
   nada. Verificado con `test_ifc_brep.mjs`.
+
+### Eliminado
+
+- **`SolverBackend` / `SolverRegistry`** (`js/solver/backend.js`): portico-core lleva un
+  solo motor, en JavaScript, corriendo en el navegador. Con un único backend el registry
+  solo podía despachar a sí mismo — `_supports()` cortocircuitaba y `_dispatch()` no tenía
+  a dónde caer — y las marcas `res._backend` / `res._fellBack` que producía no las leía
+  nadie. Ahora `app.js` llama directo a los módulos del solver, como ya hacía
+  `js/api/portico.js`. Ningún análisis cambió de comportamiento.
+- **`extensions.registerAnalysis`** (`js/ext/extensions.js`): el hook aceptaba specs y las
+  guardaba, pero nadie leía nunca la colección — un análisis registrado no podía llegar al
+  Hub y su handler jamás se invocaba. Era una costura para análisis que el JS de core no
+  corre, cosa que la regla de honestidad open source de `CONTRIBUTING` ya prohíbe, más
+  media página en `EXTENDING` documentando un `ctx` que nunca se construía. Sus costuras
+  hermanas (`registerConfigSection`, `registerBadge`, `setFlag`) sí se consumen y no
+  cambian. Sin relación con `Portico.registerAnalysis` / `Portico.run()` de
+  `js/api/portico.js`, que funciona y se mantiene.
 
 ### Corregido
 

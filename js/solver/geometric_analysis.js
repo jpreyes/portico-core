@@ -1,0 +1,159 @@
+// ──────────────────────────────────────────────────────────────────────────────
+// geometric_analysis.js — geometric-nonlinear analyses (headless): linear buckling
+// and P-Delta. Composition layer above the primitives it drives:
+//   · assembleK / assembleF  (elastic K and the reference load)   — assembler.js
+//   · assembleKg             (geometric stiffness from the axial state) — geometric.js
+//   · solveBuckling          ((K+λ·Kg)φ=0 subspace eigensolver)   — buckling.js
+//   · makeFactor             (banded/dense Cholesky)              — linsolve.js
+//
+// Both analyses were inlined in app.js's runBuckling/runPDelta, unreachable outside
+// the DOM. Here they are pure functions of (model, opts) that return the modes / the
+// amplified displacement field, or a structured refusal `reason` the caller maps to
+// its own message. The dialogs, progress, toasts and overlay stay in app.js.
+// ──────────────────────────────────────────────────────────────────────────────
+import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './assembler.js?v=2';
+import { assembleKg } from './geometric.js?v=2';
+import { solveBuckling } from './buckling.js?v=2';
+import { makeFactor } from './linsolve.js?v=2';
+
+/**
+ * Reference geometric problem shared by buckling and P-Delta: the full elastic K, the
+ * combined reference load F (every static case at factor 1; spectral cases skipped),
+ * and the free-DOF list (2D mode locks uy/rx/rz).
+ * @returns {{nodeIndex:Map, K:Float64Array, nDOF:number, freeDOF:number[], F:Float64Array, nCasos:number}}
+ */
+export function buildGeomProblem(model) {
+  const nodeIndex = buildNodeIndex(model);
+  const { K, nDOF } = assembleK(model, nodeIndex);
+  const is2D = model.mode === '2D';
+  const freeDOF = [];
+  for (const node of model.nodes.values()) {
+    const d = getNodeDOFs(nodeIndex, node.id), r = node.restraints;
+    const rArr = [r.ux, is2D ? 1 : r.uy, r.uz, is2D ? 1 : r.rx, r.ry, is2D ? 1 : r.rz];
+    d.forEach((gi, li) => { if (!rArr[li]) freeDOF.push(gi); });
+  }
+  const F = new Float64Array(nDOF);
+  let nCasos = 0;
+  for (const lc of model.loadCases.values()) {
+    if (lc.type === 'spectrum') continue;
+    const Fi = assembleF(model, nodeIndex, lc.id, !!lc.selfWeight);
+    for (let i = 0; i < nDOF; i++) F[i] += Fi[i];
+    nCasos++;
+  }
+  return { nodeIndex, K, nDOF, freeDOF, F, nCasos };
+}
+
+// Largest translational displacement magnitude over the model's nodes.
+export function maxTransDisp(u, model, nodeIndex) {
+  let mx = 0;
+  for (const node of model.nodes.values()) {
+    const d = getNodeDOFs(nodeIndex, node.id);
+    mx = Math.max(mx, Math.hypot(u[d[0]], u[d[1]], u[d[2]]));
+  }
+  return mx;
+}
+
+/**
+ * Linear buckling: (K + λ·Kg)·φ = 0. Solves the reference state K·u = F (banded
+ * Cholesky) to get the axial force for Kg, then extracts the smallest λcr in a block
+ * by subspace iteration. Works for frame members (Nmax) and shells (membrane Kg).
+ *
+ * @param {Model}  model
+ * @param {object} [o]
+ * @param {number} [o.nModes=6]  modes to extract
+ * @param {boolean}[o.dense=false] dense factorization instead of banded
+ * @returns {{ok:false, reason:string, message?:string}
+ *          | {ok:true, modes:{lambda:number,vec:Float64Array}[], Nby:Map, nCasos:number, nodeIndex:Map}}
+ *   reason ∈ 'no-free-dof' | 'no-loads' | 'ref-singular' | 'no-kg' | 'solver-error' | 'no-modes'.
+ */
+export function linearBuckling(model, { nModes = 6, dense = false } = {}) {
+  const { nodeIndex, K, nDOF, freeDOF, F, nCasos } = buildGeomProblem(model);
+  if (!freeDOF.length) return { ok: false, reason: 'no-free-dof' };
+  if (!nCasos) return { ok: false, reason: 'no-loads' };
+
+  const nF = freeDOF.length;
+  // Kff and Ff in flat format (Float64Array nF×nF)
+  const Kff_flat = new Float64Array(nF * nF);
+  const Ff = new Float64Array(nF);
+  for (let i = 0; i < nF; i++) { Ff[i] = F[freeDOF[i]]; const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) Kff_flat[i * nF + j] = K[ri + freeDOF[j]]; }
+
+  // Reference state: K_ff·u = F_ff (banded Cholesky; gives the axial force for Kg).
+  const fac = makeFactor(Kff_flat, nF, dense);
+  if (!fac.ok) return { ok: false, reason: 'ref-singular' };
+  const ufA = fac.solve(Ff);
+  const u = new Float64Array(nDOF); for (let i = 0; i < nF; i++) u[freeDOF[i]] = ufA[i];
+
+  const { Kg, Nby } = assembleKg(model, nodeIndex, u);
+
+  // Flat Kgff for the eigensolver (+ Kg magnitude = is there a buckling effect?).
+  const Kgff_flat = new Float64Array(nF * nF);
+  let kgMax = 0;
+  for (let i = 0; i < nF; i++) { const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) { const v = Kg[ri + freeDOF[j]]; Kgff_flat[i * nF + j] = v; const av = Math.abs(v); if (av > kgMax) kgMax = av; } }
+  if (kgMax < 1e-12) return { ok: false, reason: 'no-kg' };
+
+  const buckResult = solveBuckling({ Kff_flat, Kgff_flat, nF, nModes, dense });
+  if (buckResult.error) return { ok: false, reason: 'solver-error', message: buckResult.error };
+
+  // Expand each mode (vec in free DOFs) to the global vector indexed by nDOF.
+  const modes = buckResult.modes.map(m => {
+    const vec = new Float64Array(nDOF);
+    for (let i = 0; i < nF; i++) vec[freeDOF[i]] = m.vec[i];
+    return { lambda: m.lambda, vec };
+  });
+  if (!modes.length) return { ok: false, reason: 'no-modes' };
+
+  return { ok: true, modes, Nby, nCasos, nodeIndex };   // Nby = reference axial force per element
+}
+
+/**
+ * P-Delta: solves the geometrically-nonlinear (K + Kg(u))·u = F by fixed-point
+ * iteration on the tangent (frames). Returns the amplified field and the linear vs
+ * P-Delta peak displacement so the caller can report the amplification.
+ *
+ * @param {Model}  model
+ * @param {object} [o]
+ * @param {boolean}[o.dense=false]   dense factorization instead of banded
+ * @param {number} [o.maxIter=25]    iteration cap
+ * @param {number} [o.tol=1e-6]      relative-displacement convergence tolerance
+ * @returns {{ok:false, reason:string}
+ *          | {ok:true, u:Float64Array, dLin:number, dPD:number, amp:number,
+ *             conv:boolean, it:number, nodeIndex:Map}}
+ *   reason ∈ 'no-free-dof' | 'no-loads' | 'linear-singular' | 'linear-nan'
+ *          | 'tangent-singular' | 'diverged'.
+ */
+export function pDelta(model, { dense = false, maxIter = 25, tol = 1e-6 } = {}) {
+  const { nodeIndex, K, nDOF, freeDOF, F, nCasos } = buildGeomProblem(model);
+  if (!freeDOF.length) return { ok: false, reason: 'no-free-dof' };
+  if (!nCasos) return { ok: false, reason: 'no-loads' };
+
+  const nF = freeDOF.length;
+  // Kff and Ff in flat format (Float64Array): input to the banded factorizer.
+  const Kff = new Float64Array(nF * nF);
+  const Ff = new Float64Array(nF);
+  for (let i = 0; i < nF; i++) { Ff[i] = F[freeDOF[i]]; const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) Kff[i * nF + j] = K[ri + freeDOF[j]]; }
+
+  const fac0 = makeFactor(Kff, nF, dense);
+  if (!fac0.ok) return { ok: false, reason: 'linear-singular' };
+  const uf = fac0.solve(Ff);
+  if (!uf || uf.some(v => !isFinite(v))) return { ok: false, reason: 'linear-nan' };
+  let u = new Float64Array(nDOF); for (let i = 0; i < nF; i++) u[freeDOF[i]] = uf[i];
+  const dLin = maxTransDisp(u, model, nodeIndex);
+
+  let conv = false, it = 0;
+  for (it = 0; it < maxIter; it++) {
+    const { Kg } = assembleKg(model, nodeIndex, u);
+    const KT = new Float64Array(nF * nF);
+    for (let i = 0; i < nF; i++) { const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) KT[i * nF + j] = Kff[i * nF + j] + Kg[ri + freeDOF[j]]; }
+    const fac = makeFactor(KT, nF, dense);
+    if (!fac.ok) return { ok: false, reason: 'tangent-singular' };
+    const uf2 = fac.solve(Ff);
+    if (!uf2 || uf2.some(v => !isFinite(v))) return { ok: false, reason: 'diverged' };
+    const uNew = new Float64Array(nDOF); for (let i = 0; i < nF; i++) uNew[freeDOF[i]] = uf2[i];
+    let dn = 0, de = 0; for (let i = 0; i < nDOF; i++) { dn += (uNew[i] - u[i]) ** 2; de += uNew[i] ** 2; }
+    u = uNew;
+    if (de > 0 && Math.sqrt(dn / de) < tol) { conv = true; it++; break; }
+  }
+  const dPD = maxTransDisp(u, model, nodeIndex);
+  const amp = dLin > 1e-12 ? dPD / dLin : 1;
+  return { ok: true, u, dLin, dPD, amp, conv, it, nodeIndex };
+}

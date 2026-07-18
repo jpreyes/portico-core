@@ -8,7 +8,7 @@
 // Displacements at arbitrary xi use cubic Hermite shape functions.
 // ──────────────────────────────────────────────────────────────────────────────
 import { localAxes, stiffnessMatrix, transformMatrix, fixedEndForces, applyReleases, condenseFEF, recoverReleasedDisp, elemLocalK } from './timoshenko.js?v=2';
-import { getNodeDOFs } from './assembler.js?v=2';
+import { getNodeDOFs, selfWeightPerLength } from './assembler.js?v=2';
 import { areaStress, areaBendingStress, areaStrain, areaCurvature, vonMises } from './membrane.js?v=2';
 
 function _toLocalLoad(load, ex, ey, ez) {
@@ -34,11 +34,10 @@ function _toLocalLoad(load, ex, ey, ez) {
 // ──────────────────────────────────────────────────────────────────────────────
 // REUSABLE POST-PROCESSING (solver-agnostic) — pure functions.
 //
-// The diagram/deflected-shape math lives ONCE here. The `Results` class (JS solver)
-// delegates to it; any OTHER solverRegistry backend (Nodex C++/WASM, native
-// solvers…) can return just end forces + loads and obtain IDENTICAL diagrams by
+// The diagram/deflected-shape math lives ONCE here. The `Results` class delegates
+// to it, so anything holding end forces + loads obtains IDENTICAL diagrams by
 // calling these functions, without reimplementing anything.
-// See docs/EXTENDING.md (§ "Reusable post-processing for backends").
+// See docs/EXTENDING.md (§ "Reusable post-processing").
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -66,7 +65,7 @@ export function actualLoadsLocal(model, lcId, selfWeight, elem, ex, ey, ez) {
   if (selfWeight) {
     const mat = model.materials.get(elem.matId);
     const sec = model.sections.get(elem.secId);
-    if (mat && sec && mat.rho > 0) add({ w: +(mat.rho * sec.A), dir: 'gravity' });
+    if (mat && sec && mat.rho > 0) add({ w: selfWeightPerLength(mat, sec), dir: 'gravity' });
   }
   return { qy: qy1, qz: qz1, qy1, qy2, qz1, qz2 };
 }
@@ -257,9 +256,9 @@ export class Results {
     this.lcId       = lcId;
     this.selfWeight = selfWeight;
 
-    // Structured stability warnings (shared vocabulary with Nodex `WasmResults`; see
-    // js/solver/stability.js + NODEX-CONTRACT.md). The solver pushes near-singular /
-    // ill-conditioning here; the app post adds drift/displacement sanity. Default [].
+    // Structured stability warnings (vocabulary in js/solver/stability.js). The solver
+    // pushes near-singular / ill-conditioning here; the app post adds drift/displacement
+    // sanity. Default [].
     this.warnings   = [];
 
     this._elemForces = new Map();
@@ -487,7 +486,7 @@ export class Results {
       const mat = this.model.materials.get(elem.matId);
       const sec = this.model.sections.get(elem.secId);
       if (mat && sec && mat.rho > 0) {
-        const w_sw = +(mat.rho * sec.A);
+        const w_sw = selfWeightPerLength(mat, sec);
         for (const { d, w, w2 } of _toLocalLoad({ w: w_sw, dir: 'gravity' }, ex, ey, ez)) {
           const f = fixedEndForces(L, { dir: d, w, w2 });
           for (let i = 0; i < 12; i++) fef[i] += f[i];

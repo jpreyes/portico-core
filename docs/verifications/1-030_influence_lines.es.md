@@ -4,7 +4,7 @@
 
 **Capacidad verificada:** cargas móviles: barrido de posiciones, líneas de influencia y envolventes de esfuerzos/reacciones.
 **Referencia:** Líneas de influencia clásicas de la viga simplemente apoyada (Hibbeler, *Structural Analysis*); base de CSiBridge para tránsito.
-**Modelo Portico:** [`examples/verif_1-030_influence_lines.s3d`](../../examples/verif_1-030_influence_lines.s3d)
+**Modelo Pórtico:** [`examples/verif_1-030_influence_lines.s3d`](../../examples/verif_1-030_influence_lines.s3d)
 
 ## Descripción del problema
 
@@ -18,7 +18,7 @@ Viga simplemente apoyada de 24 m (6 elementos). Una **carga unitaria móvil** re
 | LI reacción izq. | R(x) = 1 − x/L |
 | LI momento centro | triángulo, pico L/4 = 6.0 en x = L/2 |
 
-## Modelo en Portico
+## Modelo en Pórtico
 
 - Modelo **2D**; la carga puntual móvil se reparte a los nodos del elemento que la contiene por **funciones de forma consistentes** (Hermite) → respuesta nodal exacta.
 - K se **factoriza una vez** (constante) y sólo se rearma el vector de carga por posición → barrido eficiente.
@@ -32,7 +32,7 @@ Viga simplemente apoyada de 24 m (6 elementos). Una **carga unitaria móvil** re
 
 Valores característicos de las líneas de influencia, comparados con la solución exacta de la viga simple.
 
-| Cantidad | Descripción | Independiente (—) | SAP2000 (—) | dif. SAP | **Portico (—)** | **dif. Portico** |
+| Cantidad | Descripción | Independiente (—) | SAP2000 (—) | dif. SAP | **Pórtico (—)** | **dif. Pórtico** |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | LI reacción izquierda con la carga sobre el apoyo (x=0) | 1.0000 | 1.0000 | 0 % | **1.0000** | **0 %** |
 | 2 | Pico de la LI de momento en el centro (= L/4) [kN·m·] | 6.0000 | 6.0000 | 0 % | **6.0000** | **0 %** |

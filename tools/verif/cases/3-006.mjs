@@ -54,11 +54,11 @@ async function tipDefl(NX, NY, drilling) {
 
 export default {
   id: '3-006',
-  slug: '3-006_allman_voladizo',
+  slug: '3-006_allman_cantilever',
   title: 'Triángulo de membrana Allman (GDL de giro)',
   capability: 'continuo plano con elemento de membrana TRIANGULAR con GDL de giro en el plano (Allman 1984) — supera el bloqueo por corte del CST',
   referenceText: 'D. J. Allman, *A compatible triangular element including vertex rotations for plane elasticity analysis*, Computers & Structures 19 (1984). Solución independiente: teoría de vigas de Euler-Bernoulli + corte de Timoshenko.',
-  s3d: 'examples/verif_3-006_allman_voladizo.s3d',
+  s3d: 'examples/verif_3-006_allman_cantilever.s3d',
   analysis: 'static',
   lcIds: [1],
 
