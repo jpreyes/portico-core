@@ -1,6 +1,6 @@
 # Continuous Integration for portico-core.
 # Runs on every push to main and on every Pull Request: checks the syntax of the
-# ES modules and runs the test battery (node test_*.mjs). There is NO build step —
+# ES modules and runs the test battery (node tests/test_*.mjs). There is NO build step —
 # it is vanilla JS without a bundler — so the CI only needs Node.
 name: CI
 
@@ -42,6 +42,6 @@ jobs:
         run: |
           fail=0
           run() { echo "▶ $1"; node "$1" || { echo "::error::FAILED $1"; fail=1; }; }
-          for f in test_*.mjs; do run "$f"; done
+          for f in tests/test_*.mjs; do run "$f"; done
           for f in assistant/test_*.mjs; do run "$f"; done
           exit $fail

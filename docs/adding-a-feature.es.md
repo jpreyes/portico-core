@@ -115,7 +115,7 @@ imprimió ayer". Los módulos que leen `window.numeric` se importan *dinámicame
 de que `lib/numeric.js` haya definido el global.
 
 No hay runner ni framework: cada archivo es su propio entry point y corre con
-`node test_mi_analisis.mjs`. Es deliberado — un estudiante puede leer un archivo y ver qué
+`node tests/test_mi_analisis.mjs`. Es deliberado — un estudiante puede leer un archivo y ver qué
 demuestra. CI los corre todos.
 
 > Los tests importan **sin** `?v=`. El query de cache-busting es para el navegador, y el
@@ -160,8 +160,8 @@ Los solves pesados van en un Web Worker (`js/solver/*_worker.js`) para no congel
 
 ```bash
 node --input-type=module --check < js/solver/mi_analisis.js
-node test_mi_analisis.mjs
-for t in test_*.mjs; do node "$t" || echo "FAIL $t"; done
+node tests/test_mi_analisis.mjs
+for t in tests/test_*.mjs; do node "$t" || echo "FAIL $t"; done
 ```
 
 Si tocaste el solver, corre además la suite de verificación — compara contra soluciones

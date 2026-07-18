@@ -52,6 +52,6 @@ top of each module.
 ## How to contribute
 
 - Issues and discussions in the repository.
-- Validate any solver change against an analytical case (`test_*.mjs` pattern in the root).
+- Validate any solver change against an analytical case (`test_*.mjs` pattern in `tests/`).
 - UI source strings in Spanish; **code comments and commit messages in English**; documentation in
   English (canonical) with Spanish `*.es.md`.

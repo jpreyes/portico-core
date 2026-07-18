@@ -92,7 +92,7 @@ misma directriz es un **arco** que trabaja a compresión pura.
    repite — la directriz se levanta y queda el **arco** equivalente, que bajo la
    carga original real trabajaría a **compresión** sin flexión.
 
-> Verificación numérica del acotamiento y la funicular: `node test_formfind.mjs`
+> Verificación numérica del acotamiento y la funicular: `node tests/test_formfind.mjs`
 > (pilares intactos, viga con sag simétrico, luces en planta preservadas).
 
 ## 6. Consejos y límites

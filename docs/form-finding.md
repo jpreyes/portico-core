@@ -88,7 +88,7 @@ an **arch** that works in pure compression.
    and the equivalent **arch** remains, which under the real original load would work in
    **compression** with no bending.
 
-> Numerical verification of the bounding and the funicular: `node test_formfind.mjs` (columns
+> Numerical verification of the bounding and the funicular: `node tests/test_formfind.mjs` (columns
 > intact, beam with symmetric sag, plan spans preserved).
 
 ## 6. Tips and limits

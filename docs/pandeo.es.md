@@ -65,7 +65,7 @@ Es rápido y escala a modelos grandes (reemplaza al `eig` denso O(n³)).
    `P_cr = π²·E·I / (K·L)²` (biarticulada → `K = 1`). La forma del modo 1 es la
    semionda senoidal clásica.
 
-> Verificación numérica: `node test_buckling.mjs` (columna biarticulada: λ₁ −0.28 %,
+> Verificación numérica: `node tests/test_buckling.mjs` (columna biarticulada: λ₁ −0.28 %,
 > λ₂ −1.1 % vs Euler; pares degenerados). Caso documentado equivalente a Euler.
 
 ## 5. Consejos y límites

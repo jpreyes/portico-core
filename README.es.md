@@ -63,8 +63,8 @@ Cada caso vive en [`docs/verifications/`](docs/verifications/) con su modelo y l
 referencia contra la que se compara. Corre la batería tú mismo:
 
 ```bash
-node test_plate.mjs        # un caso
-for f in test_*.mjs; do node "$f"; done   # todos
+node tests/test_plate.mjs        # un caso
+for f in tests/test_*.mjs; do node "$f"; done   # todos
 ```
 
 ---

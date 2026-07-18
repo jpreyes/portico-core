@@ -113,7 +113,7 @@ closed-form solution or against global equilibrium (ΣReactions = ΣLoads)** —
 *dynamically*, after `lib/numeric.js` has defined the global.
 
 There is no runner and no framework: every file is its own entry point and runs with
-`node test_my_analysis.mjs`. That is deliberate — a student can read one file and see
+`node tests/test_my_analysis.mjs`. That is deliberate — a student can read one file and see
 what it proves. CI runs them all.
 
 > Tests import **without** `?v=`. The cache-busting query is for the browser, and the
@@ -158,8 +158,8 @@ Heavy solves belong in a Web Worker (`js/solver/*_worker.js`) so the UI does not
 
 ```bash
 node --input-type=module --check < js/solver/my_analysis.js
-node test_my_analysis.mjs
-for t in test_*.mjs; do node "$t" || echo "FAIL $t"; done
+node tests/test_my_analysis.mjs
+for t in tests/test_*.mjs; do node "$t" || echo "FAIL $t"; done
 ```
 
 If you touched the solver, also run the verification suite — it compares against

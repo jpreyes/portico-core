@@ -51,7 +51,7 @@ Flujo recomendado:
 git checkout -b fix/descripcion-corta   # rama <tipo>/<descripción> (nunca en main)
 # … editar …
 node --input-type=module --check < js/ruta/archivo.js   # syntax-check ESM
-node test_<lo-que-tocaste>.mjs                            # verificación
+node tests/test_<lo-que-tocaste>.mjs                            # verificación
 git commit -m "Descripción clara en inglés"
 git push origin fix/descripcion-corta
 # → abrir el PR en GitHub
@@ -92,15 +92,15 @@ súbelo también en cada release.
 
 ## 4. Verificación (tests)
 
-No hay framework de testing ni runner. Cada `test_*.mjs` en la raíz es un script Node
+No hay framework de testing ni runner. Cada `tests/test_*.mjs` es un script Node
 autónomo que es su propio *entry point*. Validan contra solución analítica o equilibrio
 global.
 
 ```bash
-node test_plate.mjs        # placa (MITC4/DKT) vs solución analítica
-node test_shell.mjs        # cáscara
-node test_buckling.mjs     # pandeo lineal vs Euler
-node test_modal_kg.mjs     # modal con rigidez geométrica
+node tests/test_plate.mjs        # placa (MITC4/DKT) vs solución analítica
+node tests/test_shell.mjs        # cáscara
+node tests/test_buckling.mjs     # pandeo lineal vs Euler
+node tests/test_modal_kg.mjs     # modal con rigidez geométrica
 # … hay 40+ tests; córrelos todos antes de un cambio amplio del solver
 ```
 
