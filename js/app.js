@@ -24,11 +24,11 @@ import { ModalResults }                    from './solver/modal_results.js?v=2';
 import { parseAccelerogram, accStats, scaleToPGA, DEMO_PRESETS, G as GACC } from './solver/accelerograms.js?v=2';
 import { tendonEquivalentLoads, applyTendon, tendonEcc } from './solver/tendon.js?v=2';
 import { buildLane, influenceLine, responseReaction, responseSection, movingLoadEnvelope } from './solver/moving_load.js?v=2';
-import { newmarkNonlinear, shearBuilding, rayleighDamping } from './solver/nl_timehistory.js?v=2';
+import { buildShearStories, runShearHistory, shearFreqs } from './solver/shear_building.js?v=2';
 import { solvePlastic } from './solver/plastic.js?v=2';
 import { linearBuckling, pDelta } from './solver/geometric_analysis.js?v=2';
 import { buildNLTrussProblem, buildCorotProblem, remapCorotSteps, buildFormFindProblem, setupPushoverControl } from './solver/nl_frame.js?v=2';
-import { checkDrift, driftLimit } from './design/serviceability.js?v=2';
+import { driftLimit } from './design/serviceability.js?v=2';
 import { buildSpectrum } from './design/nch433_spectrum.js?v=2';
 import { selectProfile, steelCandidates, predimensionar, candidatesForFamily } from './design/autodesign.js?v=2';
 import { jointSCWB } from './design/seismic.js?v=2';
@@ -3866,7 +3866,7 @@ class App {
     }
     const dir0 = this._lastNLTH?.dir || 'X';
     let stories;
-    try { stories = this._nlthBuildStories(dir0); }
+    try { stories = buildShearStories(model, dir0); }   // js/solver/shear_building.js
     catch (e) { this.toast(`${i18n.t('No se pudo armar el edificio de shear:')} ${e.message}`, 'error'); return; }
     if (!stories.length) { this.toast('No se identificaron pisos (diafragmas).', 'warn'); return; }
 
@@ -3876,7 +3876,7 @@ class App {
     if (!ag || ag.length < 2) { this.toast('Acelerograma vacío o no reconocido.', 'warn'); return; }
     this._lastNLTH = { dir, zeta, alpha };
 
-    const m = st.map(s => s.m), k = st.map(s => s.k), Vy = st.map(s => s.Vy);
+    const m = st.map(s => s.m), k = st.map(s => s.k);
     if (m.some(v => !(v > 0)) || k.some(v => !(v > 0))) { this.toast('Cada piso necesita masa y rigidez > 0 (edite la tabla).', 'warn'); return; }
     const n = st.length;
 
@@ -3884,33 +3884,11 @@ class App {
     this._showProgress('Time-history no lineal…', 'Integración directa Newmark-β + Newton (rótulas elastoplásticas)');
     await new Promise(r => setTimeout(r, 20));
     try {
-      const ws = this._shearFreqs(m, k);                 // frequencies of the shear building
-      const w1 = ws[0], wN = ws[n - 1] || ws[0];
-      const sb = shearBuilding({ m, k, Fy: Vy, alpha: m.map(() => alpha) });
-      const { C } = rayleighDamping(sb.M, sb.resist.K0(), n, zeta, w1, wN);
-      const res = newmarkNonlinear({ M: sb.M, resist: sb.resist, C, ag, dt, store: 'full', monitorDof: n - 1 });
-
-      // Per-story derived: yield drift dy=Vy/k, peak drift, yielded flag.
-      const dy = st.map((s, i) => s.Vy / s.k);
-      const driftPeak = new Array(n).fill(0);
-      for (const u of res.U) for (let i = 0; i < n; i++) { const d = Math.abs(u[i] - (i > 0 ? u[i - 1] : 0)); if (d > driftPeak[i]) driftPeak[i] = d; }
-      const yielded = st.map((s, i) => driftPeak[i] > dy[i] * 1.0001);
-      // Interstory drift Δ/h vs code limit (NCh433 by default, #68).
-      const driftCode = this._lastNLTH?.driftCode || 'NCh433';
-      let worstDrift = { ratio: 0, story: 0, dr: 0 };
-      for (let i = 0; i < n; i++) {
-        const h = st[i].z - (i > 0 ? st[i - 1].z : 0);
-        const c = checkDrift({ drift: driftPeak[i], h, code: driftCode });
-        if (c.ratio > worstDrift.ratio) worstDrift = { ratio: c.ratio, story: i, dr: c.demand, limit: c.limit };
-      }
-      const stats = accStats(ag, dt);
-      const T1 = 2 * Math.PI / w1;
-
-      this._nlthResult = { stories: st, dir, zeta, alpha, ag, dt, agName, nSteps: res.U.length, U: res.U,
-        monDof: n - 1, peak: res.peak, peakStep: res.peakStep, dy, driftPeak, yielded, stats, T1, w1, springs: sb.springs,
-        driftCode, worstDrift };
-      const nY = yielded.filter(Boolean).length;
-      this.toast(`Time-history NL OK · ${n} ${i18n.t('pisos')} · ${dir} · T₁=${T1.toFixed(3)}s · ${i18n.t('u_techo máx')} ${res.peak.toExponential(2)} m · ${nY} ${i18n.t('piso(s) en fluencia')}`, 'ok');
+      // Newmark-β + drift/yield post-processing (js/solver/shear_building.js).
+      const result = runShearHistory({ stories: st, dir, zeta, alpha, ag, dt, agName, driftCode: this._lastNLTH?.driftCode || 'NCh433' });
+      this._nlthResult = result;
+      const nY = result.yielded.filter(Boolean).length;
+      this.toast(`Time-history NL OK · ${n} ${i18n.t('pisos')} · ${dir} · T₁=${result.T1.toFixed(3)}s · ${i18n.t('u_techo máx')} ${result.peak.toExponential(2)} m · ${nY} ${i18n.t('piso(s) en fluencia')}`, 'ok');
       this._nlthOpenOverlay();
       this._updateResultsIndicator?.();
     } catch (err) {
@@ -3919,59 +3897,6 @@ class App {
       if (btn) btn.classList.remove('running');
       this._hideProgress();
     }
-  }
-
-  // Natural frequencies of the shear building (tridiagonal K, diagonal M) via the
-  // symmetric eigenproblem A = D^{-1/2}·K·D^{-1/2}. Returns ascending ω.
-  _shearFreqs(m, k) {
-    const n = m.length;
-    const num = window.numeric;
-    const K = Array.from({ length: n }, () => new Array(n).fill(0));
-    for (let i = 0; i < n; i++) { K[i][i] += k[i]; if (i > 0) { K[i - 1][i - 1] += k[i]; K[i][i - 1] -= k[i]; K[i - 1][i] -= k[i]; } }
-    const A = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => K[i][j] / Math.sqrt(m[i] * m[j])));
-    let ev;
-    try { ev = num.eig(A).lambda.x.slice(); } catch (e) { ev = [Math.min(...k) / Math.max(...m)]; }
-    return ev.map(l => Math.sqrt(Math.max(l, 1e-12))).sort((a, b) => a - b);
-  }
-
-  // Reduces the model to a shear building: stories = diaphragms by z, diaphragm mass,
-  // interstory stiffness from a static lateral analysis ∝ mass.
-  _nlthBuildStories(dir) {
-    const model = this.model;
-    const dias = [...model.diaphragms.values()].filter(d => (d.nodes || []).length).sort((a, b) => a.z - b.z);
-    if (!dias.length) return [];
-    const ci = dir === 'Y' ? 1 : 0;
-    const g = GACC || 9.80665;
-    // Mass per story (from the diaphragm).
-    const masses = dias.map(d => +d.mass?.m || 0);
-    // Lateral load ∝ mass, distributed over the diaphragm's nodes.
-    const lc = { id: -9, name: '_nlth', selfWeight: false, type: 'static', specDir: null, loads: [] };
-    dias.forEach((d, i) => {
-      const p = masses[i] || 1; const per = p / d.nodes.length;
-      for (const nid of d.nodes) { const F = [0, 0, 0, 0, 0, 0]; F[ci] = per; lc.loads.push({ type: 'nodal', nodeId: nid, F }); }
-    });
-    const view = { nodes: model.nodes, elements: model.elements, areas: model.areas, diaphragms: model.diaphragms,
-      materials: model.materials, sections: model.sections, links: model.links,
-      loadCases: new Map([[-9, lc]]), combinations: new Map(), mode: model.mode, units: model.units };
-    let R; try { R = new StaticSolver().solve(view, -9, false); } catch (e) { R = null; }
-    // Lateral displacement of each story = average of its nodes in the direction.
-    const uFloor = dias.map(d => {
-      if (!R) return 0; let s = 0, c = 0;
-      for (const nid of d.nodes) { const u = R.getNodeDisp(nid); if (u) { s += u[ci]; c++; } }
-      return c ? s / c : 0;
-    });
-    // Story shear (accumulated from the top) and interstory stiffness k=V/Δ.
-    const stories = [];
-    for (let i = 0; i < dias.length; i++) {
-      let V = 0; for (let j = i; j < dias.length; j++) V += (masses[j] || 1);   // ∝ mass
-      const uPrev = i > 0 ? uFloor[i - 1] : 0;
-      const drift = uFloor[i] - uPrev;
-      const k = (drift > 1e-12) ? V / drift : 0;
-      const massAbove = masses.slice(i).reduce((a, b) => a + b, 0);
-      const Vy = 0.15 * g * massAbove;                  // seed: Cy=0.15 · accumulated weight
-      stories.push({ z: dias[i].z, m: masses[i], k, Vy, label: `Piso ${i + 1} (z=${dias[i].z.toFixed(2)})`, nodes: dias[i].nodes });
-    }
-    return stories;
   }
 
   _nlthDefaults(stories, dir) {
@@ -3984,7 +3909,7 @@ class App {
     const overlay = document.getElementById('modal-overlay');
     document.getElementById('modal-title').textContent = i18n.t('Time-history NO LINEAL — edificio de corte (rótulas)');
     const d = this._lastNLTH || {};
-    const ws = this._shearFreqs(stories.map(s => s.m || 1), stories.map(s => s.k || 1));
+    const ws = shearFreqs(stories.map(s => s.m || 1), stories.map(s => s.k || 1));
     const T1 = stories.every(s => s.k > 0 && s.m > 0) ? (2 * Math.PI / ws[0]).toFixed(3) : '—';
     const rowsHTML = (sts) => sts.map((s, i) => `
       <tr>
@@ -4043,7 +3968,7 @@ class App {
       Vy: +document.querySelector(`[data-st="${i}"][data-f="Vy"]`).value || 0 }));
     const refreshT1 = () => {
       const st = readTable();
-      if (st.every(s => s.k > 0 && s.m > 0)) document.getElementById('nlth-t1').textContent = (2 * Math.PI / this._shearFreqs(st.map(s => s.m), st.map(s => s.k))[0]).toFixed(3);
+      if (st.every(s => s.k > 0 && s.m > 0)) document.getElementById('nlth-t1').textContent = (2 * Math.PI / shearFreqs(st.map(s => s.m), st.map(s => s.k))[0]).toFixed(3);
     };
     document.getElementById('nlth-rows').addEventListener('change', refreshT1);
     document.getElementById('nlth-reseed').addEventListener('click', () => {
