@@ -1,11 +1,12 @@
 # Verification Manual
 
+### portico-core — validation of the structural analysis engine
+
+**portico-core · v0.2.0 · 2026-07-18**
+
 **English** · [Español](verification-manual.es.md)
 
-*portico-core — validation of the structural analysis engine*  
-portico-core · v0.2.0
-
----
+<!-- pagebreak -->
 
 This manual collects the **verification cases** that check the **portico-core** analysis
 engine against **analytical** solutions, **published references**, and two established engines:
@@ -46,29 +47,29 @@ OpenSees" is the maximum relative difference against the independent OpenSees ru
 
 | Case | Title | Reference | vs SAP | vs Anal. | vs OpenSees | Verdict |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1-005 | Asentamiento de apoyo (desplazamiento prescrito) | CSI Software Verification — SAP2000, Example 1-005 ( | 0.01 % | 0.01 % | 4.2e-9 | ✓ verified |
-| 1-009 | Pretensado por tendón parabólico — balanceo de carga | Método de las cargas equivalentes / balanceo de carg | 0.01 % | 0.01 % | — | ✓ verified |
-| 1-010 | Link rígido (offset) — tablero excéntrico sobre pila | Modelado de end offsets / insertion points (CSI Soft | 0 % | 0 % | 1.5e-8 | ✓ verified |
-| 1-012 | Reticulado arriostrado — límites de tracción / compresión | CSI Software Verification — SAP2000, Example 1-012 | 0.16 % | 0.16 % | — | ✓ verified |
-| 1-014 | Análisis modal de viga en voladizo | CSI Software Verification — SAP2000, Example 1-014 | 0.02 % | 0.02 % | 4.0e-9 | ✓ verified |
-| 1-017 | Vibración de una cuerda bajo tensión (modal con rigidez geométrica) | CSI Software Verification — SAP2000, Example 1-017 | 0.79 % | 0.02 % | — | ✓ verified |
-| 1-018 | Estático — flexión, corte y axial en un pórtico | CSI Software Verification — SAP2000, Example 1-018 | 0 % | 0 % | 1.3e-14 | ✓ verified |
-| 1-021 | Análisis modal — pórtico Bathe-Wilson (10 vanos × 9 pisos) | CSI Software Verification — SAP2000, Example 1-021 | 1.23 % | 1.23 % | 4.2e-9 | ✓ verified |
-| 1-030 | Líneas de influencia y carga móvil — viga simple | Líneas de influencia clásicas de la viga simplemente | 0 % | 0 % | — | ✓ verified |
-| 1-031 | Etapas constructivas — voladizo apuntalado por fases | Solución analítica de viga (voladizo y viga apuntala | 0 % | 0 % | — | ✓ verified |
-| 2-014 | Gradiente térmico a través del espesor (placa anular) | CSI Software Verification — SAP2000, Example 2-014 ( | 2.64 % | 2.92 % | — | ✓ verified |
-| 3-001 | Patch test de membrana — malla transfinita distorsionada | Patch test de elementos finitos (Irons & Razzaque | 0 % | 0 % | — | ✓ verified |
-| 3-002 | Viga recta con elementos plane-stress (membrana) | CSI Software Verification — SAP2000, Example 3-002 ( | 0.12 % | 90.67 % | — | ✓ verified |
-| 3-004 | Cilindro de pared gruesa — deformación plana (plane-strain) | CSI Software Verification — SAP2000, Example 3-004 ( | 0.03 % | 0.91 % | — | ✓ verified |
-| 3-005 | Malla libre de una planta en L — patch test de membrana | Patch test de elementos finitos (Irons & Razzaque | 0 % | 0 % | — | ✓ verified |
-| 3-006 | Triángulo de membrana Allman (GDL de giro) | D. J. Allman, A compatible triangular element includ | 73.73 % | 73.73 % | — | △ study |
-| 4-001 | Diseño de acero AISC 360-16 (LRFD) — resistencias φRn | ANSI/AISC 360-16, Specification for Structural Steel | 4.19 % | 4.19 % | — | ✓ verified |
+| 1-005 | Support settlement (prescribed displacement) | CSI Software Verification — SAP2000, Example 1-005 ( | 0.01 % | 0.01 % | 4.2e-9 | ✓ verified |
+| 1-009 | Prestressing by a parabolic tendon — load balancing | Método de las cargas equivalentes / balanceo de carg | 0.01 % | 0.01 % | — | ✓ verified |
+| 1-010 | Rigid link (offset) — eccentric deck over a pier | Modelado de end offsets / insertion points (CSI Soft | 0 % | 0 % | 1.5e-8 | ✓ verified |
+| 1-012 | Braced frame — tension / compression limits | CSI Software Verification — SAP2000, Example 1-012 | 0.16 % | 0.16 % | — | ✓ verified |
+| 1-014 | Modal analysis of a cantilever beam | CSI Software Verification — SAP2000, Example 1-014 | 0.02 % | 0.02 % | 4.0e-9 | ✓ verified |
+| 1-017 | Vibration of a string under tension (modal with geometric stiffness) | CSI Software Verification — SAP2000, Example 1-017 | 0.79 % | 0.02 % | — | ✓ verified |
+| 1-018 | Static — bending, shear and axial in a frame | CSI Software Verification — SAP2000, Example 1-018 | 0 % | 0 % | 1.3e-14 | ✓ verified |
+| 1-021 | Modal analysis — Bathe-Wilson frame (10 bays × 9 stories) | CSI Software Verification — SAP2000, Example 1-021 | 1.23 % | 1.23 % | 4.2e-9 | ✓ verified |
+| 1-030 | Influence lines and moving load — simple beam | Líneas de influencia clásicas de la viga simplemente | 0 % | 0 % | — | ✓ verified |
+| 1-031 | Construction stages — propped cantilever by phases | Solución analítica de viga (voladizo y viga apuntala | 0 % | 0 % | — | ✓ verified |
+| 2-014 | Thermal gradient through the thickness (annular plate) | CSI Software Verification — SAP2000, Example 2-014 ( | 2.64 % | 2.92 % | — | ✓ verified |
+| 3-001 | Membrane patch test — distorted transfinite mesh | Patch test de elementos finitos (Irons & Razzaque | 0 % | 0 % | — | ✓ verified |
+| 3-002 | Straight beam with plane-stress elements (membrane) | CSI Software Verification — SAP2000, Example 3-002 ( | 0.12 % | 90.67 % | — | ✓ verified |
+| 3-004 | Thick-walled cylinder — plane strain | CSI Software Verification — SAP2000, Example 3-004 ( | 0.03 % | 0.91 % | — | ✓ verified |
+| 3-005 | Free mesh of an L-shaped floor — membrane patch test | Patch test de elementos finitos (Irons & Razzaque | 0 % | 0 % | — | ✓ verified |
+| 3-006 | Allman membrane triangle (drilling DOF) | D. J. Allman, A compatible triangular element includ | 73.73 % | 73.73 % | — | △ study |
+| 4-001 | Steel design AISC 360-16 (LRFD) — design strengths φRn | ANSI/AISC 360-16, Specification for Structural Steel | 4.19 % | 4.19 % | — | ✓ verified |
 
 ## Verification cases
 
 ### Frames, portals and dynamics
 
-#### 1-005 — Asentamiento de apoyo (desplazamiento prescrito)
+#### 1-005 — Support settlement (prescribed displacement)
 
 **English** · [Español](1-005_support_settlement.es.md)
 
@@ -122,7 +123,7 @@ are validated against the CSI manual. **Support-settlement capability verified.*
 
 ---
 
-#### 1-009 — Pretensado por tendón parabólico — balanceo de carga
+#### 1-009 — Prestressing by a parabolic tendon — load balancing
 
 **English** · [Español](1-009_tendon_prestress.es.md)
 
@@ -186,7 +187,7 @@ prestressing capability (#60) verified.**
 
 ---
 
-#### 1-010 — Link rígido (offset) — tablero excéntrico sobre pila
+#### 1-010 — Rigid link (offset) — eccentric deck over a pier
 
 **English** · [Español](1-010_link_offset.es.md)
 
@@ -252,7 +253,7 @@ realistic modeling of bridge decks over girders and piers.
 
 ---
 
-#### 1-012 — Reticulado arriostrado — límites de tracción / compresión
+#### 1-012 — Braced frame — tension / compression limits
 
 **English** · [Español](1-012_no_tension_no_compression.es.md)
 
@@ -324,7 +325,7 @@ tension-only member capability verified.**
 
 ---
 
-#### 1-014 — Análisis modal de viga en voladizo
+#### 1-014 — Modal analysis of a cantilever beam
 
 **English** · [Español](1-014_modal_cantilever.es.md)
 
@@ -398,7 +399,7 @@ elements comes from combining **consistent mass** and the **Euler-Bernoulli** el
 
 ---
 
-#### 1-017 — Vibración de una cuerda bajo tensión (modal con rigidez geométrica)
+#### 1-017 — Vibration of a string under tension (modal with geometric stiffness)
 
 **English** · [Español](1-017_taut_string.es.md)
 
@@ -469,7 +470,7 @@ entirely from the reference-state tension— is validated against vibrating-stri
 
 ---
 
-#### 1-018 — Estático — flexión, corte y axial en un pórtico
+#### 1-018 — Static — bending, shear and axial in a frame
 
 **English** · [Español](1-018_static_portal.es.md)
 
@@ -536,7 +537,7 @@ shear deformation) and the handling of pinned/sliding supports. **Static capabil
 
 ---
 
-#### 1-021 — Análisis modal — pórtico Bathe-Wilson (10 vanos × 9 pisos)
+#### 1-021 — Modal analysis — Bathe-Wilson frame (10 bays × 9 stories)
 
 **English** · [Español](1-021_modal_bathe_wilson.es.md)
 
@@ -592,7 +593,7 @@ for frames verified.**
 
 ---
 
-#### 1-030 — Líneas de influencia y carga móvil — viga simple
+#### 1-030 — Influence lines and moving load — simple beam
 
 **English** · [Español](1-030_influence_lines.es.md)
 
@@ -657,7 +658,7 @@ influence-lines capability (#61) verified.**
 
 ---
 
-#### 1-031 — Etapas constructivas — voladizo apuntalado por fases
+#### 1-031 — Construction stages — propped cantilever by phases
 
 **English** · [Español](1-031_construction_stages.es.md)
 
@@ -730,7 +731,7 @@ accumulation** work as in SAP2000/CSiBridge. **Construction-stages capability (#
 
 ### Plates and slab bending
 
-#### 2-014 — Gradiente térmico a través del espesor (placa anular)
+#### 2-014 — Thermal gradient through the thickness (annular plate)
 
 **English** · [Español](2-014_thermal_gradient_plate.es.md)
 
@@ -804,7 +805,7 @@ and the plate curves toward it). **Thermal-gradient capability in areas verified
 
 ### Membrane, plane stress/strain and meshing
 
-#### 3-001 — Patch test de membrana — malla transfinita distorsionada
+#### 3-001 — Membrane patch test — distorted transfinite mesh
 
 **English** · [Español](3-001_patch_test_mesh.es.md)
 
@@ -873,7 +874,7 @@ are conforming and correctly mapped on non-rectangular geometry. **Transfinite a
 
 ---
 
-#### 3-002 — Viga recta con elementos plane-stress (membrana)
+#### 3-002 — Straight beam with plane-stress elements (membrane)
 
 **English** · [Español](3-002_plane_stress_beam.es.md)
 
@@ -948,7 +949,7 @@ as the CSI manual itself documents. **Plane-stress membrane capability verified.
 
 ---
 
-#### 3-004 — Cilindro de pared gruesa — deformación plana (plane-strain)
+#### 3-004 — Thick-walled cylinder — plane strain
 
 **English** · [Español](3-004_plane_strain_cylinder.es.md)
 
@@ -1014,7 +1015,7 @@ solution. **Plane-strain capability verified.**
 
 ---
 
-#### 3-005 — Malla libre de una planta en L — patch test de membrana
+#### 3-005 — Free mesh of an L-shaped floor — membrane patch test
 
 **English** · [Español](3-005_free_mesh_L.es.md)
 
@@ -1082,7 +1083,7 @@ geometries.
 
 ---
 
-#### 3-006 — Triángulo de membrana Allman (GDL de giro)
+#### 3-006 — Allman membrane triangle (drilling DOF)
 
 **English** · [Español](3-006_allman_cantilever.es.md)
 
@@ -1158,7 +1159,7 @@ exactly the 3 rigid-body modes. **Triangular membrane with drilling capability v
 
 ### Section design (multi-code)
 
-#### 4-001 — Diseño de acero AISC 360-16 (LRFD) — resistencias φRn
+#### 4-001 — Steel design AISC 360-16 (LRFD) — design strengths φRn
 
 **English** · [Español](4-001_steel_design.es.md)
 

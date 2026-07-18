@@ -57,6 +57,7 @@ const isTableRow = l => /^\s*\|.*\|\s*$/.test(l);
 while (i < lines.length) {
   const l = lines[i];
   if (/^\s*$/.test(l)) { i++; continue; }
+  if (/^\s*<!--\s*pagebreak\s*-->\s*$/.test(l)) { html += '<div class="pagebreak"></div>\n'; i++; continue; }
   if (/^#{1,6}\s/.test(l)) { const lvl = l.match(/^#+/)[0].length; html += `<h${lvl}>${inline(l.replace(/^#+\s/, ''))}</h${lvl}>\n`; i++; continue; }
   if (/^\s*---+\s*$/.test(l)) { html += '<hr>\n'; i++; continue; }
   if (/^\s*>\s?/.test(l)) { html += `<blockquote>${inline(l.replace(/^\s*>\s?/, ''))}</blockquote>\n`; i++; continue; }
@@ -106,6 +107,7 @@ img { max-width: 100%; display: block; margin: 10px auto; border: 1px solid #e2e
 blockquote { border-left: 3px solid #94a3b8; margin: 8px 0; padding: 2px 12px; color: #475569; background: #f8fafc; font-size: 10pt; }
 code { background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-family: Consolas, monospace; font-size: 9.5pt; }
 hr { border: none; border-top: 1px solid #e2e8f0; margin: 14px 0; }
+.pagebreak { page-break-after: always; }
 a { color: #2563eb; text-decoration: none; }
 strong { color: #0f172a; }
 .membrete { display: flex; align-items: center; justify-content: center; gap: 22px; padding-bottom: 8px; border-bottom: 2px solid #1e3a8a; margin-bottom: 4px; }

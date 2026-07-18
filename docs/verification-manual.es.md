@@ -1,11 +1,12 @@
 # Manual de Verificación
 
+### portico-core — validación del motor de análisis estructural
+
+**portico-core · v0.2.0 · 2026-07-18**
+
 [English](verification-manual.md) · **Español**
 
-*portico-core — validación del motor de análisis estructural*  
-portico-core · v0.2.0
-
----
+<!-- pagebreak -->
 
 Este manual reúne los **casos de verificación** con los que se contrasta el motor de
 análisis de **portico-core** contra soluciones **analíticas**, **referencias publicadas** y dos

@@ -38,6 +38,10 @@ function buildFigure(model, out, caseDef) {
     const r = n.restraints; if (r && ((r.ux ? 1 : 0) + (r.uy ? 1 : 0) + (r.uz ? 1 : 0)) >= 2) supports.add(n.id);
   }
   for (const e of model.elements.values()) elements.push({ n1: e.n1, n2: e.n2 });
+  // Áreas (shell / membrane / placa): polígonos de nodos → renderModelSVG los dibuja
+  // como caras rellenas. Sin esto, los casos 2D sólo mostraban los nodos exteriores.
+  const areas = [...(model.areas?.values?.() || [])]
+    .map(a => a.nodes || a.n || a.nodeIds || []).filter(ns => ns.length >= 3);
   // diagonal del bbox para escalar la amplitud
   let mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
   for (const c of nodes.values()) for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], c[k]); mx[k] = Math.max(mx[k], c[k]); }
@@ -60,7 +64,7 @@ function buildFigure(model, out, caseDef) {
   }
   // optimización: la forma modal sólo se calcula una vez por nodo arriba; recalcular
   // getModeShape en el bucle es O(n²) pero los modelos de verificación son chicos.
-  return renderModelSVG({ nodes, elements, supports, deformed, width: 900 });
+  return renderModelSVG({ nodes, elements, areas, supports, deformed, width: 900 });
 }
 
 // Committed OpenSees run for a case, if one exists. Produced by

@@ -149,6 +149,17 @@ const pctTxt = v => v == null ? '—' : (v < 0.005 ? '0 %' : `${v.toFixed(2)} %`
 const osTxt = v => v == null ? '—' : v.toExponential(1);
 // Verdict: primary reference = SAP2000 (same element) where present, else analytical.
 const verdictVal = c => c.maxVsSap != null ? c.maxVsSap : c.maxDiff;
+const DATE = new Date().toISOString().slice(0, 10);
+
+// The case title in the requested language, read from that file's H1 (the per-case
+// prose is Spanish-canonical; the `.md` H1 carries the English title). The index's
+// `title` is Spanish, so the English manual must not use it.
+function caseTitle(slug, ext, fallback) {
+  const p = path.join(ROOT, VDIR, `${slug}.${ext}`);
+  if (!fs.existsSync(p)) return fallback;
+  const m = fs.readFileSync(p, 'utf8').match(/^#\s+(?:Verificaci[oó]n|Verification)\s+\S+\s+[—-]\s+(.+?)\s*$/m);
+  return m ? m[1].trim() : fallback;
+}
 
 // Embed a per-case markdown: strip its H1 + language switcher, demote headings by +2,
 // and fix the relative paths (case docs live one level deeper than the manual).
@@ -171,10 +182,12 @@ function embedCase(slug, ext) {
 function buildManual(lang) {
   const t = L[lang];
   const parts = [];
+  // ── Portada (logo vía --logos/membrete en el PDF) ──────────────────────────
   parts.push(`# ${t.title}\n`);
+  parts.push(`### ${t.subtitle}\n`);
+  parts.push(`**portico-core · v0.2.0 · ${DATE}**\n`);
   parts.push(lang === 'es' ? `[English](verification-manual.md) · **Español**\n` : `**English** · [Español](verification-manual.es.md)\n`);
-  parts.push(`*${t.subtitle}*  \nportico-core · v0.2.0\n`);
-  parts.push('---\n');
+  parts.push('<!-- pagebreak -->\n');
   parts.push(t.intro + '\n');
   parts.push(t.method + '\n');
 
@@ -186,7 +199,8 @@ function buildManual(lang) {
     const v = verdictVal(c);
     const verdict = v <= 5 ? t.verifOk : t.study;
     const refShort = (c.referenceText || '').replace(/\*/g, '').split(';')[0].replace(/\.\s*$/, '').slice(0, 52);
-    return [c.id, c.title.replace(/\|/g, '\\|'), refShort, pctTxt(c.maxVsSap), pctTxt(c.maxDiff), osTxt(c.osDiff), verdict];
+    const title = caseTitle(c.slug, t.ext, c.title).replace(/\|/g, '\\|');
+    return [c.id, title, refShort, pctTxt(c.maxVsSap), pctTxt(c.maxDiff), osTxt(c.osDiff), verdict];
   });
   parts.push(`| ${head.join(' | ')} |\n| ${head.map(() => '---').join(' | ')} |\n`
     + rows.map(r => `| ${r.join(' | ')} |`).join('\n') + '\n');
@@ -199,7 +213,7 @@ function buildManual(lang) {
     parts.push(`### ${t.catN[k] || k}\n`);
     for (const c of byCat[k]) {
       const body = embedCase(c.slug, t.ext);
-      parts.push(`#### ${c.id} — ${c.title}\n`);
+      parts.push(`#### ${c.id} — ${caseTitle(c.slug, t.ext, c.title)}\n`);
       parts.push(body ? body + '\n' : `_(caso ${c.slug} sin documento ${t.ext})_\n`);
       parts.push('---\n');
     }
@@ -219,7 +233,7 @@ const enPath = buildManual('en');
 
 if (!NOPDF) {
   for (const p of [esPath, enPath]) {
-    try { execFileSync('node', ['tools/md2pdf.mjs', path.relative(ROOT, p), '--membrete', 'PÓRTICO — Manual de Verificación'], { cwd: ROOT, stdio: 'ignore' });
+    try { execFileSync('node', ['tools/md2pdf.mjs', path.relative(ROOT, p), '--logos', 'icons/icon.svg', '--membrete', 'PÓRTICO — Análisis estructural 3D'], { cwd: ROOT, stdio: 'ignore' });
       console.log(`✓ ${path.relative(ROOT, p).replace(/\.md$/, '.pdf')}`);
     } catch (e) { console.error(`✗ PDF ${p}: ${e.message}`); }
   }
