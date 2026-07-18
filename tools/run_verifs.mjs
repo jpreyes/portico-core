@@ -176,16 +176,26 @@ ${mod.conclusion}
   execFileSync('node', ['tools/md2pdf.mjs', path.relative(ROOT, mdPath), '--logos', LOGOS], { cwd: ROOT, stdio: 'ignore' });
 
   // resumen a consola
-  const maxDiff = Math.max(...mod.compare.rows.map((r, i) => Math.abs(r.indep) < 1e-9 ? 0 : Math.abs((pv[i] - r.indep) / r.indep * 100)));
+  const relPct = (v, ref) => Math.abs(ref) < 1e-9 ? 0 : Math.abs((v - ref) / ref * 100);
+  const maxDiff = Math.max(...mod.compare.rows.map((r, i) => relPct(pv[i], r.indep)));
+  // Same-element / same-software reference: portico vs SAP2000 (apples-to-apples). For
+  // element-behaviour or convergence studies this is the honest verdict — the analytical
+  // column is the ideal a basic element intentionally does not reach.
+  const sapRows = mod.compare.rows.filter(r => r.sap != null);
+  const maxVsSap = sapRows.length ? Math.max(...mod.compare.rows.map((r, i) => r.sap != null ? relPct(pv[i], r.sap) : 0)) : null;
   const osDiff = ov ? Math.max(...ov.map((o, i) => Math.abs(o) < 1e-12 ? Math.abs(pv[i] - o) : Math.abs((pv[i] - o) / o))) : null;
   console.log(`✓ ${mod.id}  ${mod.slug}  ·  máx |dif| = ${maxDiff.toFixed(3)} %` +
     (osDiff !== null ? `  ·  vs OpenSees = ${osDiff.toExponential(1)}` : '') +
     `  ·  ${mod.slug}.pdf`);
-  return { id: mod.id, maxDiff, osDiff };
+  return { id: mod.id, slug: mod.slug, title: mod.title, capability: mod.capability,
+    referenceText: mod.referenceText, unit: mod.compare?.unit || '', maxDiff, maxVsSap, osDiff };
 }
 
 const files = fs.readdirSync(path.join(ROOT, 'tools/verif/cases')).filter(f => f.endsWith('.mjs') && (!pat || f.includes(pat))).sort();
 if (!files.length) { console.error('Sin casos en tools/verif/cases/ que matcheen', pat); process.exit(1); }
 console.log(`Corriendo ${files.length} caso(s)…`);
-for (const f of files) { try { await runCase(f); } catch (e) { console.error(`✗ ${f}: ${e.message}`); } }
-console.log('Listo.');
+const index = [];
+for (const f of files) { try { index.push(await runCase(f)); } catch (e) { console.error(`✗ ${f}: ${e.message}`); } }
+// Persist a results index for the master Verification Manual generator (living doc).
+fs.writeFileSync(path.join(ROOT, 'docs/verifications/_index.json'), JSON.stringify(index, null, 2), 'utf8');
+console.log(`Listo. Índice → docs/verifications/_index.json (${index.length} casos).`);
