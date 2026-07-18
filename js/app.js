@@ -15,7 +15,7 @@ import { areaStress, areaBendingStress, vonMises, areaLocalFrame } from './solve
 import { ModalSolver, guyanReduce }        from './solver/modal_solver.js?v=2';
 import { buildNodeIndex, assembleK, assembleF, getNodeDOFs, selfWeightPerLength } from './solver/assembler.js?v=2';
 import { assembleSparseGlobal, extractFreeCSR } from './solver/sparse.js?v=2';
-import { corotBeamForceTangent, solveCorotBeam } from './solver/corotbeam.js?v=2';
+import { solveCorotBeam } from './solver/corotbeam.js?v=2';
 import { insertInfill } from './model/macromodel.js?v=2';
 import { listMacros, getMacro, insertMacro } from './model/macro_registry.js?v=2';
 import { assembleKg } from './solver/geometric.js?v=2';
@@ -27,6 +27,7 @@ import { buildLane, influenceLine, responseReaction, responseSection, movingLoad
 import { newmarkNonlinear, shearBuilding, rayleighDamping } from './solver/nl_timehistory.js?v=2';
 import { solvePlastic } from './solver/plastic.js?v=2';
 import { linearBuckling, pDelta } from './solver/geometric_analysis.js?v=2';
+import { buildNLTrussProblem, buildCorotProblem, remapCorotSteps } from './solver/nl_frame.js?v=2';
 import { checkDrift, driftLimit } from './design/serviceability.js?v=2';
 import { buildSpectrum } from './design/nch433_spectrum.js?v=2';
 import { selectProfile, steelCandidates, predimensionar, candidatesForFamily } from './design/autodesign.js?v=2';
@@ -4589,70 +4590,16 @@ class App {
       this.toast('Modelo vacío: agregue nodos y elementos', 'warn'); return;
     }
 
-    // Node index (0-based) and reference coordinates
-    const nodeIds = [...this.model.nodes.keys()];
-    const idxOf = new Map(nodeIds.map((id, i) => [id, i]));
-    const nNode = nodeIds.length;
-    const X = new Float64Array(3 * nNode);
-    nodeIds.forEach((id, i) => { const n = this.model.nodes.get(id); X[3*i] = n.x; X[3*i+1] = n.y; X[3*i+2] = n.z; });
-
-    // Member/cable elements
-    const elems = [], elemIds = [];
-    for (const el of this.model.elements.values()) {
-      const n1 = this.model.nodes.get(el.n1), n2 = this.model.nodes.get(el.n2);
-      const mat = this.model.materials.get(el.matId), sec = this.model.sections.get(el.secId);
-      if (!n1 || !n2 || !mat || !sec) continue;
-      const L = Math.hypot(n2.x-n1.x, n2.y-n1.y, n2.z-n1.z);
-      if (L < 1e-12) continue;
-      const L0 = (el.L0factor || 1) * L;
-      elems.push({ n1: idxOf.get(el.n1), n2: idxOf.get(el.n2), EA: mat.E * sec.A, L0, cable: !!el.cable, compressionOnly: !!el.compressionOnly });
-      elemIds.push(el.id);
+    // Model → reduced truss/cable problem (js/solver/nl_frame.js).
+    const prob = buildNLTrussProblem(this.model);
+    if (!prob.ok) {
+      this.toast({
+        'no-elements': 'No hay elementos válidos para el análisis no lineal',
+        'no-free-dof': 'Todos los nodos están restringidos (sin GDL libres)',
+      }[prob.reason] || `No se pudo armar el problema no lineal (${prob.reason})`, 'warn');
+      return;
     }
-    if (!elems.length) { this.toast('No hay elementos válidos para el análisis no lineal', 'warn'); return; }
-
-    // Free DOFs (translations only; in 2D, uy fixed)
-    const is2D = this.model.mode === '2D';
-    const free = [];
-    nodeIds.forEach((id, i) => {
-      const r = this.model.nodes.get(id).restraints;
-      const fix = [r.ux, is2D ? 1 : r.uy, r.uz];
-      for (let c = 0; c < 3; c++) if (!fix[c]) free.push(3*i + c);
-    });
-    if (!free.length) { this.toast('Todos los nodos están restringidos (sin GDL libres)', 'warn'); return; }
-
-    // Reference load: combines all static cases at factor 1
-    const Fref = new Float64Array(3 * nNode);
-    const addNode = (id, fx, fy, fz) => { const i = idxOf.get(id); if (i==null) return; Fref[3*i]+=fx; Fref[3*i+1]+=fy; Fref[3*i+2]+=fz; };
-    const dirVec = (dir) => dir==='globalX' ? [1,0,0] : dir==='globalY' ? [0,1,0] : dir==='globalZ' ? [0,0,1] : [0,0,-1]; // gravity = −Z
-    let nCasos = 0;
-    for (const lc of this.model.loadCases.values()) {
-      if (lc.type === 'spectrum') continue;
-      nCasos++;
-      for (const load of (lc.loads || [])) {
-        if (load.type === 'nodal') addNode(load.nodeId, load.F[0]||0, load.F[1]||0, load.F[2]||0);
-        else if (load.type === 'dist') {
-          const el = this.model.elements.get(load.elemId);
-          if (!el) continue;
-          const n1 = this.model.nodes.get(el.n1), n2 = this.model.nodes.get(el.n2);
-          if (!n1 || !n2) continue;
-          const L = Math.hypot(n2.x-n1.x, n2.y-n1.y, n2.z-n1.z);
-          const half = (load.w || 0) * L / 2;
-          const g = dirVec(load.dir || 'gravity');
-          addNode(el.n1, half*g[0], half*g[1], half*g[2]);
-          addNode(el.n2, half*g[0], half*g[1], half*g[2]);
-        }
-      }
-      if (lc.selfWeight) {   // self-weight lumped to the nodes (−Z)
-        for (const el of this.model.elements.values()) {
-          const n1 = this.model.nodes.get(el.n1), n2 = this.model.nodes.get(el.n2);
-          const mat = this.model.materials.get(el.matId), sec = this.model.sections.get(el.secId);
-          if (!n1 || !n2 || !mat || !sec) continue;
-          const L = Math.hypot(n2.x-n1.x, n2.y-n1.y, n2.z-n1.z);
-          const w = selfWeightPerLength(mat, sec) * L / 2;   // half to each node
-          addNode(el.n1, 0, 0, -w); addNode(el.n2, 0, 0, -w);
-        }
-      }
-    }
+    const { X, elems, free, nodeIds, idxOf, elemIds, Fref, nCasos } = prob;
 
     const nSteps = Math.max(1, Math.min(200, Math.round(parseFloat(this._nlSteps) || 12)));
     this._showProgress('No lineal…', 'Resolviendo el sistema no lineal (Newton, control de carga) en segundo plano');
@@ -4685,57 +4632,16 @@ class App {
     }
     if (this.model.elements.size === 0) { this.toast('No hay elementos para el análisis', 'warn'); return; }
 
-    const nodeIds = [...this.model.nodes.keys()];
-    const idxOf = new Map(nodeIds.map((id, i) => [id, i]));
-    const nNode = nodeIds.length;
-    const coords = new Float64Array(2 * nNode);   // (x, z) of the plane
-    nodeIds.forEach((id, i) => { const n = this.model.nodes.get(id); coords[2*i] = n.x; coords[2*i+1] = n.z; });
-
-    const elems = [], elemIds = [];
-    for (const el of this.model.elements.values()) {
-      const n1 = this.model.nodes.get(el.n1), n2 = this.model.nodes.get(el.n2);
-      const mat = this.model.materials.get(el.matId), sec = this.model.sections.get(el.secId);
-      if (!n1 || !n2 || !mat || !sec) continue;
-      if (Math.hypot(n2.x-n1.x, n2.z-n1.z) < 1e-12) continue;
-      const mod = sec.mod || {};
-      elems.push({ n1: idxOf.get(el.n1), n2: idxOf.get(el.n2), EA: mat.E * sec.A * (mod.A ?? 1), EI: mat.E * sec.Iz * (mod.Iz ?? 1) });
-      elemIds.push(el.id);
+    // Model → reduced planar corotational problem (js/solver/nl_frame.js).
+    const prob = buildCorotProblem(this.model);
+    if (!prob.ok) {
+      this.toast({
+        'no-elements': 'No hay elementos válidos en el plano',
+        'no-free-dof': 'Todos los nodos están restringidos',
+      }[prob.reason] || `No se pudo armar el problema corotacional (${prob.reason})`, 'warn');
+      return;
     }
-    if (!elems.length) { this.toast('No hay elementos válidos en el plano', 'warn'); return; }
-
-    // Free DOFs: 3/node (u=ux, w=uz, θ=ry)
-    const free = [];
-    nodeIds.forEach((id, i) => {
-      const r = this.model.nodes.get(id).restraints;
-      const fix = [r.ux, r.uz, r.ry];
-      for (let c = 0; c < 3; c++) if (!fix[c]) free.push(3*i + c);
-    });
-    if (!free.length) { this.toast('Todos los nodos están restringidos', 'warn'); return; }
-
-    // Reference load: Fx→u, Fz→w, My→θ ; dist/self-weight lumped (transverse −Z)
-    const Fref = new Float64Array(3 * nNode);
-    const add = (id, fu, fw, fm) => { const i = idxOf.get(id); if (i == null) return; Fref[3*i] += fu; Fref[3*i+1] += fw; Fref[3*i+2] += fm; };
-    let nCasos = 0;
-    for (const lc of this.model.loadCases.values()) {
-      if (lc.type === 'spectrum') continue;
-      nCasos++;
-      for (const load of (lc.loads || [])) {
-        if (load.type === 'nodal') add(load.nodeId, load.F[0]||0, load.F[2]||0, load.F[4]||0);   // Fx, Fz, My
-        else if (load.type === 'dist') {
-          const el = this.model.elements.get(load.elemId); if (!el) continue;
-          const n1 = this.model.nodes.get(el.n1), n2 = this.model.nodes.get(el.n2); if (!n1 || !n2) continue;
-          const L = Math.hypot(n2.x-n1.x, n2.z-n1.z); const half = (load.w || 0) * L / 2;
-          add(el.n1, 0, -half, 0); add(el.n2, 0, -half, 0);   // transverse −Z lumping (approx.)
-        }
-      }
-      if (lc.selfWeight) for (const el of this.model.elements.values()) {
-        const n1 = this.model.nodes.get(el.n1), n2 = this.model.nodes.get(el.n2);
-        const mat = this.model.materials.get(el.matId), sec = this.model.sections.get(el.secId);
-        if (!n1 || !n2 || !mat || !sec) continue;
-        const w = selfWeightPerLength(mat, sec) * Math.hypot(n2.x-n1.x, n2.z-n1.z) / 2;
-        add(el.n1, 0, -w, 0); add(el.n2, 0, -w, 0);
-      }
-    }
+    const { coords, X, elems, free, nodeIds, idxOf, elemIds, Fref, nCasos } = prob;
 
     const nSteps = Math.max(1, Math.min(200, Math.round(parseFloat(this._nlSteps) || 12)));
     this._showProgress('Corotacional…', 'Gran rotación: Newton-Raphson por incrementos de carga');
@@ -4747,14 +4653,7 @@ class App {
 
     if (!res.steps.length) { this.toast('El análisis no produjo pasos (¿mecanismo?)', 'error'); return; }
     // Remap steps to the «Nonlinear» tab format: nodal u [ux, uy=0, uz=w].
-    const X = new Float64Array(3 * nNode);
-    nodeIds.forEach((id, i) => { const n = this.model.nodes.get(id); X[3*i] = n.x; X[3*i+1] = n.y; X[3*i+2] = n.z; });
-    const steps2 = res.steps.map(s => {
-      const u3 = new Float64Array(3 * nNode);
-      for (let i = 0; i < nNode; i++) { u3[3*i] = s.u[3*i]; u3[3*i+1] = 0; u3[3*i+2] = s.u[3*i+1]; }
-      const N = elems.map(el => corotBeamForceTangent(coords, s.u, el).N);
-      return { lambda: s.lambda, u: u3, N, taut: N.map(() => true), iters: s.iters, resid: s.resid };
-    });
+    const steps2 = remapCorotSteps({ coords, elems, steps: res.steps, nNode: nodeIds.length });
     this._nlResult = { res: { steps: steps2, converged: res.converged }, X, nodeIds, idxOf, elemIds, corot: true };
     if (!res.converged) this.toast(`${i18n.t('Corotacional: no convergió en el paso')} ${res.steps.length}/${nSteps}. ${i18n.t('Se muestran los pasos logrados.')}`, 'warn');
     else this.toast(`${i18n.t('Corotacional OK')} · ${res.steps.length} ${i18n.t('pasos')} · ${i18n.t('gran rotación')} · ${nCasos} ${i18n.t('caso(s)')}`, 'ok');
