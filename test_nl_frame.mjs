@@ -9,9 +9,10 @@
 //         at (R·sinθ, R·(1−cosθ)).
 //
 // Run:  node test_nl_frame.mjs
-import { buildNLTrussProblem, buildCorotProblem, remapCorotSteps } from './js/solver/nl_frame.js';
+import { buildNLTrussProblem, buildCorotProblem, remapCorotSteps, buildFormFindProblem, lumpReferenceLoad3D } from './js/solver/nl_frame.js';
 import { solveNonlinear } from './js/solver/nl_lite.js';
 import { solveCorotBeam } from './js/solver/corotbeam.js';
+import { formFind } from './js/solver/formfind.js';
 import { Model } from './js/model/model.js';
 
 let failures = 0;
@@ -103,8 +104,69 @@ console.log('\n── (2) buildCorotProblem + solveCorotBeam: tip-moment elastic
     `(${Math.abs(uz).toFixed(4)} vs ${uzExact.toFixed(4)})`);
 }
 
-// ── (3) Structured refusals ───────────────────────────────────────────────────
-console.log('\n── (3) structured refusals ──');
+// ── (3) Form-finding: equal force densities, no load → node at the midpoint ────
+console.log('\n── (3) buildFormFindProblem + formFind: min-length net ──');
+{
+  // A free node pulled off the A–B line by two equal-density cables and no load
+  // relaxes to the q-weighted average of its anchors = the midpoint (1,0,0).
+  const m = new Model();   // 3D
+  m.materials.clear(); m.sections.clear();
+  const mat = m.addMaterial({ name: 'S', E: 2.1e8, G: 8e7, nu: 0.3, rho: 0 });
+  const sec = m.addSection({ name: 'B', A: 1e-4, Iy: 1e-6, Iz: 1e-6, J: 1e-7 });
+  const A = m.addNode(0, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+  const M = m.addNode(1, 0, 5);                                         // off the line
+  const B = m.addNode(2, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+  m.addElement(A.id, M.id, mat.id, sec.id);
+  m.addElement(M.id, B.id, mat.id, sec.id);
+
+  const prob = buildFormFindProblem(m, []);
+  check(prob.ok, 'problem built', prob.ok ? '' : `(reason ${prob.reason})`);
+  check(prob.branches.length === 2, 'two branches');
+  check(JSON.stringify(prob.fixed) === JSON.stringify([true, false, true]), 'A,B anchored, M free');
+  check(prob.loads === null && prob.hasLoad === false, 'no external load → loads null');
+
+  const res = formFind({ coords: prob.coords, fixed: prob.fixed, branches: prob.branches, q: prob.branches.map(() => 10), loads: prob.loads, axes: [0, 1, 2] });
+  check(res.ok, 'formFind solved', res.ok ? '' : `(${res.note})`);
+  const iM = 1;
+  check(rel(res.coords[3 * iM], 1) < 1e-9 && Math.abs(res.coords[3 * iM + 1]) < 1e-9 && Math.abs(res.coords[3 * iM + 2]) < 1e-9,
+    'free node relaxes to the midpoint (1,0,0)',
+    `(${res.coords[3 * iM].toFixed(3)}, ${res.coords[3 * iM + 1].toFixed(3)}, ${res.coords[3 * iM + 2].toFixed(3)})`);
+}
+
+// ── (4) Anti-drift: truss Fref and form-find loads share ONE lumping ──────────
+console.log('\n── (4) lumpReferenceLoad3D is the single source for both builders ──');
+{
+  // A model exercising all three load kinds (nodal + distributed + self-weight); the
+  // per-node load must be identical whether read from the truss Fref or the form-find
+  // loads — that identity is the whole point of unifying the lumping.
+  const m = new Model();   // 3D
+  m.materials.clear(); m.sections.clear();
+  const mat = m.addMaterial({ name: 'S', E: 2.1e8, G: 8e7, nu: 0.3, rho: 3.0 });   // rho≠0 → self-weight
+  const sec = m.addSection({ name: 'B', A: 2e-3, Iy: 1e-6, Iz: 1e-6, J: 1e-7 });
+  const A = m.addNode(0, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+  const C = m.addNode(2, 0, 0);
+  const B = m.addNode(4, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+  const e1 = m.addElement(A.id, C.id, mat.id, sec.id);
+  m.addElement(C.id, B.id, mat.id, sec.id);
+  const lc = m.addLoadCase('mix', true);                                   // selfWeight = true
+  m.addLoad(lc.id, { type: 'nodal', nodeId: C.id, F: [10, -3, -20, 0, 0, 0] });
+  m.addLoad(lc.id, { type: 'dist', elemId: e1.id, w: 5, dir: 'gravity' });
+
+  const truss = buildNLTrussProblem(m);
+  const ff = buildFormFindProblem(m, []);
+  check(truss.ok && ff.ok, 'both builders succeed');
+  let worst = 0;
+  for (let i = 0; i < truss.nodeIds.length; i++)
+    for (let c = 0; c < 3; c++)
+      worst = Math.max(worst, Math.abs(truss.Fref[3 * i + c] - ff.loads[i][c]));
+  check(worst === 0, 'truss Fref and form-find loads agree exactly', `(máx Δ ${worst})`);
+  // and the standalone helper matches the truss Fref too
+  const { F, hasLoad } = lumpReferenceLoad3D(m, truss.idxOf);
+  check(hasLoad && F.every((v, k) => v === truss.Fref[k]), 'lumpReferenceLoad3D == truss Fref');
+}
+
+// ── (5) Structured refusals ───────────────────────────────────────────────────
+console.log('\n── (5) structured refusals ──');
 {
   const m = new Model(); m.mode = '2D'; m.materials.clear(); m.sections.clear();
   const mat = m.addMaterial({ name: 'S', E: 2.1e8, G: 8e7, nu: 0.3, rho: 0 });

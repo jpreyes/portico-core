@@ -27,7 +27,7 @@ import { buildLane, influenceLine, responseReaction, responseSection, movingLoad
 import { newmarkNonlinear, shearBuilding, rayleighDamping } from './solver/nl_timehistory.js?v=2';
 import { solvePlastic } from './solver/plastic.js?v=2';
 import { linearBuckling, pDelta } from './solver/geometric_analysis.js?v=2';
-import { buildNLTrussProblem, buildCorotProblem, remapCorotSteps } from './solver/nl_frame.js?v=2';
+import { buildNLTrussProblem, buildCorotProblem, remapCorotSteps, buildFormFindProblem } from './solver/nl_frame.js?v=2';
 import { checkDrift, driftLimit } from './design/serviceability.js?v=2';
 import { buildSpectrum } from './design/nch433_spectrum.js?v=2';
 import { selectProfile, steelCandidates, predimensionar, candidatesForFamily } from './design/autodesign.js?v=2';
@@ -4944,83 +4944,24 @@ class App {
     const model = this.model;
     if (model.nodes.size === 0 || model.elements.size === 0) { this.toast('Modelo vacío', 'warn'); return; }
 
-    // ── Restrict the network to the TARGET elements (fix #29) ───────────────────
-    // If there are selected elements, only THOSE form the network; the rest stay
-    // intact. A node is an ANCHOR if it is restrained OR if it touches a NON-
-    // participating element (boundary with the structure that is NOT formed) → so the
-    // columns and their nodes aren't destroyed when forming, e.g., only the beam.
-    // Without a selection, the whole model is formed (good for cable nets, not frames).
-    const selEls = this._selElems();
-    const hasSel = selEls.length > 0;
-    const partSet = new Set(hasSel ? selEls : [...model.elements.keys()]);
-    const boundary = new Set();
-    if (hasSel) for (const el of model.elements.values()) {
-      if (!partSet.has(el.id)) { boundary.add(el.n1); boundary.add(el.n2); }
+    // Model → force-density network (js/solver/nl_frame.js): anchors, branches and the
+    // combined node loads (shares lumpReferenceLoad3D with the truss builder).
+    const prob = buildFormFindProblem(model, this._selElems());
+    if (!prob.ok) {
+      this.toast({
+        'few-anchors': 'El form-finding necesita ≥ 2 nodos ancla (apoyos, o bordes de la selección). Restrinja algunos nodos o seleccione los elementos a formar.',
+        'no-branches': 'Sin elementos para formar la red.',
+      }[prob.reason] || `No se pudo armar el form-finding (${prob.reason})`, 'warn');
+      return;
     }
-
-    const nodeIds = [...model.nodes.keys()];
-    const idxOf = new Map(nodeIds.map((id, i) => [id, i]));
-    const n = nodeIds.length;
-    const coords = new Float64Array(3 * n);
-    const fixed = [];
-    nodeIds.forEach((id, i) => {
-      const nd = model.nodes.get(id);
-      coords[3 * i] = nd.x; coords[3 * i + 1] = nd.y; coords[3 * i + 2] = nd.z;
-      const r = nd.restraints;
-      // anchor = translation restraint OR boundary with non-participating structure
-      fixed.push(!!(r.ux || r.uy || r.uz) || boundary.has(id));
-    });
-    if (fixed.filter(Boolean).length < 2) { this.toast('El form-finding necesita ≥ 2 nodos ancla (apoyos, o bordes de la selección). Restrinja algunos nodos o seleccione los elementos a formar.', 'warn'); return; }
-
-    const branches = [];
-    for (const id of partSet) {
-      const el = model.elements.get(id); if (!el) continue;
-      const i = idxOf.get(el.n1), j = idxOf.get(el.n2);
-      if (i != null && j != null) branches.push([i, j]);
-    }
-    if (!branches.length) { this.toast('Sin elementos para formar la red.', 'warn'); return; }
+    const { coords, fixed, branches, nodeIds, loads, hasLoad, hasSel } = prob;
 
     const ffOpts = opts.silent ? { q0: 10, axes: [2] } : await this._formFindDialog(hasSel);
     if (!ffOpts) return;
     const { q0, axes } = ffOpts;
     const q = branches.map(() => q0);
 
-    // Combined external loads (all static cases) on the free nodes.
-    const loads = nodeIds.map(() => [0, 0, 0]);
-    let hasLoad = false;
-    const dirVec = d => d === 'globalX' ? [1, 0, 0] : d === 'globalY' ? [0, 1, 0] : d === 'globalZ' ? [0, 0, 1] : [0, 0, -1];
-    for (const lc of model.loadCases.values()) {
-      if (lc.type === 'spectrum') continue;
-      for (const ld of (lc.loads || [])) {
-        if (ld.type === 'nodal') {
-          const i = idxOf.get(ld.nodeId);
-          if (i != null) { loads[i][0] += ld.F[0] || 0; loads[i][1] += ld.F[1] || 0; loads[i][2] += ld.F[2] || 0; hasLoad = true; }
-        } else if (ld.type === 'dist') {
-          const el = model.elements.get(ld.elemId); if (!el) continue;
-          const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2); if (!n1 || !n2) continue;
-          const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z);
-          const half = (ld.w || 0) * L / 2, g = dirVec(ld.dir || 'gravity');
-          const a = idxOf.get(el.n1), b = idxOf.get(el.n2);
-          if (a != null) for (let c = 0; c < 3; c++) loads[a][c] += half * g[c];
-          if (b != null) for (let c = 0; c < 3; c++) loads[b][c] += half * g[c];
-          hasLoad = true;
-        }
-      }
-      if (lc.selfWeight) {
-        for (const el of model.elements.values()) {
-          const mat = model.materials.get(el.matId), sec = model.sections.get(el.secId);
-          const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2);
-          if (!mat || !sec || !n1 || !n2) continue;
-          const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z);
-          const wgt = selfWeightPerLength(mat, sec) * L / 2;
-          const a = idxOf.get(el.n1), b = idxOf.get(el.n2);
-          if (a != null) loads[a][2] -= wgt; if (b != null) loads[b][2] -= wgt;
-          hasLoad = true;
-        }
-      }
-    }
-
-    const res = formFind({ coords, fixed, branches, q, loads: hasLoad ? loads : null, axes });
+    const res = formFind({ coords, fixed, branches, q, loads, axes });
     if (!res.ok) { this.toast(i18n.t('Form-finding:') + ' ' + res.note, 'error'); return; }
 
     // Reposition the free nodes to the equilibrium geometry (undo with Ctrl+Z).

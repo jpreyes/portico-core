@@ -12,13 +12,58 @@
 //
 //   buildNLTrussProblem — 3 translational DOF/node truss/cable (large displacement)
 //   buildCorotProblem   — planar 3 DOF/node beam [u,w,θ] (large rotation)
+//   buildFormFindProblem— force-density network (anchors, branches, node loads)
 //   remapCorotSteps     — corotational steps [u,w,θ] → nodal [ux,uy=0,uz=w] + axial N
+//   lumpReferenceLoad3D — the shared 3D reference-load lumping (nodal+dist+self-weight)
 // ──────────────────────────────────────────────────────────────────────────────
 import { selfWeightPerLength } from './assembler.js?v=2';
 import { corotBeamForceTangent } from './corotbeam.js?v=2';
 
 // gravity = −Z; the named global directions otherwise.
 const dirVec = (dir) => dir === 'globalX' ? [1, 0, 0] : dir === 'globalY' ? [0, 1, 0] : dir === 'globalZ' ? [0, 0, 1] : [0, 0, -1];
+
+/**
+ * The 3D reference load, lumped to the nodes and combined over every static case at
+ * factor 1 (spectral cases skipped): nodal loads as-is, distributed loads split half
+ * to each end along their direction, self-weight split half to each end along −Z.
+ * This is the single copy the truss and form-finding builders share.
+ *
+ * @param {Model} model
+ * @param {Map}   idxOf   node id → 0-based index (its size is the node count)
+ * @returns {{F:Float64Array, nCasos:number, hasLoad:boolean}}  F is 3·nNode.
+ */
+export function lumpReferenceLoad3D(model, idxOf) {
+  const nNode = idxOf.size;
+  const F = new Float64Array(3 * nNode);
+  const add = (id, fx, fy, fz) => { const i = idxOf.get(id); if (i == null) return; F[3 * i] += fx; F[3 * i + 1] += fy; F[3 * i + 2] += fz; };
+  let nCasos = 0, hasLoad = false;
+  for (const lc of model.loadCases.values()) {
+    if (lc.type === 'spectrum') continue;
+    nCasos++;
+    for (const load of (lc.loads || [])) {
+      if (load.type === 'nodal') { add(load.nodeId, load.F[0] || 0, load.F[1] || 0, load.F[2] || 0); hasLoad = true; }
+      else if (load.type === 'dist') {
+        const el = model.elements.get(load.elemId); if (!el) continue;
+        const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2); if (!n1 || !n2) continue;
+        const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z);
+        const half = (load.w || 0) * L / 2, g = dirVec(load.dir || 'gravity');
+        add(el.n1, half * g[0], half * g[1], half * g[2]);
+        add(el.n2, half * g[0], half * g[1], half * g[2]);
+        hasLoad = true;
+      }
+    }
+    if (lc.selfWeight) for (const el of model.elements.values()) {   // self-weight lumped to the nodes (−Z)
+      const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2);
+      const mat = model.materials.get(el.matId), sec = model.sections.get(el.secId);
+      if (!n1 || !n2 || !mat || !sec) continue;
+      const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z);
+      const w = selfWeightPerLength(mat, sec) * L / 2;   // half to each node
+      add(el.n1, 0, 0, -w); add(el.n2, 0, 0, -w);
+      hasLoad = true;
+    }
+  }
+  return { F, nCasos, hasLoad };
+}
 
 /**
  * Reduced truss/cable problem for the large-DISPLACEMENT solver (solveNonlinear).
@@ -59,39 +104,7 @@ export function buildNLTrussProblem(model) {
   });
   if (!free.length) return { ok: false, reason: 'no-free-dof' };
 
-  // Reference load: combines all static cases at factor 1
-  const Fref = new Float64Array(3 * nNode);
-  const addNode = (id, fx, fy, fz) => { const i = idxOf.get(id); if (i == null) return; Fref[3 * i] += fx; Fref[3 * i + 1] += fy; Fref[3 * i + 2] += fz; };
-  let nCasos = 0;
-  for (const lc of model.loadCases.values()) {
-    if (lc.type === 'spectrum') continue;
-    nCasos++;
-    for (const load of (lc.loads || [])) {
-      if (load.type === 'nodal') addNode(load.nodeId, load.F[0] || 0, load.F[1] || 0, load.F[2] || 0);
-      else if (load.type === 'dist') {
-        const el = model.elements.get(load.elemId);
-        if (!el) continue;
-        const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2);
-        if (!n1 || !n2) continue;
-        const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z);
-        const half = (load.w || 0) * L / 2;
-        const g = dirVec(load.dir || 'gravity');
-        addNode(el.n1, half * g[0], half * g[1], half * g[2]);
-        addNode(el.n2, half * g[0], half * g[1], half * g[2]);
-      }
-    }
-    if (lc.selfWeight) {   // self-weight lumped to the nodes (−Z)
-      for (const el of model.elements.values()) {
-        const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2);
-        const mat = model.materials.get(el.matId), sec = model.sections.get(el.secId);
-        if (!n1 || !n2 || !mat || !sec) continue;
-        const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z);
-        const w = selfWeightPerLength(mat, sec) * L / 2;   // half to each node
-        addNode(el.n1, 0, 0, -w); addNode(el.n2, 0, 0, -w);
-      }
-    }
-  }
-
+  const { F: Fref, nCasos } = lumpReferenceLoad3D(model, idxOf);   // combined static load at factor 1
   return { ok: true, X, elems, free, nodeIds, idxOf, elemIds, Fref, nCasos };
 }
 
@@ -181,4 +194,51 @@ export function remapCorotSteps({ coords, elems, steps, nNode }) {
     const N = elems.map(el => corotBeamForceTangent(coords, s.u, el).N);
     return { lambda: s.lambda, u: u3, N, taut: N.map(() => true), iters: s.iters, resid: s.resid };
   });
+}
+
+/**
+ * Force-density (FDM) network for form-finding. If `selEls` is non-empty only those
+ * elements form the network; a node is an ANCHOR when it is translation-restrained OR
+ * touches a NON-participating element (so, e.g., only a beam is formed and the columns
+ * survive). Otherwise the whole model is formed. Node loads reuse lumpReferenceLoad3D.
+ *
+ * @param {Model}    model
+ * @param {number[]} [selEls]  selected element ids (empty → whole model)
+ * @returns {{ok:false, reason:'few-anchors'|'no-branches'}
+ *          | {ok:true, coords:Float64Array, fixed:boolean[], branches:number[][],
+ *             nodeIds:number[], idxOf:Map, loads:number[][]|null, hasLoad:boolean, hasSel:boolean}}
+ */
+export function buildFormFindProblem(model, selEls = []) {
+  const hasSel = selEls.length > 0;
+  const partSet = new Set(hasSel ? selEls : [...model.elements.keys()]);
+  const boundary = new Set();
+  if (hasSel) for (const el of model.elements.values()) {
+    if (!partSet.has(el.id)) { boundary.add(el.n1); boundary.add(el.n2); }
+  }
+
+  const nodeIds = [...model.nodes.keys()];
+  const idxOf = new Map(nodeIds.map((id, i) => [id, i]));
+  const n = nodeIds.length;
+  const coords = new Float64Array(3 * n);
+  const fixed = [];
+  nodeIds.forEach((id, i) => {
+    const nd = model.nodes.get(id);
+    coords[3 * i] = nd.x; coords[3 * i + 1] = nd.y; coords[3 * i + 2] = nd.z;
+    const r = nd.restraints;
+    // anchor = translation restraint OR boundary with non-participating structure
+    fixed.push(!!(r.ux || r.uy || r.uz) || boundary.has(id));
+  });
+  if (fixed.filter(Boolean).length < 2) return { ok: false, reason: 'few-anchors' };
+
+  const branches = [];
+  for (const id of partSet) {
+    const el = model.elements.get(id); if (!el) continue;
+    const i = idxOf.get(el.n1), j = idxOf.get(el.n2);
+    if (i != null && j != null) branches.push([i, j]);
+  }
+  if (!branches.length) return { ok: false, reason: 'no-branches' };
+
+  const { F, hasLoad } = lumpReferenceLoad3D(model, idxOf);
+  const loads = hasLoad ? Array.from({ length: n }, (_, i) => [F[3 * i], F[3 * i + 1], F[3 * i + 2]]) : null;
+  return { ok: true, coords, fixed, branches, nodeIds, idxOf, loads, hasLoad, hasSel };
 }
