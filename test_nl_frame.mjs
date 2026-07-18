@@ -9,7 +9,7 @@
 //         at (R·sinθ, R·(1−cosθ)).
 //
 // Run:  node test_nl_frame.mjs
-import { buildNLTrussProblem, buildCorotProblem, remapCorotSteps, buildFormFindProblem, lumpReferenceLoad3D } from './js/solver/nl_frame.js';
+import { buildNLTrussProblem, buildCorotProblem, remapCorotSteps, buildFormFindProblem, lumpReferenceLoad3D, setupPushoverControl } from './js/solver/nl_frame.js';
 import { solveNonlinear } from './js/solver/nl_lite.js';
 import { solveCorotBeam } from './js/solver/corotbeam.js';
 import { formFind } from './js/solver/formfind.js';
@@ -181,6 +181,61 @@ console.log('\n── (5) structured refusals ──');
   const empty = new Model(); empty.mode = '2D'; empty.materials.clear(); empty.sections.clear();
   empty.addNode(0, 0, 0);
   check(buildNLTrussProblem(empty).reason === 'no-elements', 'no elements → "no-elements"');
+}
+
+// ── (6) Pushover: pattern-weighted lumping + control-DOF setup ────────────────
+console.log('\n── (6) buildNLTrussProblem(contribs) + setupPushoverControl ──');
+{
+  const m = new Model(); m.mode = '2D'; m.materials.clear(); m.sections.clear();
+  const mat = m.addMaterial({ name: 'S', E: 2.1e8, G: 8e7, nu: 0.3, rho: 0 });
+  const sec = m.addSection({ name: 'B', A: 1e-3, Iy: 1e-6, Iz: 1e-6, J: 1e-7 });
+  const A = m.addNode(0, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+  const B = m.addNode(2, 0, 0, { uz: 1 });   // slide only along the bar (axial) → stable truss
+  m.addElement(A.id, B.id, mat.id, sec.id);
+  const lc = m.addLoadCase('H');
+  m.addLoad(lc.id, { type: 'nodal', nodeId: B.id, F: [100, 0, 0, 0, 0, 0] });   // axial tip load
+  const iB = 1;
+
+  // The reference load scales linearly with the pattern factor.
+  const P1 = buildNLTrussProblem(m, { contribs: [{ lcId: lc.id, factor: 1, selfWeight: false }] });
+  const P2 = buildNLTrussProblem(m, { contribs: [{ lcId: lc.id, factor: 2, selfWeight: false }] });
+  check(P1.Fref[3 * iB] === 100, 'nodal load enters Fref at factor 1');
+  check(rel(P2.Fref[3 * iB], 2 * P1.Fref[3 * iB]) < 1e-12, 'contribs factor scales Fref linearly',
+    `(${P2.Fref[3 * iB]} vs ${2 * P1.Fref[3 * iB]})`);
+
+  // The linear probe picks the tip axial DOF as the control DOF.
+  const setup = setupPushoverControl(P1, 0);
+  check(setup.ok, 'setup ok', setup.ok ? '' : `(reason ${setup.reason})`);
+  check(setup.cDOF === 3 * iB, 'control DOF is the tip axial DOF (ux)', `(${setup.cDOF})`);
+  check(setup.target > 0 && setup.linCtrl > 0 && rel(setup.target, 25 * setup.linCtrl) < 1e-12,
+    'target = 25·linCtrl, past the limit point');
+  const setupImp = setupPushoverControl(P1, 0.01);
+  check(setupImp.Ximp[3 * iB] !== P1.X[3 * iB], 'imperfection perturbs the control geometry',
+    `(Δ=${(setupImp.Ximp[3 * iB] - P1.X[3 * iB]).toExponential(2)})`);
+}
+
+// ── (7) Pushover refusals ─────────────────────────────────────────────────────
+console.log('\n── (7) pushover structured refusals ──');
+{
+  const mk = () => {
+    const m = new Model(); m.mode = '2D'; m.materials.clear(); m.sections.clear();
+    const mat = m.addMaterial({ name: 'S', E: 2.1e8, G: 8e7, nu: 0.3, rho: 0 });
+    const sec = m.addSection({ name: 'B', A: 1e-3, Iy: 1e-6, Iz: 1e-6, J: 1e-7 });
+    const A = m.addNode(0, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+    const B = m.addNode(1, 0, 0);
+    m.addElement(A.id, B.id, mat.id, sec.id);
+    return { m, B };
+  };
+  // Transverse load on an axial-only bar → singular linear probe → no response.
+  const t = mk();
+  const lcT = t.m.addLoadCase('T'); t.m.addLoad(lcT.id, { type: 'nodal', nodeId: t.B.id, F: [0, 0, -50, 0, 0, 0] });
+  const Pt = buildNLTrussProblem(t.m, { contribs: [{ lcId: lcT.id, factor: 1, selfWeight: false }] });
+  check(setupPushoverControl(Pt, 0).reason === 'no-response', 'transverse load on a truss bar → "no-response"');
+  // A referenced case that carries no loads → null pattern.
+  const z = mk();
+  const lcE = z.m.addLoadCase('empty');
+  const Pe = buildNLTrussProblem(z.m, { contribs: [{ lcId: lcE.id, factor: 1, selfWeight: false }] });
+  check(setupPushoverControl(Pe, 0).reason === 'null-pattern', 'no load in the pattern → "null-pattern"');
 }
 
 console.log(`\n=== ${failures === 0 ? 'ALL OK' : failures + ' FAILURE(S)'} ===`);

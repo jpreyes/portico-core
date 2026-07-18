@@ -18,46 +18,55 @@
 // ──────────────────────────────────────────────────────────────────────────────
 import { selfWeightPerLength } from './assembler.js?v=2';
 import { corotBeamForceTangent } from './corotbeam.js?v=2';
+import { solveNonlinear } from './nl_lite.js?v=2';
 
 // gravity = −Z; the named global directions otherwise.
 const dirVec = (dir) => dir === 'globalX' ? [1, 0, 0] : dir === 'globalY' ? [0, 1, 0] : dir === 'globalZ' ? [0, 0, 1] : [0, 0, -1];
 
 /**
- * The 3D reference load, lumped to the nodes and combined over every static case at
- * factor 1 (spectral cases skipped): nodal loads as-is, distributed loads split half
- * to each end along their direction, self-weight split half to each end along −Z.
- * This is the single copy the truss and form-finding builders share.
+ * The 3D reference load, lumped to the nodes: nodal loads as-is, distributed loads split
+ * half to each end along their direction, self-weight split half to each end along −Z.
+ * Combined over a set of load cases at their factors — either an explicit `contribs`
+ * PATTERN (from a combination / single case, each with its own factor and self-weight
+ * flag) or, when omitted, every static case at factor 1 (spectral cases skipped). This
+ * is the single copy the truss, form-finding and pushover builders share.
  *
  * @param {Model} model
  * @param {Map}   idxOf   node id → 0-based index (its size is the node count)
+ * @param {{lcId:number,factor:number,selfWeight:boolean}[]|null} [contribs]  load pattern;
+ *        null → all static cases at factor 1.
  * @returns {{F:Float64Array, nCasos:number, hasLoad:boolean}}  F is 3·nNode.
  */
-export function lumpReferenceLoad3D(model, idxOf) {
+export function lumpReferenceLoad3D(model, idxOf, contribs = null) {
   const nNode = idxOf.size;
   const F = new Float64Array(3 * nNode);
   const add = (id, fx, fy, fz) => { const i = idxOf.get(id); if (i == null) return; F[3 * i] += fx; F[3 * i + 1] += fy; F[3 * i + 2] += fz; };
+  // Normalize both call styles to (load case, factor, include-self-weight) entries.
+  const entries = contribs
+    ? contribs.map(c => ({ lc: model.loadCases.get(c.lcId), factor: c.factor, selfWeight: c.selfWeight }))
+    : [...model.loadCases.values()].filter(lc => lc.type !== 'spectrum').map(lc => ({ lc, factor: 1, selfWeight: lc.selfWeight }));
   let nCasos = 0, hasLoad = false;
-  for (const lc of model.loadCases.values()) {
-    if (lc.type === 'spectrum') continue;
+  for (const { lc, factor, selfWeight } of entries) {
+    if (!lc) continue;
     nCasos++;
     for (const load of (lc.loads || [])) {
-      if (load.type === 'nodal') { add(load.nodeId, load.F[0] || 0, load.F[1] || 0, load.F[2] || 0); hasLoad = true; }
+      if (load.type === 'nodal') { add(load.nodeId, factor * (load.F[0] || 0), factor * (load.F[1] || 0), factor * (load.F[2] || 0)); hasLoad = true; }
       else if (load.type === 'dist') {
         const el = model.elements.get(load.elemId); if (!el) continue;
         const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2); if (!n1 || !n2) continue;
         const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z);
-        const half = (load.w || 0) * L / 2, g = dirVec(load.dir || 'gravity');
+        const half = factor * (load.w || 0) * L / 2, g = dirVec(load.dir || 'gravity');
         add(el.n1, half * g[0], half * g[1], half * g[2]);
         add(el.n2, half * g[0], half * g[1], half * g[2]);
         hasLoad = true;
       }
     }
-    if (lc.selfWeight) for (const el of model.elements.values()) {   // self-weight lumped to the nodes (−Z)
+    if (selfWeight) for (const el of model.elements.values()) {   // self-weight lumped to the nodes (−Z)
       const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2);
       const mat = model.materials.get(el.matId), sec = model.sections.get(el.secId);
       if (!n1 || !n2 || !mat || !sec) continue;
       const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z);
-      const w = selfWeightPerLength(mat, sec) * L / 2;   // half to each node
+      const w = factor * selfWeightPerLength(mat, sec) * L / 2;   // half to each node
       add(el.n1, 0, 0, -w); add(el.n2, 0, 0, -w);
       hasLoad = true;
     }
@@ -70,11 +79,15 @@ export function lumpReferenceLoad3D(model, idxOf) {
  * Every element is a two-force member; «cable»/«compressionOnly» flags pass through.
  * Prestress via natural length L0 = L0factor·L. 3 translational DOF per node (2D locks uy).
  *
+ * @param {Model}  model
+ * @param {object} [o]
+ * @param {{lcId:number,factor:number,selfWeight:boolean}[]|null} [o.contribs]  reference
+ *        load pattern; null (default) → every static case at factor 1.
  * @returns {{ok:false, reason:'no-elements'|'no-free-dof'}
  *          | {ok:true, X:Float64Array, elems:object[], free:number[], nodeIds:number[],
  *             idxOf:Map, elemIds:number[], Fref:Float64Array, nCasos:number}}
  */
-export function buildNLTrussProblem(model) {
+export function buildNLTrussProblem(model, { contribs = null } = {}) {
   const nodeIds = [...model.nodes.keys()];
   const idxOf = new Map(nodeIds.map((id, i) => [id, i]));
   const nNode = nodeIds.length;
@@ -104,7 +117,7 @@ export function buildNLTrussProblem(model) {
   });
   if (!free.length) return { ok: false, reason: 'no-free-dof' };
 
-  const { F: Fref, nCasos } = lumpReferenceLoad3D(model, idxOf);   // combined static load at factor 1
+  const { F: Fref, nCasos } = lumpReferenceLoad3D(model, idxOf, contribs);   // pattern, or all cases at factor 1
   return { ok: true, X, elems, free, nodeIds, idxOf, elemIds, Fref, nCasos };
 }
 
@@ -241,4 +254,37 @@ export function buildFormFindProblem(model, selEls = []) {
   const { F, hasLoad } = lumpReferenceLoad3D(model, idxOf);
   const loads = hasLoad ? Array.from({ length: n }, (_, i) => [F[3 * i], F[3 * i + 1], F[3 * i + 2]]) : null;
   return { ok: true, coords, fixed, branches, nodeIds, idxOf, loads, hasLoad, hasSel };
+}
+
+/**
+ * Pushover displacement-control setup. A single linear probe (Newton, 1 step / 1 iter
+ * from rest) gives the elastic shape under the reference load; the CONTROL DOF is the
+ * free DOF that moves most, the optional imperfection seeds that scaled shape into the
+ * geometry, and the target control displacement is set well past the limit point so the
+ * subsequent displacement-control solve traces the full snap-through. Pure given P.
+ *
+ * @param {object} P     buildNLTrussProblem result ({X, elems, free, Fref, …})
+ * @param {number} [imp=0] imperfection amplitude [m] (0 = perfect)
+ * @returns {{ok:false, reason:'null-pattern'|'no-response'}
+ *          | {ok:true, cDOF:number, Ximp:Float64Array, target:number, linCtrl:number}}
+ *   null-pattern = the reference load is zero; no-response = load applied but the truss
+ *   idealization (axial/cables only) produces no displacement (a bending-only frame).
+ */
+export function setupPushoverControl(P, imp = 0) {
+  // Linear response (1 step, 1 iteration from u=0) → control DOF + imperfection shape
+  const lin = solveNonlinear({ X: P.X, elems: P.elems, free: P.free, Fref: P.Fref, nSteps: 1, maxIter: 1, tol: 1e-30 });
+  const uLin = lin.steps[0]?.u || new Float64Array(P.X.length);
+  let cDOF = P.free[0], best = -1;
+  for (const d of P.free) { const v = Math.abs(uLin[d]); if (v > best) { best = v; cDOF = d; } }
+  if (best < 1e-30) {
+    let frefN = 0; for (const d of P.free) frefN += P.Fref[d] * P.Fref[d]; frefN = Math.sqrt(frefN);
+    return { ok: false, reason: frefN < 1e-12 ? 'null-pattern' : 'no-response' };
+  }
+  const Ximp = Float64Array.from(P.X);
+  if (imp > 0) {
+    let nrm = 0; for (const d of P.free) nrm += uLin[d] * uLin[d]; nrm = Math.sqrt(nrm) || 1;
+    for (const d of P.free) Ximp[d] += imp * uLin[d] / nrm;
+  }
+  const linCtrl = uLin[cDOF] || 1e-3;
+  return { ok: true, cDOF, Ximp, target: linCtrl * 25, linCtrl };   // target pushes past limit points
 }

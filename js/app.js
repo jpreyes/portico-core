@@ -13,7 +13,7 @@ import { Results }                         from './solver/postprocess.js?v=2';
 import { assessStabilitySanity, STABILITY } from './solver/stability.js?v=2';
 import { areaStress, areaBendingStress, vonMises, areaLocalFrame } from './solver/membrane.js?v=2';
 import { ModalSolver, guyanReduce }        from './solver/modal_solver.js?v=2';
-import { buildNodeIndex, assembleK, assembleF, getNodeDOFs, selfWeightPerLength } from './solver/assembler.js?v=2';
+import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './solver/assembler.js?v=2';
 import { assembleSparseGlobal, extractFreeCSR } from './solver/sparse.js?v=2';
 import { solveCorotBeam } from './solver/corotbeam.js?v=2';
 import { insertInfill } from './model/macromodel.js?v=2';
@@ -27,7 +27,7 @@ import { buildLane, influenceLine, responseReaction, responseSection, movingLoad
 import { newmarkNonlinear, shearBuilding, rayleighDamping } from './solver/nl_timehistory.js?v=2';
 import { solvePlastic } from './solver/plastic.js?v=2';
 import { linearBuckling, pDelta } from './solver/geometric_analysis.js?v=2';
-import { buildNLTrussProblem, buildCorotProblem, remapCorotSteps, buildFormFindProblem } from './solver/nl_frame.js?v=2';
+import { buildNLTrussProblem, buildCorotProblem, remapCorotSteps, buildFormFindProblem, setupPushoverControl } from './solver/nl_frame.js?v=2';
 import { checkDrift, driftLimit } from './design/serviceability.js?v=2';
 import { buildSpectrum } from './design/nch433_spectrum.js?v=2';
 import { selectProfile, steelCandidates, predimensionar, candidatesForFamily } from './design/autodesign.js?v=2';
@@ -5340,53 +5340,6 @@ class App {
 
   // ── NL-lite: builds the nonlinear problem (bars/cables) from the model ──────
   // `pattern` (#45): reference load pattern (all / one case / one combo).
-  _buildNLProblem(pattern) {
-    const model = this.model;
-    const nodeIds = [...model.nodes.keys()];
-    const idxOf = new Map(nodeIds.map((id, i) => [id, i]));
-    const nNode = nodeIds.length;
-    const X = new Float64Array(3 * nNode);
-    nodeIds.forEach((id, i) => { const n = model.nodes.get(id); X[3 * i] = n.x; X[3 * i + 1] = n.y; X[3 * i + 2] = n.z; });
-    const elems = [], elemIds = [];
-    for (const el of model.elements.values()) {
-      const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2);
-      const mat = model.materials.get(el.matId), sec = model.sections.get(el.secId);
-      if (!n1 || !n2 || !mat || !sec) continue;
-      const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z); if (L < 1e-12) continue;
-      elems.push({ n1: idxOf.get(el.n1), n2: idxOf.get(el.n2), EA: mat.E * sec.A, L0: (el.L0factor || 1) * L, cable: !!el.cable, compressionOnly: !!el.compressionOnly });
-      elemIds.push(el.id);
-    }
-    const is2D = model.mode === '2D';
-    const free = [];
-    nodeIds.forEach((id, i) => { const r = model.nodes.get(id).restraints; const fix = [r.ux, is2D ? 1 : r.uy, r.uz]; for (let c = 0; c < 3; c++) if (!fix[c]) free.push(3 * i + c); });
-    const Fref = new Float64Array(3 * nNode); let nCasos = 0;
-    const addN = (id, fx, fy, fz) => { const i = idxOf.get(id); if (i == null) return; Fref[3 * i] += fx; Fref[3 * i + 1] += fy; Fref[3 * i + 2] += fz; };
-    const dirVec = d => d === 'globalX' ? [1, 0, 0] : d === 'globalY' ? [0, 1, 0] : d === 'globalZ' ? [0, 0, 1] : [0, 0, -1];
-    const { contribs, label: patLabel } = this._resolvePattern(pattern);
-    for (const c of contribs) {
-      const lc = model.loadCases.get(c.lcId); if (!lc) continue; nCasos++;
-      const fac = c.factor;
-      for (const ld of (lc.loads || [])) {
-        if (ld.type === 'nodal') addN(ld.nodeId, fac * (ld.F[0] || 0), fac * (ld.F[1] || 0), fac * (ld.F[2] || 0));
-        else if (ld.type === 'dist') {
-          const el = model.elements.get(ld.elemId); if (!el) continue;
-          const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2); if (!n1 || !n2) continue;
-          const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z);
-          const half = fac * (ld.w || 0) * L / 2, g = dirVec(ld.dir || 'gravity');
-          addN(el.n1, half * g[0], half * g[1], half * g[2]); addN(el.n2, half * g[0], half * g[1], half * g[2]);
-        }
-      }
-      if (c.selfWeight) for (const el of model.elements.values()) {
-        const mat = model.materials.get(el.matId), sec = model.sections.get(el.secId);
-        const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2);
-        if (!mat || !sec || !n1 || !n2) continue;
-        const L = Math.hypot(n2.x - n1.x, n2.y - n1.y, n2.z - n1.z), w = fac * selfWeightPerLength(mat, sec) * L / 2;
-        addN(el.n1, 0, 0, -w); addN(el.n2, 0, 0, -w);
-      }
-    }
-    return { X, elems, elemIds, free, Fref, nodeIds, idxOf, nNode, nCasos, patLabel };
-  }
-
   /** HTML dialog — pushover: initial imperfection + load pattern (#45). */
   _pushoverDialog() {
     return new Promise(resolve => {
@@ -5435,30 +5388,28 @@ class App {
     const imp = parseFloat(pd.imp) || 0;
     this._lastPattern = pd.pattern;
 
-    const P = this._buildNLProblem(pd.pattern);
-    if (!P.free.length) { this.toast('Sin GDL libres', 'warn'); return; }
-    if (!P.nCasos) { this.toast('Defina un caso de carga (patrón de referencia).', 'warn'); return; }
-
-    // Linear response (1 step, 1 iteration from u=0) → control DOF + imperfection shape
-    const lin = solveNonlinear({ X: P.X, elems: P.elems, free: P.free, Fref: P.Fref, nSteps: 1, maxIter: 1, tol: 1e-30 });
-    const uLin = lin.steps[0]?.u || new Float64Array(P.X.length);
-    let cDOF = P.free[0], best = -1;
-    for (const d of P.free) { const v = Math.abs(uLin[d]); if (v > best) { best = v; cDOF = d; } }
-    if (best < 1e-30) {
-      let frefN = 0; for (const d of P.free) frefN += P.Fref[d] * P.Fref[d]; frefN = Math.sqrt(frefN);
-      this.toast(frefN < 1e-12
-        ? 'El patrón de carga es nulo (asigne cargas en algún caso antes de correr el pushover).'
-        : 'La carga no produce desplazamiento: el pushover por control de desplazamiento idealiza las barras como RETICULADO (sólo axial/cables, sin flexión). Para pórticos a flexión use «Rótulas plásticas».', 'warn');
+    // Model → reduced truss problem for the chosen reference pattern (js/solver/nl_frame.js).
+    const { contribs } = this._resolvePattern(pd.pattern);
+    const P = buildNLTrussProblem(model, { contribs });
+    if (!P.ok) {
+      this.toast({
+        'no-free-dof': 'Sin GDL libres',
+        'no-elements': 'No hay elementos válidos para el pushover',
+      }[P.reason] || `No se pudo armar el pushover (${P.reason})`, 'warn');
       return;
     }
+    if (!P.nCasos) { this.toast('Defina un caso de carga (patrón de referencia).', 'warn'); return; }
 
-    const Ximp = Float64Array.from(P.X);
-    if (imp > 0) {
-      let nrm = 0; for (const d of P.free) nrm += uLin[d] * uLin[d]; nrm = Math.sqrt(nrm) || 1;
-      for (const d of P.free) Ximp[d] += imp * uLin[d] / nrm;
+    // Control DOF + imperfection + target displacement (linear probe).
+    const setup = setupPushoverControl(P, imp);
+    if (!setup.ok) {
+      this.toast({
+        'null-pattern': 'El patrón de carga es nulo (asigne cargas en algún caso antes de correr el pushover).',
+        'no-response': 'La carga no produce desplazamiento: el pushover por control de desplazamiento idealiza las barras como RETICULADO (sólo axial/cables, sin flexión). Para pórticos a flexión use «Rótulas plásticas».',
+      }[setup.reason] || `Pushover: ${setup.reason}`, 'warn');
+      return;
     }
-    const linCtrl = uLin[cDOF] || 1e-3;
-    const target = linCtrl * 25;   // pushes well past limit points (traces the full snap-through)
+    const { cDOF, Ximp, target } = setup;
     this._showProgress('Pushover…', 'Trazando la trayectoria de equilibrio (control de desplazamiento) en segundo plano');
     await new Promise(r => setTimeout(r, 20));
     let res;
