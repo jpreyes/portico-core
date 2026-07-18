@@ -65,7 +65,7 @@ scales to large models (replacing the dense `eig` O(n³)).
    `P_cr = π²·E·I / (K·L)²` (pin-ended → `K = 1`). The mode-1 shape is the classic
    sinusoidal half-wave.
 
-> Numerical verification: `node test_buckling.mjs` (pin-ended column: λ₁ −0.28 %,
+> Numerical verification: `node tests/test_buckling.mjs` (pin-ended column: λ₁ −0.28 %,
 > λ₂ −1.1 % vs Euler; degenerate pairs). Documented case equivalent to Euler.
 
 ## 5. Tips and limits

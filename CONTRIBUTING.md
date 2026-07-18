@@ -50,7 +50,7 @@ Recommended flow:
 git checkout -b fix/short-description   # <type>/<description> branch (never on main)
 # … edit …
 node --input-type=module --check < js/path/file.js   # ESM syntax check
-node test_<what-you-touched>.mjs                       # verification
+node tests/test_<what-you-touched>.mjs                       # verification
 git commit -m "Clear description in English"
 git push origin my-change
 # → open the PR on GitHub
@@ -91,15 +91,15 @@ it as well on each release.
 
 ## 4. Verification (tests)
 
-There is no testing framework or runner. Each `test_*.mjs` in the root is a standalone
+There is no testing framework or runner. Each `tests/test_*.mjs` is a standalone
 Node script that is its own *entry point*. They validate against an analytical solution
 or global equilibrium.
 
 ```bash
-node test_plate.mjs        # plate (MITC4/DKT) vs analytical solution
-node test_shell.mjs        # shell
-node test_buckling.mjs     # linear buckling vs Euler
-node test_modal_kg.mjs     # modal with geometric stiffness
+node tests/test_plate.mjs        # plate (MITC4/DKT) vs analytical solution
+node tests/test_shell.mjs        # shell
+node tests/test_buckling.mjs     # linear buckling vs Euler
+node tests/test_modal_kg.mjs     # modal with geometric stiffness
 # … there are 40+ tests; run them all before a broad solver change
 ```
 

@@ -53,6 +53,6 @@ inicio de cada módulo.
 ## Cómo contribuir
 
 - Issues y discusiones en el repositorio.
-- Valida cualquier cambio del solver contra un caso analítico (patrón `test_*.mjs` en la raíz).
+- Valida cualquier cambio del solver contra un caso analítico (patrón `test_*.mjs` en `tests/`).
 - Strings-fuente de la UI en español; **comentarios de código y mensajes de commit en inglés**;
   documentación en inglés (canónica) con `*.es.md` en español.
