@@ -108,14 +108,21 @@ async function buildComparison(cmp, out, id) {
   const osRaw = cmp.opensees ? openseesResult(id) : null;
   const ov = osRaw ? cmp.opensees(osRaw) : null;
 
+  // The SAP2000 column is only shown when the case carries a REAL same-element SAP value.
+  // A convergence/element study compared only against the analytical target leaves `sap`
+  // null on every row — showing a stubbed "SAP = analytical, diff 0 %" would falsely imply
+  // an independent same-element engine validated it.
+  const hasSap = cmp.rows.some(r => r.sap != null);
   const idxLabel = cmp.indexLabel || 'Modo';
-  const header = [idxLabel, 'Descripción', `Independiente (${cmp.unit})`, `SAP2000 (${cmp.unit})`, 'dif. SAP'];
+  const header = [idxLabel, 'Descripción', `Independiente (${cmp.unit})`];
+  if (hasSap) header.push(`SAP2000 (${cmp.unit})`, 'dif. SAP');
   if (ov) header.push(`OpenSees (${cmp.unit})`, 'dif. OpenSees');
   header.push(`**Pórtico (${cmp.unit})**`, '**dif. Pórtico**');
 
   const rows = cmp.rows.map((r, i) => {
     const p = pv[i];
-    const row = [String(r.idx ?? (i + 1)), r.desc, r.indep.toFixed(cmp.decimals), r.sap.toFixed(cmp.decimals), pct(r.sap, r.indep)];
+    const row = [String(r.idx ?? (i + 1)), r.desc, r.indep.toFixed(cmp.decimals)];
+    if (hasSap) row.push(r.sap != null ? r.sap.toFixed(cmp.decimals) : '—', r.sap != null ? pct(r.sap, r.indep) : '—');
     if (ov) row.push(ov[i].toFixed(cmp.decimals), pct(ov[i], r.indep));
     row.push(`**${p.toFixed(cmp.decimals)}**`, `**${pct(p, r.indep)}**`);
     return row;

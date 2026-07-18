@@ -80,15 +80,15 @@ export default {
   figure: { mode: 1, caption: () => `Malla triangular del voladizo (Allman); deformada bajo la carga de punta (×escala).` },
 
   compare: {
-    intro: `Flecha de punta de los triángulos **Allman** y **CST** comparada con la teoría de vigas (δ=${THEORY.toFixed(4)}), al refinar la malla. (La columna «SAP2000» repite la teoría como referencia independiente.) A igualdad de malla, el Allman se acerca mucho más; el CST subestima por bloqueo por corte.`,
+    intro: `**Estudio de convergencia de elemento** (no un pase/falla de exactitud). Flecha de punta de los triángulos **Allman** y **CST** comparada con la **teoría de vigas** (δ=${THEORY.toFixed(4)}), al refinar la malla. No hay columna SAP2000: sería el *mismo* elemento en la *misma* malla y daría igual de rígido — no es una referencia independiente. Un continuo 2D con solo 2-8 elementos en el canto **no debe** igualar la teoría de viga esbelta; lo que se verifica es la **convergencia** al refinar y que el **Allman supera al CST** a igualdad de malla.`,
     unit: '—', decimals: 4, indexLabel: 'Elemento · malla',
     rows: [
-      { idx: 'Allman 8×2',  desc: 'flecha de punta', indep: THEORY, sap: THEORY },
-      { idx: 'Allman 16×4', desc: 'flecha de punta', indep: THEORY, sap: THEORY },
-      { idx: 'Allman 32×8', desc: 'flecha de punta', indep: THEORY, sap: THEORY },
-      { idx: 'CST 8×2',     desc: 'flecha de punta', indep: THEORY, sap: THEORY },
-      { idx: 'CST 16×4',    desc: 'flecha de punta', indep: THEORY, sap: THEORY },
-      { idx: 'CST 32×8',    desc: 'flecha de punta', indep: THEORY, sap: THEORY },
+      { idx: 'Allman 8×2',  desc: 'flecha de punta', indep: THEORY, sap: null },
+      { idx: 'Allman 16×4', desc: 'flecha de punta', indep: THEORY, sap: null },
+      { idx: 'Allman 32×8', desc: 'flecha de punta', indep: THEORY, sap: null },
+      { idx: 'CST 8×2',     desc: 'flecha de punta', indep: THEORY, sap: null },
+      { idx: 'CST 16×4',    desc: 'flecha de punta', indep: THEORY, sap: null },
+      { idx: 'CST 32×8',    desc: 'flecha de punta', indep: THEORY, sap: null },
     ],
     portico: async () => [
       await tipDefl(8, 2, true), await tipDefl(16, 4, true), await tipDefl(32, 8, true),
@@ -100,7 +100,7 @@ export default {
 
 A igualdad de malla, el triángulo **Allman** entrega una flecha mucho más cercana a la teoría que el **CST**: en la malla gruesa 8×2, el Allman se desvía **{{D0}}** de la teoría frente a **{{D3}}** del CST (es decir, el Allman recupera ~57 % de la flecha y el CST sólo ~26 %); en 32×8 la diferencia se reduce a **{{D2}}** (Allman) vs **{{D5}}** (CST). El Allman converge monótonamente a la teoría y la mejora es mayor donde el CST es más deficiente (mallas gruesas).
 
-El elemento pasa el *patch test* de deformación/tensión constante (verificado aparte en \`test_allman.mjs\`: σ exacta, exactamente 3 modos de cuerpo rígido, sin modos espurios). La diferencia de cabecera (%) la fija el CST en malla gruesa — es justamente el bloqueo que el Allman corrige.`,
+El elemento pasa el *patch test* de deformación/tensión constante (verificado aparte en \`test_allman.mjs\`: σ exacta, exactamente 3 modos de cuerpo rígido, sin modos espurios). El **{{D2}}** residual del Allman a 32×8 es discretización de malla gruesa, no error del elemento; sigue bajando al refinar. La diferencia de cabecera del resumen (%) la fija el CST en malla gruesa — es justamente el bloqueo que el Allman corrige, y por eso el caso se marca como *estudio*, no como pase de exactitud.`,
 
-  conclusion: `El **triángulo de membrana Allman** de Pórtico añade un GDL de giro en el plano por nodo y **supera el bloqueo por corte del CST**: converge a la teoría de vigas (δ=${THEORY.toFixed(4)}) y, a igualdad de malla, es sustancialmente más preciso que el CST. Pasa el *patch test* de tensión constante y posee exactamente los 3 modos de cuerpo rígido. **Capacidad de membrana triangular con drilling verificada.**`,
+  conclusion: `El **triángulo de membrana Allman** de Pórtico añade un GDL de giro en el plano por nodo y **supera el bloqueo por corte del CST**. Lo verificado aquí es: (1) pasa el *patch test* de tensión constante con exactamente 3 modos de cuerpo rígido (\`test_allman.mjs\`); (2) **converge monótonamente** a la teoría de vigas (δ=${THEORY.toFixed(4)}) al refinar; y (3) a igualdad de malla es sustancialmente más preciso que el CST. Lo que **no** se afirma es que una malla gruesa iguale la teoría de viga esbelta: la brecha de −56/−14 % (Allman, 8×2→32×8) es discretización esperada de un continuo 2D, no error del solver. **Estudio de convergencia — comportamiento del elemento verificado.**`,
 };
