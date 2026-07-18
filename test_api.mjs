@@ -166,6 +166,19 @@ console.log('\n── 11. Análisis geométrico-NL e inelástico vía API (Fase 
     ok(pd.ok && pd.conv && pd.amp > 1.05, `pDelta: amplifica y converge (×${pd.amp.toFixed(2)})`);
   }
 
+  // (b2) solveBuckling (unificado con la primitiva linearBuckling): voladizo, carga axial
+  //      de punta → λcr·P0 = π²·E·I/(4·L²) (Euler). Antes reimplementación inline sin test.
+  {
+    const { q, mt, st } = planar();   // sección con Iy = 8e-5
+    const N = 10, L = 4, P0 = 100, nodes = [];
+    for (let i = 0; i <= N; i++) nodes.push(q.node(0, 0, L * i / N, i === 0 ? { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 } : {}));
+    for (let i = 0; i < N; i++) q.element(nodes[i], nodes[i + 1], { mat: mt, sec: st });
+    const lc = q.loadCase('P'); q.nodalLoad(lc, nodes[N], { fz: -P0 });   // compresión
+    const b = await q.solveBuckling(lc, 2);
+    approx(b.factors[0] * P0, Math.PI ** 2 * 2.1e8 * 8e-5 / (4 * L * L), 0.02, 'solveBuckling λcr·P0 = π²EI/(4L²)');
+    ok(b.Nby && b.Nby.size > 0, 'solveBuckling devuelve Nby (fuerza axial de referencia por elemento)');
+  }
+
   // (c) nonlinearStatic: cable pretensado con carga central → converge.
   {
     const q = new Portico(); q.set2D(true);

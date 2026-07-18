@@ -30,8 +30,6 @@ import { ModalResults } from '../solver/modal_results.js?v=3';
 import { SpectrumSolver } from '../solver/spectrum_solver.js?v=3';
 import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from '../solver/assembler.js?v=3';
 import { assembleKg } from '../solver/geometric.js?v=3';
-import { makeFactor } from '../solver/linsolve.js?v=3';
-import { solveBuckling } from '../solver/buckling.js?v=3';
 import { StagedSolver } from '../solver/staged.js?v=3';
 import { checkElement, listDesignCodes, getDesignCode, registerDesignCode } from '../design/design.js?v=3';
 import { checkDeflection, checkDrift, driftLimit } from '../design/serviceability.js?v=3';
@@ -43,7 +41,7 @@ import { resolveMaterial } from '../design/material_props.js?v=3';
 import { resolveSectionProps } from '../design/section_props.js?v=3';
 import { registerFormat, listFormats, exportModel, importModel } from '../io/index.js?v=3';
 import { solvePlastic } from '../solver/plastic.js?v=3';
-import { pDelta as pDeltaAnalysis } from '../solver/geometric_analysis.js?v=3';
+import { linearBuckling, pDelta as pDeltaAnalysis } from '../solver/geometric_analysis.js?v=3';
 import { buildNLTrussProblem, buildCorotProblem, remapCorotSteps, setupPushoverControl, buildFormFindProblem } from '../solver/nl_frame.js?v=3';
 import { solveNonlinear, solveNonlinearDC } from '../solver/nl_lite.js?v=3';
 import { solveCorotBeam } from '../solver/corotbeam.js?v=3';
@@ -172,26 +170,23 @@ export class Portico {
     this.modal = new ModalResults(this.model, ni, fd, modes, M, nDOF); this._lastKind = 'modal';
     return this.modal;
   }
-  // Pandeo lineal: (K + λ·Kg)·φ = 0. Devuelve { factors:[λ], modes }.
+  // Pandeo lineal: (K + λ·Kg)·φ = 0 → { factors:[λ], modes, Nby }. `refLcId` fija la carga
+  // de referencia (null → todos los casos estáticos a factor 1). Delegado en la primitiva
+  // extraída js/solver/geometric_analysis.js (misma que usan los drivers de app.js).
   async solveBuckling(refLcId = null, nModes = 4) {
     await ensureNumeric(); apply2D(this.model);
-    const ni = buildNodeIndex(this.model);
-    const { K, nDOF } = assembleK(this.model, ni);
-    const fd = freeDOFof(this.model, ni), nF = fd.length;
-    const Kff = new Float64Array(nF * nF), Ff = new Float64Array(nF);
-    const F = assembleF(this.model, ni, refLcId, false);
-    for (let i = 0; i < nF; i++) { Ff[i] = F[fd[i]]; const ri = fd[i] * nDOF; for (let j = 0; j < nF; j++) Kff[i * nF + j] = K[ri + fd[j]]; }
-    const fac = makeFactor(Kff, nF, true);
-    if (!fac.ok) throw new Error('Estado de referencia singular (mecanismo).');
-    const ufA = fac.solve(Ff); const u = new Float64Array(nDOF); for (let i = 0; i < nF; i++) u[fd[i]] = ufA[i];
-    const { Kg, Nmax } = assembleKg(this.model, ni, u);
-    if (Nmax < 1e-9) throw new Error('La carga de referencia no genera forces axiales.');
-    const Kgff = new Float64Array(nF * nF);
-    for (let i = 0; i < nF; i++) { const ri = fd[i] * nDOF; for (let j = 0; j < nF; j++) Kgff[i * nF + j] = Kg[ri + fd[j]]; }
-    const res = solveBuckling({ Kff_flat: Kff, Kgff_flat: Kgff, nF, nModes, dense: true });
-    if (res.error) throw new Error(res.error);
+    const contribs = refLcId != null ? [{ lcId: refLcId, factor: 1, selfWeight: false }] : null;
+    const res = linearBuckling(this.model, { nModes, dense: true, contribs });
+    if (!res.ok) throw new Error({
+      'ref-singular': 'Estado de referencia singular (mecanismo).',
+      'no-kg':        'La carga de referencia no genera fuerzas axiales.',
+      'no-free-dof':  'Sin GDL libres.',
+      'no-loads':     'Defina un caso de carga de referencia.',
+      'no-modes':     'No se hallaron modos de pandeo.',
+      'solver-error': res.message,
+    }[res.reason] || ('Pandeo: ' + res.reason));
     this._lastKind = 'buckling';
-    this.buckling = { factors: res.modes.map(m => m.lambda), modes: res.modes };
+    this.buckling = { factors: res.modes.map(m => m.lambda), modes: res.modes, Nby: res.Nby };
     return this.buckling;
   }
   async solveStaged(stages) { await ensureNumeric(); apply2D(this.model); this.results = new StagedSolver().solve(this.model, stages); this._lastKind = 'staged'; return this.results; }
