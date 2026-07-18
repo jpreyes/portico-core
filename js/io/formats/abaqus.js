@@ -7,7 +7,7 @@
 // speak only the NEUTRAL MODEL.  Covers PORTICO's subset: members (B31), general
 // sections (A, I11=Iz, I22=Iy, J + E, G), supports and per-step nodal loads.
 // ──────────────────────────────────────────────────────────────────────────────
-import { registerFormat } from '../registry.js?v=2';
+import { registerFormat } from '../registry.js?v=3';
 
 const fmt = (v) => { v = +v || 0; if (v === 0) return '0.'; const a = Math.abs(v); return (a < 1e-3 || a >= 1e7) ? v.toExponential(6) : (+v.toPrecision(8)).toString(); };
 const DOF = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'];   // Abaqus dof 1..6 == PORTICO order

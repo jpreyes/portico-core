@@ -17,8 +17,8 @@
 // SELF-CONTAINED except for linsolve.js (banded factorization) and subspace.js (core
 // shared with the modal solver). Reusable in Node + browser + Worker.
 // ──────────────────────────────────────────────────────────────────────────────
-import { makeFactor, rowBands, permRCM } from './linsolve.js?v=2';
-import { smallGenEig, mvBand, dot } from './subspace.js?v=2';
+import { makeFactor, rowBands, permRCM } from './linsolve.js?v=3';
+import { smallGenEig, mvBand, dot } from './subspace.js?v=3';
 
 /**
  * @param {object} o

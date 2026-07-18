@@ -10,11 +10,11 @@
 // that builds and confirms (with snapshot → undo).  Robust: the non-importable ones
 // are listed disabled, never break.  STANDALONE except for Three (via the preview).
 // ──────────────────────────────────────────────────────────────────────────────
-import { IfcPreview } from './ifcSideBySidePreview.js?v=2';
-import { itemsToNeutral } from '../io/ifc/ifcToPortico.js?v=2';
-import { KIND_LABEL } from '../io/ifc/ifcClassifier.js?v=2';
-import { esc } from '../utils/escape.js?v=2';
-import { i18n } from '../i18n/i18n.js?v=2';
+import { IfcPreview } from './ifcSideBySidePreview.js?v=3';
+import { itemsToNeutral } from '../io/ifc/ifcToPortico.js?v=3';
+import { KIND_LABEL } from '../io/ifc/ifcClassifier.js?v=3';
+import { esc } from '../utils/escape.js?v=3';
+import { i18n } from '../i18n/i18n.js?v=3';
 
 const STATUS = {
   ok:            { txt: 'Importable', color: 'var(--success)' },

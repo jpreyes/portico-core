@@ -14,8 +14,27 @@ and the project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+---
+
+## [0.2.0] — 2026-07-18
+
 ### Added
 
+- **Headless analysis API** (`js/api/portico.js`): the geometric-nonlinear and inelastic
+  engines are now callable without the DOM — `plasticHinge`, `pDelta`, `nonlinearStatic`,
+  `corotational`, `pushover`, `timeHistoryNL`, `movingLoad` and `formFinding`, alongside
+  the existing static / modal / spectrum / buckling / staged. Each builds the reduced
+  problem from the model and returns the neutral result. Response-spectrum combination
+  (`solveSpectrum`) and per-code interstory-drift checks (`storyDrifts`) are wired in too.
+  Exercised end-to-end against closed-form solutions in `test_api.mjs`.
+- **Unified NCh433/DS61 design spectrum** (`js/design/nch433_spectrum.js`) and a
+  **code-agnostic interstory-drift primitive** (`js/solver/drift.js`): one source of truth
+  for the spectrum shape and tables (previously four drifted copies), and a generic drift
+  computation whose per-code limit lives in `js/design/serviceability.js`. Tests
+  `test_nch433_spectrum.mjs`, `test_drift.mjs`.
+- **OpenSees cross-validation** (`tools/verif/opensees/`): independent OpenSeesPy runs of
+  the benchmark models, compared column-by-column in the verification report — an
+  established-engine check alongside the analytic / SAP2000 values.
 - **Unified stability verdict**: a structured mechanism / near-singular verdict on
   `Results.warnings` and `err.stability`, plus a drift / displacement sanity in the post
   that catches a near-mechanism which "solves" with garbage (e.g. roller bases rescued by
@@ -42,6 +61,16 @@ and the project follows [Semantic Versioning](https://semver.org/).
   (mid-surface + thickness; `IfcWall` → membrane, slab/plate/other → shell); all-comparable
   → **3D block**, skipped with a warning. Previously these files imported nothing. Verified
   with `test_ifc_brep.mjs`.
+
+### Changed
+
+- **`app.js` slimmed by ~1,500 lines**: every analysis engine that lived inside the UI
+  orchestrator — reporting, plastic hinges, linear buckling + P-Delta, the
+  nonlinear-frame family (truss / cable, corotational, pushover, form-finding) with one
+  unified reference-load lumping, and the shear-building nonlinear time-history — was
+  extracted into pure `js/solver/` (and `js/report/`) modules, each headless and validated
+  against a closed-form solution. The UI drivers now delegate to them; no analysis changed
+  behaviour.
 
 ### Removed
 

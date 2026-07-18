@@ -14,7 +14,7 @@
 // intensity; area self-weight is not exported. Density travels as `-mass` (mass per unit
 // length = ρ·A), which is mass — self-weight, a force, is ρ·A·g.
 // ──────────────────────────────────────────────────────────────────────────────
-import { registerFormat } from '../registry.js?v=2';
+import { registerFormat } from '../registry.js?v=3';
 
 const num = (v) => { v = +v || 0; if (v === 0) return '0'; const a = Math.abs(v); return (a < 1e-4 || a >= 1e6) ? v.toExponential(6) : String(+v.toPrecision(9)); };
 

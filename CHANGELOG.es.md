@@ -14,8 +14,27 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 ## [Sin publicar]
 
+---
+
+## [0.2.0] — 2026-07-18
+
 ### Añadido
 
+- **API de análisis headless** (`js/api/portico.js`): los motores geométrico-no-lineales
+  e inelásticos ahora se llaman sin DOM — `plasticHinge`, `pDelta`, `nonlinearStatic`,
+  `corotational`, `pushover`, `timeHistoryNL`, `movingLoad` y `formFinding`, junto a los
+  ya existentes estático / modal / espectro / pandeo / etapas. Cada uno arma el problema
+  reducido desde el modelo y devuelve el resultado neutro. También se cablearon la
+  combinación espectral (`solveSpectrum`) y las derivas de entrepiso por norma
+  (`storyDrifts`). Verificado de punta a punta contra solución cerrada en `test_api.mjs`.
+- **Espectro de diseño NCh433/DS61 unificado** (`js/design/nch433_spectrum.js`) y una
+  **primitiva de deriva de entrepiso agnóstica de norma** (`js/solver/drift.js`): una sola
+  fuente de verdad para la forma y las tablas del espectro (antes cuatro copias
+  divergidas), y un cálculo de deriva genérico cuyo límite por norma vive en
+  `js/design/serviceability.js`. Tests `test_nch433_spectrum.mjs`, `test_drift.mjs`.
+- **Validación cruzada con OpenSees** (`tools/verif/opensees/`): corridas independientes en
+  OpenSeesPy de los modelos de referencia, comparadas columna a columna en el reporte de
+  verificación — un contraste contra motor establecido junto a los valores analíticos / SAP2000.
 - **Veredicto de estabilidad unificado**: veredicto estructurado de mecanismo /
   casi-singular en `Results.warnings` y `err.stability`, más una sanity de deriva /
   desplazamiento en el post que caza el casi-mecanismo que "resuelve" con basura (p.ej.
@@ -42,6 +61,16 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
   (superficie media + espesor; `IfcWall` → membrana, losa/placa/otros → shell); las tres
   dimensiones parecidas → **bloque 3D**, omitido con aviso. Antes estos archivos no importaban
   nada. Verificado con `test_ifc_brep.mjs`.
+
+### Cambiado
+
+- **`app.js` adelgazado en ~1.500 líneas**: cada motor de análisis que vivía dentro del
+  orquestador de UI — reporting, rótulas plásticas, pandeo lineal + P-Delta, la familia
+  no-lineal de pórtico (barra / cable, corotacional, pushover, form-finding) con un único
+  lumping de carga de referencia, y el time-history no lineal del edificio de corte — se
+  extrajo a módulos puros en `js/solver/` (y `js/report/`), cada uno headless y validado
+  contra solución cerrada. Los drivers de UI ahora delegan en ellos; ningún análisis
+  cambió de comportamiento.
 
 ### Eliminado
 

@@ -10,7 +10,7 @@
 //
 // Limitations: end releases and distributed loads are not exported (they are warned).
 // ──────────────────────────────────────────────────────────────────────────────
-import { registerFormat } from '../registry.js?v=2';
+import { registerFormat } from '../registry.js?v=3';
 
 const G_ACC = 9.80665;   // GAM (specific weight) = ρ·g
 const num = (v) => { v = +v || 0; if (v === 0) return '0'; const a = Math.abs(v); return (a < 1e-4 || a >= 1e6) ? v.toExponential(6) : String(+v.toPrecision(9)); };

@@ -13,7 +13,7 @@
 // `opts` (X, Fref, elems, free…) and the result (steps/path with Float64Array)
 // travel via structured clone, which preserves the typed arrays.
 // ──────────────────────────────────────────────────────────────────────────────
-import { solveNonlinear, solveNonlinearDC } from './nl_lite.js?v=2';
+import { solveNonlinear, solveNonlinearDC } from './nl_lite.js?v=3';
 
 self.onmessage = (e) => {
   const { kind, opts } = e.data;
