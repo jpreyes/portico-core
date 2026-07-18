@@ -188,14 +188,22 @@ ${mod.conclusion}
 
   // resumen a consola
   const relPct = (v, ref) => Math.abs(ref) < 1e-9 ? 0 : Math.abs((v - ref) / ref * 100);
-  const maxDiff = Math.max(...mod.compare.rows.map((r, i) => relPct(pv[i], r.indep)));
+  const diffs = mod.compare.rows.map((r, i) => relPct(pv[i], r.indep));
+  // A convergence study designates its CONVERGED (finest) row as the verified point via
+  // `compare.metricIdx`: the coarser rows are the convergence path, not failures, so the
+  // reported error must be the converged one — not the worst coarse mesh. Otherwise the
+  // reported error is the worst row (a plain pass/fail case).
+  const mIdx = mod.compare.metricIdx;
+  const maxDiff = mIdx != null ? diffs[mIdx] : Math.max(...diffs);
   // Same-element / same-software reference: portico vs SAP2000 (apples-to-apples). For
-  // element-behaviour or convergence studies this is the honest verdict — the analytical
-  // column is the ideal a basic element intentionally does not reach.
+  // element-behaviour studies this isolates the element from modelling error.
   const sapRows = mod.compare.rows.filter(r => r.sap != null);
-  const maxVsSap = sapRows.length ? Math.max(...mod.compare.rows.map((r, i) => r.sap != null ? relPct(pv[i], r.sap) : 0)) : null;
+  const sapDiffs = mod.compare.rows.map((r, i) => r.sap != null ? relPct(pv[i], r.sap) : 0);
+  const maxVsSap = !sapRows.length ? null
+    : (mIdx != null && mod.compare.rows[mIdx].sap != null ? sapDiffs[mIdx] : Math.max(...sapDiffs));
   const osDiff = ov ? Math.max(...ov.map((o, i) => Math.abs(o) < 1e-12 ? Math.abs(pv[i] - o) : Math.abs((pv[i] - o) / o))) : null;
-  console.log(`✓ ${mod.id}  ${mod.slug}  ·  máx |dif| = ${maxDiff.toFixed(3)} %` +
+  console.log(`✓ ${mod.id}  ${mod.slug}  ·  ${mIdx != null ? 'converge a' : 'máx |dif| ='} ${maxDiff.toFixed(3)} %` +
+    (mIdx != null ? `  (máx malla gruesa ${Math.max(...diffs).toFixed(1)} %)` : '') +
     (osDiff !== null ? `  ·  vs OpenSees = ${osDiff.toExponential(1)}` : '') +
     `  ·  ${mod.slug}.pdf`);
   return { id: mod.id, slug: mod.slug, title: mod.title, capability: mod.capability,

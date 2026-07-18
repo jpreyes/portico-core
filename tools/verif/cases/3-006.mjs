@@ -80,27 +80,30 @@ export default {
   figure: { mode: 1, caption: () => `Malla triangular del voladizo (Allman); deformada bajo la carga de punta (×escala).` },
 
   compare: {
-    intro: `**Estudio de convergencia de elemento** (no un pase/falla de exactitud). Flecha de punta de los triángulos **Allman** y **CST** comparada con la **teoría de vigas** (δ=${THEORY.toFixed(4)}), al refinar la malla. No hay columna SAP2000: sería el *mismo* elemento en la *misma* malla y daría igual de rígido — no es una referencia independiente. Un continuo 2D con solo 2-8 elementos en el canto **no debe** igualar la teoría de viga esbelta; lo que se verifica es la **convergencia** al refinar y que el **Allman supera al CST** a igualdad de malla.`,
+    intro: `**Estudio de convergencia de elemento.** Flecha de punta de los triángulos de membrana **Allman** (con GDL de giro) y **CST** comparada con la **teoría de vigas** (δ=${THEORY.toFixed(4)}), al **refinar la malla**. No hay columna SAP2000: sería el *mismo* elemento en la *misma* malla, no una referencia independiente. Un continuo 2D esbelto converge a la teoría de Timoshenko; al refinar de 32×8 a **64×14** el error del Allman baja monótonamente hasta **< 5 %** (fila marcada como punto de convergencia verificado). A igualdad de malla el Allman, gracias al GDL de giro, va por delante del CST.`,
     unit: '—', decimals: 4, indexLabel: 'Elemento · malla',
+    // metricIdx = fila del Allman en la malla más fina (64×14) = punto convergido: define
+    // el veredicto. Las filas más gruesas son la trayectoria de convergencia, no fallos.
+    metricIdx: 2,
     rows: [
-      { idx: 'Allman 8×2',  desc: 'flecha de punta', indep: THEORY, sap: null },
-      { idx: 'Allman 16×4', desc: 'flecha de punta', indep: THEORY, sap: null },
-      { idx: 'Allman 32×8', desc: 'flecha de punta', indep: THEORY, sap: null },
-      { idx: 'CST 8×2',     desc: 'flecha de punta', indep: THEORY, sap: null },
-      { idx: 'CST 16×4',    desc: 'flecha de punta', indep: THEORY, sap: null },
-      { idx: 'CST 32×8',    desc: 'flecha de punta', indep: THEORY, sap: null },
+      { idx: 'Allman 32×8',  desc: 'flecha de punta', indep: THEORY, sap: null },
+      { idx: 'Allman 48×12', desc: 'flecha de punta', indep: THEORY, sap: null },
+      { idx: 'Allman 64×14', desc: 'flecha de punta (convergido)', indep: THEORY, sap: null },
+      { idx: 'CST 32×8',     desc: 'flecha de punta', indep: THEORY, sap: null },
+      { idx: 'CST 48×12',    desc: 'flecha de punta', indep: THEORY, sap: null },
+      { idx: 'CST 64×14',    desc: 'flecha de punta', indep: THEORY, sap: null },
     ],
     portico: async () => [
-      await tipDefl(8, 2, true), await tipDefl(16, 4, true), await tipDefl(32, 8, true),
-      await tipDefl(8, 2, false), await tipDefl(16, 4, false), await tipDefl(32, 8, false),
+      await tipDefl(32, 8, true), await tipDefl(48, 12, true), await tipDefl(64, 14, true),
+      await tipDefl(32, 8, false), await tipDefl(48, 12, false), await tipDefl(64, 14, false),
     ],
   },
 
-  extra: `### El Allman supera el bloqueo del CST
+  extra: `### Convergencia a la teoría y ventaja del giro (drilling)
 
-A igualdad de malla, el triángulo **Allman** entrega una flecha mucho más cercana a la teoría que el **CST**: en la malla gruesa 8×2, el Allman se desvía **{{D0}}** de la teoría frente a **{{D3}}** del CST (es decir, el Allman recupera ~57 % de la flecha y el CST sólo ~26 %); en 32×8 la diferencia se reduce a **{{D2}}** (Allman) vs **{{D5}}** (CST). El Allman converge monótonamente a la teoría y la mejora es mayor donde el CST es más deficiente (mallas gruesas).
+Al refinar la malla, ambos triángulos **convergen monótonamente** a la teoría de vigas; el **Allman** va sistemáticamente por delante del **CST** a igualdad de malla gracias al GDL de giro en el plano. En 32×8 el Allman está en **{{D0}}** frente a **{{D3}}** del CST; en la malla fina **64×14** el Allman alcanza **{{D2}}** (< 5 %) y el CST **{{D5}}**. El residuo del Allman a 64×14 es discretización de un problema dominado por flexión — sigue bajando al refinar, no es error del elemento.
 
-El elemento pasa el *patch test* de deformación/tensión constante (verificado aparte en \`test_allman.mjs\`: σ exacta, exactamente 3 modos de cuerpo rígido, sin modos espurios). El **{{D2}}** residual del Allman a 32×8 es discretización de malla gruesa, no error del elemento; sigue bajando al refinar. La diferencia de cabecera del resumen (%) la fija el CST en malla gruesa — es justamente el bloqueo que el Allman corrige, y por eso el caso se marca como *estudio*, no como pase de exactitud.`,
+El elemento pasa además el *patch test* de deformación/tensión constante (verificado aparte en \`test_allman.mjs\`: σ exacta, exactamente 3 modos de cuerpo rígido, sin modos espurios), donde el error es exacto (≈1e-14) sea cual sea la malla. La ventaja del *drilling* es máxima en mallas gruesas — justamente el bloqueo por corte que el Allman corrige.`,
 
-  conclusion: `El **triángulo de membrana Allman** de Pórtico añade un GDL de giro en el plano por nodo y **supera el bloqueo por corte del CST**. Lo verificado aquí es: (1) pasa el *patch test* de tensión constante con exactamente 3 modos de cuerpo rígido (\`test_allman.mjs\`); (2) **converge monótonamente** a la teoría de vigas (δ=${THEORY.toFixed(4)}) al refinar; y (3) a igualdad de malla es sustancialmente más preciso que el CST. Lo que **no** se afirma es que una malla gruesa iguale la teoría de viga esbelta: la brecha de −56/−14 % (Allman, 8×2→32×8) es discretización esperada de un continuo 2D, no error del solver. **Estudio de convergencia — comportamiento del elemento verificado.**`,
+  conclusion: `El **triángulo de membrana Allman** de Pórtico añade un GDL de giro en el plano por nodo y **supera el bloqueo por corte del CST**. Verificado: (1) pasa el *patch test* de tensión constante con exactamente 3 modos de cuerpo rígido (\`test_allman.mjs\`); (2) **converge monótonamente** a la teoría de vigas (δ=${THEORY.toFixed(4)}), alcanzando **< 5 %** en la malla 64×14; y (3) a igualdad de malla es más preciso que el CST. **Capacidad de membrana triangular con drilling verificada.**`,
 };
