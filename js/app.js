@@ -32,6 +32,7 @@ import { jointSCWB } from './design/seismic.js?v=2';
 import { resolveMaterial } from './design/material_props.js?v=2';
 import { resolveSectionProps } from './design/section_props.js?v=2';
 import { autoDetectDiaphragms, computeFloorCR, applyDiaphragmConstraints } from './solver/diaphragm.js?v=2';
+import { interstoryDrifts, buildStoryLevels } from './solver/drift.js?v=2';
 import { splitElement, splitByLength, discretizeAll, joinElements, intersectElements } from './model/discretize.js?v=2';
 import { localAxes, stiffnessMatrix, massMatrix, transformMatrix, globalStiffness, applyReleases } from './solver/timoshenko.js?v=2';
 import { blockCells, cornerGridIndices } from './model/mesher.js?v=2';
@@ -8979,54 +8980,34 @@ class App {
   // EXTERNAL nodes (max level displacement). Both ≤ 0.002·h (2/1000 of the story
   // height). Uses the seismic displacements (spectrum F6+F7).
   _computeDrift() {
-    const limit = 0.002;
+    // Limit from the code layer (js/design/serviceability.js), not a hardcoded 0.002; the
+    // drift math is the generic primitive (js/solver/drift.js). Here we only assemble the
+    // report shape: CM (diaphragm master) and external drift side by side, per direction.
+    const limit = driftLimit('NCh433');
     const out = { limit, dirs: [], note: '', hasCM: false };
     const spec = this._spectrumResults;
     const dirDefs = [['X', 0, 'espX'], ['Y', 1, 'espY']].filter(([, , k]) => spec?.get(k)?.result);
     if (!dirDefs.length) { out.note = 'Las derivas usan los resultados sísmicos: ejecute Análisis Modal (F6) y Espectro de Respuesta (F7) en X y/o Y.'; return out; }
 
-    // Floor levels: diaphragms (master = CM) if they exist; otherwise group nodes by z.
-    let levels;
-    const diaphs = [...this.model.diaphragms.values()];
-    if (diaphs.length) {
-      levels = diaphs.map(d => ({ z: d.z, masterId: d.masterId, nodeIds: (d.nodes || []).filter(id => this.model.nodes.has(id)) }));
-      out.hasCM = true;
-    } else {
-      const byZ = new Map();
-      for (const n of this.model.nodes.values()) {
-        if (Math.abs(n.z) < 0.01) continue;   // base level
-        const zk = Math.round(n.z * 100) / 100;
-        if (!byZ.has(zk)) byZ.set(zk, []);
-        byZ.get(zk).push(n.id);
-      }
-      levels = [...byZ.entries()].map(([z, ids]) => ({ z, masterId: null, nodeIds: ids }));
-      out.note = 'Sin diafragmas rígidos: la deriva entre centros de masa requiere definir diafragmas (Análisis → diafragmas). Se reporta solo la deriva entre nodos externos por nivel de Z.';
+    out.hasCM = this.model.diaphragms.size > 0;
+    if (!out.hasCM) out.note = 'Sin diafragmas rígidos: la deriva entre centros de masa requiere definir diafragmas (Análisis → diafragmas). Se reporta solo la deriva entre nodos externos por nivel de Z.';
+    // Level set is direction-independent; probe it once to detect "no stories".
+    if (!buildStoryLevels(this.model, () => 0, { mode: 'ext' }).length) {
+      out.note = 'No hay niveles de entrepiso (todos los nodos están en la base).'; return out;
     }
-    levels.sort((a, b) => a.z - b.z);
-    if (!levels.length) { out.note = 'No hay niveles de entrepiso (todos los nodos están en la base).'; return out; }
 
     for (const [dir, idx, key] of dirDefs) {
       const res = spec.get(key).result;
       const dispH = id => { try { return Math.abs(res.getNodeDisp(id)[idx]); } catch { return 0; } };
-      const lvlData = levels.map(L => ({
-        z: L.z,
-        cm: L.masterId != null ? dispH(L.masterId) : null,
-        ext: L.nodeIds.reduce((mx, id) => Math.max(mx, dispH(id)), 0),
-      }));
-      // Base (ground) reference at z=0 with u=0
-      let prev = { z: 0, cm: 0, ext: 0 };
-      const stories = [];
-      lvlData.forEach((cur, i) => {
-        const h = cur.z - prev.z;
-        if (h <= 1e-6) { prev = cur; return; }
-        const driftCM = (cur.cm != null && prev.cm != null) ? Math.abs(cur.cm - prev.cm) / h : null;
-        const driftExt = Math.abs(cur.ext - prev.ext) / h;
-        stories.push({
-          piso: i + 1, z: cur.z, h,
-          driftCM, ratioCM: driftCM != null ? driftCM / limit : null, okCM: driftCM != null ? driftCM <= limit : null,
-          driftExt, ratioExt: driftExt / limit, okExt: driftExt <= limit,
-        });
-        prev = cur;
+      const dExt = interstoryDrifts(buildStoryLevels(this.model, dispH, { mode: 'ext' }));
+      const dCM = out.hasCM ? interstoryDrifts(buildStoryLevels(this.model, dispH, { mode: 'cm' })) : [];
+      const stories = dExt.map((se, i) => {
+        const dc = dCM[i] ? dCM[i].drift : null;
+        return {
+          piso: se.story, z: se.z, h: se.h,
+          driftCM: dc, ratioCM: dc != null ? dc / limit : null, okCM: dc != null ? dc <= limit : null,
+          driftExt: se.drift, ratioExt: se.drift / limit, okExt: se.drift <= limit,
+        };
       });
       out.dirs.push({ dir, stories });
     }
