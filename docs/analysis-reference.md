@@ -257,6 +257,23 @@ a much larger penalty (say `1e8`) would over-condition the matrix.
   of rigidity — and any **accidental eccentricity** the user adds — emerges automatically in the
   dynamics, without an explicitly supplied rotational inertia.
 
+### 1.6 Meshing (`js/model/mesher.js`, `mesh_map.js`, `mesh_free.js`)
+
+Areas are meshed into the elements above automatically. A **structured block mesher** maps a
+four-corner region to an `nx×ny` grid of QUAD (or CST) cells by bilinear interpolation. The
+**transfinite (Coons) mesher** generalizes it to a four-sided region bounded by four edge *curves*,
+
+```
+S(u,v) = (1−v)·B(u) + v·T(u) + (1−u)·L(v) + u·R(v) − (bilinear corner term)
+```
+
+which reduces exactly to the block mesher for straight sides, so curved or polygonal walls, decks and
+slabs mesh conformingly. A **free mesher** handles arbitrary simple polygons (concave L- or U-shaped
+plans): ear-clipping triangulation → Delaunay (Lawson) flips → 1→4 refinement to a target size →
+greedy recombination to a QUAD-dominant mesh → Laplacian smoothing. A 3D polygon is projected to its
+plane, meshed and mapped back, so inclined shells mesh too. All three meshers are held to the patch
+test (Verification 3-001 transfinite, 3-005 free).
+
 <!-- pagebreak -->
 
 ## 2. Assembly and linear solution
@@ -280,6 +297,12 @@ fixed-end forces (§1.1), transformed to global axes and release-condensed. A un
 change adds an axial fixed-end force `Nt = EA·α·ΔT`; a plate gradient adds a thermal moment. Self
 weight is applied as a `gravity` distributed load `w = ρ·A·g` on frames, and as an equal nodal share
 on areas.
+
+**Tendon prestress.** A post-tensioning tendon is applied by the **equivalent-load (load-balancing)
+method** (T. Y. Lin): a parabolic tendon of force `P` and sag `a` over a span `L` exerts a balancing
+distributed load `w_eq = 8·P·a/L²` (upward when the tendon sags below the axis) plus an axial
+compression `P` at the anchors. The linear solver then handles these as ordinary loads, so prestress
+needs no special element (Verification 1-009).
 
 ### 2.3 The linear solve (`js/solver/static_solver.js`)
 
@@ -324,6 +347,25 @@ load, never inferred from the end shears, so diagrams are exact between nodes. P
 along a member use cubic-Hermite interpolation plus the exact uniform-load deflection bubble. Area and
 shell results give in-plane stresses (`σx, σy, τxy`, von Mises, principals), plate moments and
 curvatures, and surface stresses `σ = membrane ± 6M/t²`, with optional nodal averaging.
+
+### 2.6 Staged construction (`js/solver/staged.js`)
+
+A structure built in stages — cantilever segments, shoring struck, props removed — does not behave
+like the finished frame loaded all at once: each element is *born* into the deformed geometry of the
+stage that activates it and only accumulates the forces of the stages in which it already exists. The
+engine models this **incrementally and linearly**: at each stage `K` is assembled from the *active*
+elements only, the stage's load increment is solved, and the displacement and force state
+**accumulates** across stages. The final state therefore depends on the construction sequence, not
+only on the final geometry (Verification 1-031).
+
+### 2.7 Moving loads and influence lines (`js/solver/moving_load.js`)
+
+A load train (a truck or an axle set) travels along a *lane* over the structure. For each position the
+static problem is solved and a chosen response is recorded, yielding an **influence line** — the
+response to a moving *unit* load as a function of its position, `R(s)` — and, for the full train swept
+over every position, an **envelope** of maxima and minima used for traffic design. For a simple beam
+the influence line of the left reaction is `1 − x/L` and that of the mid-span moment is a triangle
+peaking at `L/4` (Verification 1-030).
 
 <!-- pagebreak -->
 
@@ -395,6 +437,20 @@ importance factors `I ∈ {0.6, 1.0, 1.2}`, and `Ro` (default 11.0). The tables 
 country preset can be dropped in. The reduction factor `R*` may be returned separately so the caller
 applies it as `Sa·g/R*`.
 
+### 3.5 Prestressed (stress-stiffened) modal analysis (`js/solver/geometric_analysis.js`)
+
+Vibration frequencies shift when a structure carries stress: a tensioned cable or a prestressed member
+is stiffer and vibrates faster, a compressed one softer. This is captured by solving the modal problem
+on the **stress-stiffened** matrix,
+
+```
+(K + Kg(u₀)) · φ = ω² · M · φ
+```
+
+where `Kg` is assembled (§4.1) from the axial state `u₀` of a reference load case. It is the same
+Stodola eigensolver as §3.1 applied to `K + Kg`. The canonical check is a taut string, whose
+frequencies track the applied tension (Verification 1-017).
+
 <!-- pagebreak -->
 
 ## 4. Geometric nonlinearity
@@ -438,7 +494,9 @@ A tension-only cable clips `N < 0` to slack; a compression-only strut clips `N >
 adds a geometric term `kg = N/l` to the material `km = EA/L0`. The global system is solved by
 **Newton–Raphson under load control** (default 10 load steps), converging on a relative residual of
 `1e-8`. For snap-through past limit points a **displacement-control** variant augments the system to
-solve for the load factor while prescribing a control-DOF increment.
+solve for the load factor while prescribing a control-DOF increment; this is exposed as the
+`pushover` analysis, which drives the control DOF (the most-mobile free DOF) past the limit point to
+trace the full capacity curve.
 
 ### 4.5 Corotational beam (`js/solver/corotbeam.js`)
 

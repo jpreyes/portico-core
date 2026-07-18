@@ -267,6 +267,25 @@ autosolucionador siga funcionando; un penalti mucho mayor (digamos `1e8`) sobre-
   masa y el centro de rigidez — y cualquier **excentricidad accidental** que el usuario agregue — emerge
   automáticamente en la dinámica, sin una inercia rotacional dada explícitamente.
 
+### 1.6 Mallado (`js/model/mesher.js`, `mesh_map.js`, `mesh_free.js`)
+
+Las áreas se mallan automáticamente en los elementos anteriores. Un **mallador estructurado por
+bloques** mapea una región de cuatro esquinas a una grilla `nx×ny` de celdas QUAD (o CST) por
+interpolación bilineal. El **mallador transfinito (Coons)** lo generaliza a una región de cuatro lados
+acotada por cuatro *curvas* de borde,
+
+```
+S(u,v) = (1−v)·B(u) + v·T(u) + (1−u)·L(v) + u·R(v) − (término bilineal de esquinas)
+```
+
+que se reduce exactamente al mallador por bloques con lados rectos, así que muros, tableros y losas de
+borde curvo o poligonal se mallan de forma conforme. Un **mallador libre** trata polígonos simples
+arbitrarios (plantas cóncavas en L o U): triangulación por ear-clipping → volteos de Delaunay
+(Lawson) → refinamiento 1→4 a un tamaño objetivo → recombinación greedy a una malla QUAD-dominante →
+suavizado laplaciano. Un polígono 3D se proyecta a su plano, se malla y se remapea, así que también
+mallan cáscaras inclinadas. Los tres malladores se someten al patch test (Verificación 3-001
+transfinito, 3-005 libre).
+
 <!-- pagebreak -->
 
 ## 2. Ensamblaje y solución lineal
@@ -291,6 +310,12 @@ Las cargas distribuidas se vuelven fuerzas de empotramiento (§1.1), transformad
 condensadas por liberaciones. Un cambio uniforme de temperatura agrega una fuerza axial de empotramiento
 `Nt = EA·α·ΔT`; un gradiente de placa agrega un momento térmico. El peso propio se aplica como carga
 distribuida `gravity` `w = ρ·A·g` en las barras y como reparto nodal por igual en las áreas.
+
+**Pretensado por tendón.** Un tendón postensado se aplica por el **método de cargas equivalentes
+(load balancing)** (T. Y. Lin): un tendón parabólico de fuerza `P` y flecha `a` sobre un vano `L`
+ejerce una carga distribuida de balanceo `w_eq = 8·P·a/L²` (hacia arriba cuando el tendón cuelga bajo
+el eje) más una compresión axial `P` en los anclajes. El solver lineal luego trata estas como cargas
+ordinarias, así que el presfuerzo no necesita un elemento especial (Verificación 1-009).
 
 ### 2.3 La solución lineal (`js/solver/static_solver.js`)
 
@@ -338,6 +363,26 @@ desplazamientos puntuales a lo largo de un miembro usan interpolación Hermite c
 exacta de deflexión por carga uniforme. Los resultados de área y cáscara entregan tensiones en el plano
 (`σx, σy, τxy`, von Mises, principales), momentos y curvaturas de placa, y tensiones de superficie
 `σ = membrana ± 6M/t²`, con promediado nodal opcional.
+
+### 2.6 Construcción por etapas (`js/solver/staged.js`)
+
+Una estructura construida por etapas — segmentos en voladizo, apuntalamiento retirado, puntales
+liberados — no se comporta como el pórtico terminado cargado todo de una vez: cada elemento *nace* en
+la geometría deformada de la etapa que lo activa y sólo acumula las fuerzas de las etapas en que ya
+existe. El motor lo modela **incremental y linealmente**: en cada etapa `K` se ensambla sólo con los
+elementos *activos*, se resuelve el incremento de carga de la etapa, y el estado de desplazamientos y
+fuerzas **se acumula** a través de las etapas. El estado final depende entonces de la secuencia
+constructiva, no sólo de la geometría final (Verificación 1-031).
+
+### 2.7 Cargas móviles y líneas de influencia (`js/solver/moving_load.js`)
+
+Un tren de cargas (un camión o un conjunto de ejes) recorre una *pista* (lane) sobre la estructura.
+Por cada posición se resuelve el problema estático y se registra una respuesta elegida, produciendo
+una **línea de influencia** — la respuesta a una carga *unitaria* móvil en función de su posición,
+`R(s)` — y, para el tren completo barrido por todas las posiciones, una **envolvente** de máximos y
+mínimos que se usa para el diseño ante tránsito. Para una viga simple, la línea de influencia de la
+reacción izquierda es `1 − x/L` y la del momento en el centro del vano es un triángulo con pico en
+`L/4` (Verificación 1-030).
 
 <!-- pagebreak -->
 
@@ -410,6 +455,20 @@ factores de importancia `I ∈ {0.6, 1.0, 1.2}` y `Ro` (por defecto 11.0). Las t
 así que se puede enchufar un preset de otro país. El factor de reducción `R*` puede devolverse aparte
 para que el llamador lo aplique como `Sa·g/R*`.
 
+### 3.5 Modal pretensado (rigidización por tensión) (`js/solver/geometric_analysis.js`)
+
+Las frecuencias de vibración cambian cuando la estructura lleva tensión: un cable traccionado o un
+miembro pretensado es más rígido y vibra más rápido, uno comprimido es más blando. Esto se captura
+resolviendo el problema modal sobre la matriz **rigidizada por tensión**,
+
+```
+(K + Kg(u₀)) · φ = ω² · M · φ
+```
+
+donde `Kg` se ensambla (§4.1) desde el estado axial `u₀` de un caso de carga de referencia. Es el
+mismo autosolucionador de Stodola de §3.1 aplicado a `K + Kg`. La verificación canónica es una cuerda
+tensa, cuyas frecuencias siguen la tensión aplicada (Verificación 1-017).
+
 <!-- pagebreak -->
 
 ## 4. No linealidad geométrica
@@ -455,7 +514,9 @@ recorta `N > 0`. La tangente del elemento agrega un término geométrico `kg = N
 `km = EA/L0`. El sistema global se resuelve por **Newton–Raphson bajo control de carga** (por defecto 10
 pasos), convergiendo con un residuo relativo de `1e-8`. Para snap-through pasado un punto límite, una
 variante de **control de desplazamiento** aumenta el sistema para resolver el factor de carga
-prescribiendo un incremento del GDL de control.
+prescribiendo un incremento del GDL de control; esto se expone como el análisis `pushover`, que empuja
+el GDL de control (el GDL libre más móvil) más allá del punto límite para trazar la curva de capacidad
+completa.
 
 ### 4.5 Viga corotacional (`js/solver/corotbeam.js`)
 
