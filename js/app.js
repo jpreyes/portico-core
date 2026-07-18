@@ -23,7 +23,7 @@ import { makeFactor } from './solver/linsolve.js?v=2';
 import { ModalResults }                    from './solver/modal_results.js?v=2';
 import { parseAccelerogram, accStats, scaleToPGA, DEMO_PRESETS, G as GACC } from './solver/accelerograms.js?v=2';
 import { tendonEquivalentLoads, applyTendon, tendonEcc } from './solver/tendon.js?v=2';
-import { buildLane, influenceLine, responseReaction, responseSection, movingLoadEnvelope } from './solver/moving_load.js?v=2';
+import { computeMovingLoad } from './solver/moving_load.js?v=2';
 import { buildShearStories, runShearHistory, shearFreqs } from './solver/shear_building.js?v=2';
 import { solvePlastic } from './solver/plastic.js?v=2';
 import { linearBuckling, pDelta } from './solver/geometric_analysis.js?v=2';
@@ -3699,17 +3699,7 @@ class App {
     this._showProgress('Cargas móviles…', cfg.mode === 'il' ? 'Barrido de carga unitaria (línea de influencia)' : 'Barrido del tren (envolvente)');
     await new Promise(r => setTimeout(r, 20));
     try {
-      const lane = buildLane(model, cfg.laneIds);
-      const resp = cfg.respType === 'reaction' ? responseReaction(cfg.nodeId, cfg.comp) : responseSection(cfg.elemId, cfg.xi, cfg.key);
-      let result;
-      if (cfg.mode === 'il') {
-        const il = influenceLine(model, lane, resp, { nPos: cfg.nPos, P: 1 });
-        result = { mode: 'il', lane, label: cfg.label, unit: cfg.unit, xs: il.s, ys: il.value, max: il.max, min: il.min, sMax: il.sMax, sMin: il.sMin };
-      } else {
-        const env = movingLoadEnvelope(model, lane, cfg.train, { [cfg.label]: resp }, { nPos: cfg.nPos });
-        const e = env.env[cfg.label];
-        result = { mode: 'env', lane, label: cfg.label, unit: cfg.unit, xs: env.positions, ys: env.series[cfg.label], max: e.max, min: e.min, sMax: e.atMax, sMin: e.atMin, trainLen: env.trainLen };
-      }
+      const result = computeMovingLoad(model, cfg);   // js/solver/moving_load.js
       this._movingResult = result;
       this.toast(`${i18n.t('Cargas móviles OK')} · ${cfg.label} · ${i18n.t('máx')} ${result.max.toExponential(3)} ${cfg.unit} · ${i18n.t('mín')} ${result.min.toExponential(3)} ${cfg.unit}`, 'ok');
       this._movingPlotOverlay(result);

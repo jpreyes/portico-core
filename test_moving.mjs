@@ -6,7 +6,7 @@
 //     M(x) = x/2 (x≤L/2),  (L−x)/2 (x≥L/2).
 // Y la envolvente de un eje unitario móvil reproduce el pico de la LI.
 import { Model } from './js/model/model.js';
-import { buildLane, influenceLine, movingLoadEnvelope, responseReaction, responseSection } from './js/solver/moving_load.js';
+import { buildLane, influenceLine, movingLoadEnvelope, responseReaction, responseSection, computeMovingLoad } from './js/solver/moving_load.js';
 
 let fails = 0;
 const ok  = (c, m) => { console.log(`${c ? '  OK ' : 'FAIL '} ${m}`); if (!c) fails++; };
@@ -74,6 +74,26 @@ console.log('\n── Tren de 2 ejes (carga real) ──────────
 const env2 = movingLoadEnvelope(M.m, lane, [{ offset: 0, P: 100 }, { offset: 3, P: 100 }],
   { Mmid: (res) => Math.abs(Mmid(res)) }, { nPos: 81 });
 ok(env2.env.Mmid.max > 100 * L / 4, `tren de 2 ejes da más momento que un eje  (${env2.env.Mmid.max.toFixed(1)} > ${(100 * L / 4).toFixed(1)})`);
+
+// ── computeMovingLoad: la composición cfg→resultado que usa runMovingLoad ─────
+// La misma física de arriba, pero por la ruta headless (build lane + probe + IL/env
+// + moldeo del resultado), reproduciendo el shape que consume el panel.
+console.log('\n── computeMovingLoad (composición headless) ─────────────');
+{
+  const laneIds = M.elems.map(e => e.id);
+  // (a) IL de reacción por config → recta 1→0, pico 1 al inicio.
+  const rIL = computeMovingLoad(M.m, { mode: 'il', nPos: 25, respType: 'reaction',
+    nodeId: M.nodes[0].id, comp: 'Fz', label: 'RFz', unit: 'kN', laneIds });
+  ok(rIL.mode === 'il' && rIL.xs.length === rIL.ys.length, 'IL: devuelve xs/ys alineados');
+  rel(rIL.ys[0], 1, 1e-3, 'compute IL reacción: R(0)=1');
+  rel(rIL.max, 1, 1e-3, 'compute IL reacción: máx=1');
+  // (b) envolvente de un eje unitario sobre el momento del centro → pico L/4.
+  const eEnv = computeMovingLoad(M.m, { mode: 'env', nPos: 49, respType: 'section',
+    elemId: rightElem, xi: 0.0, key: 'Mz', label: 'Mmid', unit: 'kN·m',
+    train: [{ offset: 0, P: 1 }], laneIds });
+  ok(eEnv.mode === 'env' && Number.isFinite(eEnv.trainLen), 'env: incluye trainLen');
+  rel(Math.max(Math.abs(eEnv.max), Math.abs(eEnv.min)), L / 4, 0.03, 'compute env |M_centro| máx = L/4');
+}
 
 console.log(fails === 0 ? '\n✔ Todos los asserts pasaron\n' : `\n✗ ${fails} fallaron\n`);
 process.exit(fails ? 1 : 0);
