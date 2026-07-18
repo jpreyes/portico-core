@@ -26,6 +26,7 @@ import { tendonEquivalentLoads, applyTendon, tendonEcc } from './solver/tendon.j
 import { buildLane, influenceLine, responseReaction, responseSection, movingLoadEnvelope } from './solver/moving_load.js?v=2';
 import { newmarkNonlinear, shearBuilding, rayleighDamping } from './solver/nl_timehistory.js?v=2';
 import { solvePlastic } from './solver/plastic.js?v=2';
+import { linearBuckling, pDelta } from './solver/geometric_analysis.js?v=2';
 import { checkDrift, driftLimit } from './design/serviceability.js?v=2';
 import { buildSpectrum } from './design/nch433_spectrum.js?v=2';
 import { selectProfile, steelCandidates, predimensionar, candidatesForFamily } from './design/autodesign.js?v=2';
@@ -47,7 +48,6 @@ import { SpectrumSolver }    from './solver/spectrum_solver.js?v=2';
 import { modalTimeHistory }  from './solver/timehistory.js?v=2';
 import { StagedSolver }      from './solver/staged.js?v=2';
 import { solveNonlinear, solveNonlinearDC } from './solver/nl_lite.js?v=2';
-import { solveBuckling }     from './solver/buckling.js?v=2';
 import { formFind }          from './solver/formfind.js?v=2';
 import { i18n } from './i18n/i18n.js?v=2';
 import { reportHTML, reportDocx, reportDocxCover, reportDocxBody } from './report/report.js?v=2';
@@ -4842,37 +4842,6 @@ class App {
   // ── NL-lite Phase 2: geometric stiffness (P-Delta + linear buckling) ──────
   // Sets up the geometric problem: dense K, free DOFs and the COMBINED static load
   // (all cases at factor 1) as the reference load.
-  _buildGeomProblem() {
-    const model = this.model;
-    const nodeIndex = buildNodeIndex(model);
-    const { K, nDOF } = assembleK(model, nodeIndex);
-    const is2D = model.mode === '2D';
-    const freeDOF = [];
-    for (const node of model.nodes.values()) {
-      const d = getNodeDOFs(nodeIndex, node.id), r = node.restraints;
-      const rArr = [r.ux, is2D ? 1 : r.uy, r.uz, is2D ? 1 : r.rx, r.ry, is2D ? 1 : r.rz];
-      d.forEach((gi, li) => { if (!rArr[li]) freeDOF.push(gi); });
-    }
-    const F = new Float64Array(nDOF);
-    let nCasos = 0;
-    for (const lc of model.loadCases.values()) {
-      if (lc.type === 'spectrum') continue;
-      const Fi = assembleF(model, nodeIndex, lc.id, !!lc.selfWeight);
-      for (let i = 0; i < nDOF; i++) F[i] += Fi[i];
-      nCasos++;
-    }
-    return { nodeIndex, K, nDOF, freeDOF, F, nCasos };
-  }
-
-  _maxTransDisp(u) {
-    let mx = 0;
-    for (const node of this.model.nodes.values()) {
-      const d = getNodeDOFs(this._geomNI, node.id);
-      mx = Math.max(mx, Math.hypot(u[d[0]], u[d[1]], u[d[2]]));
-    }
-    return mx;
-  }
-
   // Linear BUCKLING by eigenvalues: (K + λ·Kg)·φ = 0 → λcr and buckling mode.
   // SUBSPACE ITERATION in a Web Worker (like the modal): extracts the smallest λcr in
   // a block, without blocking the UI or the dense num.eig O(n³) that used to hang. The
@@ -4895,48 +4864,22 @@ class App {
 
     try {
       this._applyAutoDiscIfEnabled();   // same mesh as the static analysis (#36)
-      const { nodeIndex, K, nDOF, freeDOF, F, nCasos } = this._buildGeomProblem();
-      this._geomNI = nodeIndex;
-      if (!freeDOF.length) throw new Error('Sin GDL libres');
-      if (!nCasos) throw new Error('Defina al menos un caso de carga: es la carga de referencia del pandeo.');
-
-      const nF = freeDOF.length;
-      // Kff and Ff in flat format (Float64Array nF×nF)
-      const Kff_flat = new Float64Array(nF * nF);
-      const Ff = new Float64Array(nF);
-      for (let i = 0; i < nF; i++) { Ff[i] = F[freeDOF[i]]; const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) Kff_flat[i * nF + j] = K[ri + freeDOF[j]]; }
-
-      // Reference state: K_ff·u = F_ff (banded Cholesky; gives the axial force for Kg).
       const dense = !!this._config?.analisis?.matrizDensa;
-      const fac = makeFactor(Kff_flat, nF, dense);
-      if (!fac.ok) throw new Error('Estado de referencia singular/inestable (mecanismo). Revise apoyos — p.ej. torsión libre del conjunto.');
-      const ufA = fac.solve(Ff);
-      const u = new Float64Array(nDOF); for (let i = 0; i < nF; i++) u[freeDOF[i]] = ufA[i];
-
-      const { Kg, Nmax, Nby } = assembleKg(this.model, nodeIndex, u);
-
-      // Flat Kgff for the worker (+ Kg magnitude = is there a buckling effect?).
-      // Works for members (Nmax) and for SHELLS (membrane stress → area Kg).
-      const Kgff_flat = new Float64Array(nF * nF);
-      let kgMax = 0;
-      for (let i = 0; i < nF; i++) { const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) { const v = Kg[ri + freeDOF[j]]; Kgff_flat[i * nF + j] = v; const av = Math.abs(v); if (av > kgMax) kgMax = av; } }
-      if (kgMax < 1e-12) throw new Error('La carga de referencia no genera rigidez geométrica (sin efecto de pandeo).');
-
-      // Subspace iteration in the Worker (doesn't block the UI)
-      const buckResult = solveBuckling({ Kff_flat, Kgff_flat, nF, nModes, dense });
-      if (buckResult.error) throw new Error(buckResult.error);
-      const rawModes = buckResult.modes;
-
-      // Expand each mode (vec in free DOFs) to the global vector indexed by nDOF.
-      const modes = rawModes.map(m => {
-        const vec = new Float64Array(nDOF);
-        for (let i = 0; i < nF; i++) vec[freeDOF[i]] = m.vec[i];
-        return { lambda: m.lambda, vec };
-      });
-      if (!modes.length) throw new Error('No se hallaron modos de pandeo (la carga de referencia no produce compresión). Revise su sentido.');
-
-      this._buckResult = { modes, nCasos, Nby };   // Nby = reference axial force per element
-      this.toast(`${i18n.t('Pandeo:')} λcr = ${modes[0].lambda.toFixed(3)} · ${i18n.t('carga crítica = λcr × carga de referencia')}`, 'ok');
+      const res = linearBuckling(this.model, { nModes, dense });   // js/solver/geometric_analysis.js
+      if (!res.ok) {
+        const msg = {
+          'no-free-dof':  'Sin GDL libres',
+          'no-loads':     'Defina al menos un caso de carga: es la carga de referencia del pandeo.',
+          'ref-singular': 'Estado de referencia singular/inestable (mecanismo). Revise apoyos — p.ej. torsión libre del conjunto.',
+          'no-kg':        'La carga de referencia no genera rigidez geométrica (sin efecto de pandeo).',
+          'no-modes':     'No se hallaron modos de pandeo (la carga de referencia no produce compresión). Revise su sentido.',
+          'solver-error': res.message,
+        }[res.reason] || `No se pudo correr pandeo (${res.reason})`;
+        throw new Error(msg);
+      }
+      this._geomNI = res.nodeIndex;
+      this._buckResult = { modes: res.modes, nCasos: res.nCasos, Nby: res.Nby };
+      this.toast(`${i18n.t('Pandeo:')} λcr = ${res.modes[0].lambda.toFixed(3)} · ${i18n.t('carga crítica = λcr × carga de referencia')}`, 'ok');
       this._buckOpenOverlay();
       this._updateResultsIndicator();
     } catch (err) {
@@ -5059,45 +5002,27 @@ class App {
   async runPDelta(opts = {}) {
     if (!this._config?.analisis?.nlLite) { this.toast('Active «Análisis no lineal (NL-lite)» en ⚙ Configuración', 'warn'); this.configDialog?.(); return; }
     this._applyAutoDiscIfEnabled();   // same mesh as the static (#36)
-    const { nodeIndex, K, nDOF, freeDOF, F, nCasos } = this._buildGeomProblem();
-    this._geomNI = nodeIndex;
-    if (!freeDOF.length) { this.toast('Sin GDL libres', 'warn'); return; }
-    if (!nCasos) { this.toast('Defina al menos un caso de carga.', 'warn'); return; }
-
-    const nF = freeDOF.length;
-    // Kff and Ff in flat format (Float64Array): input to the banded factorizer.
-    const Kff = new Float64Array(nF * nF);
-    const Ff = new Float64Array(nF);
-    for (let i = 0; i < nF; i++) { Ff[i] = F[freeDOF[i]]; const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) Kff[i * nF + j] = K[ri + freeDOF[j]]; }
     const dense = !!this._config?.analisis?.matrizDensa;
 
     this._showProgress('P-Delta…', 'Resolviendo (K + Kg(u))·u = F por iteración (motor en banda)');
     await new Promise(r => setTimeout(r, 20));
     try {
-      const fac0 = makeFactor(Kff, nF, dense);
-      if (!fac0.ok) { this.toast('Estado lineal inestable (mecanismo).', 'error'); return; }
-      const uf = fac0.solve(Ff);
-      if (!uf || uf.some(v => !isFinite(v))) { this.toast('Estado lineal singular.', 'error'); return; }
-      let u = new Float64Array(nDOF); for (let i = 0; i < nF; i++) u[freeDOF[i]] = uf[i];
-      const dLin = this._maxTransDisp(u);
-
-      let conv = false, it = 0;
-      for (it = 0; it < 25; it++) {
-        const { Kg } = assembleKg(this.model, nodeIndex, u);
-        const KT = new Float64Array(nF * nF);
-        for (let i = 0; i < nF; i++) { const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) KT[i * nF + j] = Kff[i * nF + j] + Kg[ri + freeDOF[j]]; }
-        const fac = makeFactor(KT, nF, dense);
-        if (!fac.ok) { this.toast('Tangente singular: la carga iguala o supera la de pandeo (λcr ≤ 1). Reduzca la carga o ejecute Pandeo.', 'error'); return; }
-        const uf2 = fac.solve(Ff);
-        if (!uf2 || uf2.some(v => !isFinite(v))) { this.toast('Divergió: la carga alcanza la de pandeo.', 'error'); return; }
-        const uNew = new Float64Array(nDOF); for (let i = 0; i < nF; i++) uNew[freeDOF[i]] = uf2[i];
-        let dn = 0, de = 0; for (let i = 0; i < nDOF; i++) { dn += (uNew[i] - u[i]) ** 2; de += uNew[i] ** 2; }
-        u = uNew;
-        if (de > 0 && Math.sqrt(dn / de) < 1e-6) { conv = true; it++; break; }
+      const res = pDelta(this.model, { dense });   // js/solver/geometric_analysis.js
+      if (!res.ok) {
+        const msg = {
+          'no-free-dof':      ['Sin GDL libres', 'warn'],
+          'no-loads':         ['Defina al menos un caso de carga.', 'warn'],
+          'linear-singular':  ['Estado lineal inestable (mecanismo).', 'error'],
+          'linear-nan':       ['Estado lineal singular.', 'error'],
+          'tangent-singular': ['Tangente singular: la carga iguala o supera la de pandeo (λcr ≤ 1). Reduzca la carga o ejecute Pandeo.', 'error'],
+          'diverged':         ['Divergió: la carga alcanza la de pandeo.', 'error'],
+        }[res.reason] || [`No se pudo correr P-Delta (${res.reason})`, 'error'];
+        this.toast(msg[0], msg[1]);
+        return;
       }
-      const dPD = this._maxTransDisp(u);
+      const { u, dLin, dPD, amp, conv, it, nodeIndex } = res;
+      this._geomNI = nodeIndex;
       this._pdResult = { u };
-      const amp = dLin > 1e-12 ? dPD / dLin : 1;
       this.toast(`P-Delta: δmax ${dLin.toExponential(2)} → ${dPD.toExponential(2)} m (${i18n.t('amplificación')} ×${amp.toFixed(2)}) · ${conv ? it + ' iter' : i18n.t('no convergió')}`, conv ? 'ok' : 'warn');
 
       const uByNode = new Map();
