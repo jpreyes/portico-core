@@ -37,9 +37,11 @@ const CONC = m.addMaterial({
 const rect = (b, h) => ({ A: b * h, Iz: b * h ** 3 / 12, Iy: h * b ** 3 / 12,
   J: b * h ** 3 * (1 / 3 - 0.21 * (h / b) * (1 - (h ** 4) / (12 * b ** 4))) });   // St. Venant rect torsion
 const SEC_COL = m.addSection({ name: 'Pilar 50×50', ...rect(0.5, 0.5),
-  design: { shape: 'rect', dims: { b: 0.5, h: 0.5 } } }).id;
+  design: { shape: 'rect', dims: { b: 0.5, h: 0.5 },
+    rebar: { dia_mm: 25, nTop: 4, nBot: 4, cover_mm: 40 } } }).id;   // 8Φ25
 const SEC_BEAM = m.addSection({ name: 'Viga 30×50', ...rect(0.3, 0.5),
-  design: { shape: 'rect', dims: { b: 0.3, h: 0.5 } } }).id;
+  design: { shape: 'rect', dims: { b: 0.3, h: 0.5 },
+    rebar: { dia_mm: 22, nTop: 3, nBot: 3, cover_mm: 40 } } }).id;   // 3Φ22 top + 3Φ22 bot
 
 const T_SLAB = 0.15, T_WALL = 0.20;
 
