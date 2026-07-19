@@ -82,14 +82,16 @@ for (let iz = 1; iz < ZL.length; iz++) {
   slabNodesByFloor.set(iz, set);
 }
 
-// ── central stair core: SHELL walls around the opening, full height ───────────
-// wall lines: x = 5 (i=2) and x = 10 (i=4) spanning y ∈ [5,10]; y = 5 (j=2) and
-// y = 10 (j=4) spanning x ∈ [5,10]. Each meshed 2 (plan) × 3 (storeys).
+// ── central stair core: SHELL walls, full height, C-SHAPED (3 sides) so the
+// fourth side (y = 5) is the stair ACCESS opening. This is a realistic open core;
+// it also breaks the plan symmetry (CM ≠ CR) → genuine lateral–torsional coupling.
+// wall lines: x = 5 (i=2) and x = 10 (i=4) spanning y ∈ [5,10]; y = 10 (j=4)
+// spanning x ∈ [5,10]. Each meshed 2 (plan) × 3 (storeys).
 for (let iz = 0; iz < ZL.length - 1; iz++) {
   for (const i of [2, 4]) for (let j = 2; j < 4; j++)          // walls at x = 5, 10
     m.addArea([N(i, j, iz), N(i, j + 1, iz), N(i, j + 1, iz + 1), N(i, j, iz + 1)],
       CONC, { thickness: T_WALL, behavior: 'shell' });
-  for (const j of [2, 4]) for (let i = 2; i < 4; i++)          // walls at y = 5, 10
+  for (const j of [4]) for (let i = 2; i < 4; i++)             // wall at y = 10 only (y = 5 open = access)
     m.addArea([N(i, j, iz), N(i + 1, j, iz), N(i + 1, j, iz + 1), N(i, j, iz + 1)],
       CONC, { thickness: T_WALL, behavior: 'shell' });
 }

@@ -9,7 +9,7 @@ const B = {
     col: { es: 'Pilar 50×50 (8Φ25)', en: 'Column 50×50 (8Φ25)' },
     beam: { es: 'Viga 30×50 (3Φ22)', en: 'Beam 30×50 (3Φ22)' },
     slab: { es: 'Losa: placa e = 0.15 m', en: 'Slab: plate t = 0.15 m' },
-    core: { span: [5, 10], es: 'Caja escalera: muros shell e = 0.20 m', en: 'Stair core: shell walls t = 0.20 m' },
+    core: { span: [5, 10], open: 'y-', es: 'Caja escalera: muros shell e = 0.20 m (C, acceso en y=5)', en: 'Stair core: shell walls t = 0.20 m (C, access at y=5)' },
     mat: { es: 'Hormigón H30 · E = 28.7 GPa', en: 'Concrete H30 · E = 28.7 GPa' },
     ttl: { es: 'Edificio Valdivia — 15 × 15 m, 3 niveles', en: 'Valdivia building — 15 × 15 m, 3 storeys' },
     colS: 0.5,
@@ -73,10 +73,14 @@ function plan() {
   // beams = grid lines
   for (const gx of b.gx) s += `<line x1="${X(gx)}" y1="${Y(0)}" x2="${X(gx)}" y2="${Y(span)}" stroke="#2563eb" stroke-width="2"/>`;
   for (const gy of b.gx) s += `<line x1="${X(0)}" y1="${Y(gy)}" x2="${X(span)}" y2="${Y(gy)}" stroke="#2563eb" stroke-width="2"/>`;
-  // core walls (Valdivia): thick lines around the central bay
-  if (b.core) { const [lo, hi] = b.core.span;
-    s += `<rect x="${X(lo)}" y="${Y(hi)}" width="${(hi - lo) * S}" height="${(hi - lo) * S}" fill="none" stroke="#0f766e" stroke-width="4"/>`;
+  // core walls (Valdivia): C-shape — three thick walls, open on the access side (y = lo)
+  if (b.core) { const [lo, hi] = b.core.span; const cw = 'stroke="#0f766e" stroke-width="4"';
+    s += `<line x1="${X(lo)}" y1="${Y(hi)}" x2="${X(hi)}" y2="${Y(hi)}" ${cw}/>`;   // top wall (y = hi)
+    s += `<line x1="${X(lo)}" y1="${Y(lo)}" x2="${X(lo)}" y2="${Y(hi)}" ${cw}/>`;   // left wall (x = lo)
+    s += `<line x1="${X(hi)}" y1="${Y(lo)}" x2="${X(hi)}" y2="${Y(hi)}" ${cw}/>`;   // right wall (x = hi)
     s += `<text x="${X((lo + hi) / 2)}" y="${Y((lo + hi) / 2)}" ${FONT}10" fill="#0f766e" text-anchor="middle">${L === 'en' ? 'stair' : 'escalera'}</text>`;
+    // access opening indicator on the open side (y = lo)
+    s += `<text x="${X((lo + hi) / 2)}" y="${Y(lo) + 15}" ${FONT}9.5" fill="#0f766e" text-anchor="middle">${L === 'en' ? '↑ access' : '↑ acceso'}</text>`;
   }
   // columns at intersections
   const cs = b.colS * S;

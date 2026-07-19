@@ -20,7 +20,7 @@ pilares según **ACI 318-19** y verificamos la deriva de entrepiso contra el lí
 | --- | --- |
 | Planta | 15 × 15 m, grilla de pilares 5 m (4 × 4 pilares) |
 | Niveles | 3 (altura 3 m → techo en +9 m) |
-| Caja de escalera | caja central 5 × 5 m, muros **shell**, t = 0.20 m |
+| Caja de escalera | central 5 × 5 m, muros **shell**, en **C** (abierta un lado para acceso), t = 0.20 m |
 | Losas | elementos **placa**, t = 0.15 m, vano de escalera al centro |
 | Pilares / vigas | 50 × 50 cm (8Φ25) / 30 × 50 cm (3Φ22 sup+inf) |
 | Hormigón | H30 (E = 28.7 GPa) |
@@ -63,33 +63,44 @@ densidad del hormigón (el caso **PP**).
 
 *Figura 2. Las cargas de gravedad sobre las losas.*
 
-El peso propio total es de unos **5 300 kN** (≈ 7.85 kN/m²) más la carga permanente sobreimpuesta —
-unos ~9.6 kN/m² típicos de un edificio de hormigón armado.
+El peso propio total es de unos **5 100 kN** (≈ 7.5 kN/m²) más la carga permanente sobreimpuesta —
+unos ~9.3 kN/m² típicos de un edificio de hormigón armado.
 
 <!-- pagebreak -->
 
 ## Paso 3 — Análisis modal (F6)
 
-Corre **Análisis → Modal** (F6). El edificio es rígido — dominado por la caja shell — así que los
-períodos son cortos:
+Corre **Análisis → Modal** (F6). Como la caja de escalera está **abierta en un lado** (una C para la
+puerta de acceso), su centro de rigidez se desplaza del centro de masa — la planta es **excéntrica en
+Y**. Esa excentricidad **acopla** la traslación X con la torsión, así que los modos salen mezclados:
 
-| Modo | Período | Frecuencia | Forma |
-| --- | --- | --- | --- |
-| 1 | **0.160 s** | 6.26 Hz | **torsión** (89.6 % de la masa torsional) |
-| 2, 3 | **0.120 s** | 8.34 Hz | traslación X, Y |
+| Modo | Período | Ux | Uy | Rz | Forma |
+| --- | --- | --- | --- | --- | --- |
+| 1 | **0.273 s** | 23 % | — | 57 % | **acoplado lateral (X) – torsión** |
+| 2 | **0.136 s** | 55 % | — | 29 % | traslación X (acoplada con torsión) |
+| 3 | **0.128 s** | — | 76 % | — | traslación Y (casi pura) |
 
-El **modo fundamental es torsional**. Esa es la firma de un edificio de **caja central**: la caja le
-da enorme rigidez *traslacional* (sus muros están cerca del centro, así que casi no resiste el giro),
-mientras que la resistencia *torsional* queda a cargo de los pórticos perimetrales — que son más
-blandos. Conviene tenerlo presente al diseñar para torsión.
+Dos cosas valen la pena — y ambas importan en un edificio de aspecto simétrico. Primero, los modos
+**no** son X / Y / torsión puros: la excentricidad en Y del núcleo abierto acopla X con la rotación,
+así que los modos 1 y 2 mezclan desplazamiento y giro, mientras que el modo Y (modo 3) queda casi puro
+porque su movimiento va por el eje de simetría que queda. Segundo, el primer modo es **dominado por
+torsión** con un período mucho mayor (0.273 s vs ~0.13 s de traslación): el núcleo central abierto
+concentra la rigidez lateral cerca del centro y, siendo una sección *abierta*, es torsionalmente
+flexible. Esto es una **irregularidad torsional** — justo lo que NCh433 pide vigilar — y el §7 muestra
+su efecto en la deriva.
 
-![Modo 1 — torsión: las losas rotan en planta (deformada en wireframe).](img/t1-05-mode1-torsion.png)
+> Si el núcleo fuera una caja cerrada (cuatro muros), la planta sería doblemente simétrica y los modos
+> se desacoplarían en traslación y torsión puras; que la torsión siga siendo fundamental dependería
+> solo de la razón de rigidez torsional-vs-traslacional. Abrir un muro es realista (la escalera
+> necesita puerta) *y* hace explícito el acoplamiento.
 
-*Figura 3. Modo 1 (T = 0.160 s) — torsión.*
+![Modo 1 — acoplado lateral-torsional: las losas giran y se trasladan juntas.](img/t1-05-mode1-coupled.png)
 
-![Modo 2 — traslación: el edificio se desplaza lateralmente; la caja central es visible al centro.](img/t1-06-mode2-translation.png)
+*Figura 3. Modo 1 (T = 0.273 s) — acoplado lateral (X)–torsional.*
 
-*Figura 4. Modo 2 (T = 0.120 s) — traslación lateral.*
+![Modo 3 — traslación Y: un desplazamiento lateral casi puro por el eje de simetría.](img/t1-06-mode3-transY.png)
+
+*Figura 4. Modo 3 (T = 0.128 s) — traslación Y (desacoplada).*
 
 <!-- pagebreak -->
 
@@ -112,15 +123,15 @@ fundamental para calcular el factor de reducción:
 ```
 Sa(T) = S · Ao · I · α(T) / R*                    (NCh433 / DS61)
 suelo D: S = 1.20, To = 0.75 s     zona 3: Ao = 0.40 g     categoría II: I = 1.0
-R* = 1 + T* / (0.10·To + T*/Ro)  = 2.4     (T* = 0.12 s, Ro = 11)
-Sa(0) = S·Ao·I / R* = 1.20·0.40·1.0 / 2.4 = 0.20 g
+R* = 1 + T* / (0.10·To + T*/Ro)  = 2.5     (T* = 0.13 s, Ro = 11)
+Sa(0) = S·Ao·I / R* = 1.20·0.40·1.0 / 2.5 = 0.19 g
 ```
 
-El factor de reducción `R* = 2.4` es **bajo a propósito**: el edificio es tan rígido (`T* = 0.12 s`,
-muy por debajo de `To = 0.75 s`) que NCh433 le concede poca reducción — las estructuras de período
-corto atraen más fuerza. Aun así, el desplazamiento espectral de techo es de solo **1.6 mm**, porque
-la caja mantiene el edificio muy rígido. El espectro se combina por **CQC** (ζ = 5 %) en ambas
-direcciones.
+El factor de reducción `R* = 2.5` es **bajo a propósito**: el edificio es rígido (`T* = 0.13 s`, muy
+por debajo de `To = 0.75 s`), así que NCh433 le concede poca reducción — las estructuras de período
+corto atraen más fuerza. El espectro se combina por **CQC** (ζ = 5 %) en ambas direcciones. Por el
+acoplamiento torsional del §3, la respuesta sísmica es marcadamente mayor en **X** que en **Y** — lo
+que mostrará la verificación de deriva.
 
 ![Resultado sísmico — respuesta espectral (NCh433, suelo D) en X.](img/t1-08-spectrum-x.png)
 
@@ -136,15 +147,15 @@ y reporta la razón demanda/capacidad (D/C):
 
 | Miembro | Sección · armadura | cantidad | max D/C | Gobierna | Estado |
 | --- | --- | --- | --- | --- | --- |
-| Pilares | 50 × 50 · 8Φ25 | 48 | **0.34** | interacción P–M | ✓ cumple |
-| Vigas | 30 × 50 · 3Φ22 | 72 | **0.17** | corte | ✓ cumple |
+| Pilares | 50 × 50 · 8Φ25 | 48 | **0.40** | interacción P–M | ✓ cumple |
+| Vigas | 30 × 50 · 3Φ22 | 72 | **0.18** | corte | ✓ cumple |
 
-Todos los miembros están muy por debajo de su capacidad (pilares D/C ≤ 0.34 en interacción
-axial–flexión, vigas ≤ 0.17 en corte). El mapa de color es uniformemente verde — todas las vigas y
-pilares cumplen holgadamente. La caja rígida mantiene baja la demanda sísmica, así que las demandas
-están dominadas por la gravedad.
+Todos los miembros están por debajo de su capacidad (pilares D/C ≤ 0.40 en interacción axial–flexión,
+vigas ≤ 0.18 en corte). El mapa de color es uniformemente verde — todas las vigas y pilares cumplen.
+Los pilares trabajan más en interacción P–M bajo las combinaciones sísmicas: la respuesta torsional
+del §3 sube la demanda en los pórticos X, pero aún con margen cómodo.
 
-![Mapa D/C de diseño — todos los miembros en verde (D/C ≤ 0.34): el diseño cumple.](img/t1-09-design-dc.png)
+![Mapa D/C de diseño — todos los miembros en verde (D/C ≤ 0.40): el diseño cumple.](img/t1-09-design-dc.png)
 
 *Figura 7. Mapa demanda/capacidad — vigas y pilares holgadamente dentro de capacidad.*
 
@@ -152,25 +163,29 @@ están dominadas por la gravedad.
 
 Por último, verifica la deriva contra el límite NCh433 **Δ/h ≤ 0.002** (en el centro de masa):
 
-| Piso | Δ/h (X) | % del límite 0.002 | Estado |
-| --- | --- | --- | --- |
-| 1 | 0.00015 | 7.7 % | ✓ |
-| 2 | 0.00020 | 10.0 % | ✓ |
-| 3 | 0.00017 | 8.3 % | ✓ |
+| Piso | Δ/h (X) | % del límite | Δ/h (Y) | % del límite |
+| --- | --- | --- | --- | --- |
+| 1 | 0.00083 | 41 % | 0.00016 | 8 % |
+| 2 | **0.00126** | **63 %** | 0.00022 | 11 % |
+| 3 | 0.00103 | 51 % | 0.00021 | 10 % |
 
-Todos los pisos cumplen con amplio margen (~10 % del límite) — de nuevo, la consecuencia de un
-edificio rígido de muros.
+Todos los pisos cumplen (`Δ/h < 0.002`), pero las dos direcciones son **muy distintas**: la deriva en
+X es 5–6× la de Y y llega al **63 %** del límite, mientras que Y ronda el 10 %. Esa asimetría es el
+**acoplamiento torsional** del núcleo abierto excéntrico (§3) en acción — un edificio de aspecto
+simétrico en planta se desplaza mucho más en X que en Y. Igual cumple, pero un diseñador marcaría la
+irregularidad torsional y consideraría cerrar o simetrizar el núcleo.
 
 ## Qué aprendimos
 
-- Una **caja de escalera central** hace un edificio de hormigón **muy rígido traslacionalmente** pero
-  **más blando en torsión**, así que el *modo fundamental es torsión*. El diseño debe considerar esa
-  torsión aunque las derivas traslacionales sean mínimas.
-- En **suelo D** con un edificio de período corto, el `R*` de NCh433 es bajo (2.4 aquí): la rigidez no
-  significa automáticamente una fuerza sísmica pequeña, pero aquí los desplazamientos quedan chicos de
-  todas formas.
-- Los miembros de pórtico quedan holgadamente diseñados (pilares D/C ≤ 0.34 en interacción P–M, vigas
-  ≤ 0.17 en corte) y las derivas son ~10 % del límite NCh433.
+- Una **caja de escalera central abierta (en C)** pone el centro de rigidez fuera del centro de masa,
+  así que la planta es excéntrica y los modos son **acoplados lateral-torsionales**: el primer modo
+  (T = 0.273 s) es dominado por torsión, y las dos direcciones se comportan muy distinto.
+- Esa flexibilidad torsional aparece directo en la **deriva**: X llega al 63 % del límite NCh433
+  mientras Y ronda el 10 %. Ambas cumplen, pero la asimetría es una **irregularidad torsional** que
+  conviene diseñar contra — cerrar o simetrizar el núcleo, o rigidizar los pórticos perimetrales.
+- En **suelo D** con un edificio de período corto, el `R*` de NCh433 es bajo (2.5 aquí): la rigidez no
+  compra una fuerza sísmica pequeña. Los miembros aún cumplen cómodamente (pilares D/C ≤ 0.40 en
+  interacción P–M, vigas ≤ 0.18 en corte).
 
 <sub>Modelo: `examples/tutorial1_valdivia.s3d` (construido por `tools/examples/build_valdivia.mjs`). Ver
 el [Manual de Análisis](../analysis-reference.es.md) para la teoría y el
