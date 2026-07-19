@@ -17,10 +17,10 @@
 // multiplier λ and the ordered hinge sequence. The dialogs, selection, meshing,
 // toasts and overlay that used to wrap this stay in app.js.
 // ──────────────────────────────────────────────────────────────────────────────
-import { buildNodeIndex, assembleF, getNodeDOFs } from './assembler.js?v=5';
-import { makeFactor } from './linsolve.js?v=5';
-import { localAxes, stiffnessMatrix, transformMatrix, globalStiffness, applyReleases } from './timoshenko.js?v=5';
-import { applyDiaphragmConstraints } from './diaphragm.js?v=5';
+import { buildNodeIndex, assembleF, getNodeDOFs } from './assembler.js?v=6';
+import { makeFactor } from './linsolve.js?v=6';
+import { localAxes, stiffnessMatrix, transformMatrix, globalStiffness, applyReleases } from './timoshenko.js?v=6';
+import { applyDiaphragmConstraints } from './diaphragm.js?v=6';
 
 // Assemble the (conditioned) global K for the current release state, returning the
 // per-element data (element DOFs, transform, condensed local Ke, length) the event

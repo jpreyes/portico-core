@@ -36,6 +36,7 @@ function inline(s, base) {
   s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, txt, url) => {
     url = url.trim();
     const abs = /^[a-z][a-z0-9+.-]*:\/\//i.test(url);
+    if (url.startsWith('#')) return `<a href="${url}">${txt}</a>`;   // same-page anchor, no new tab
     if (!abs && /\.md(#|$)/i.test(url))
       return `<a href="#" data-doc="${resolveUrl(base, url.replace(/#.*$/, ''))}">${txt}</a>`;
     const href = abs ? url : resolveUrl(base, url);
@@ -69,8 +70,13 @@ export function renderMarkdown(md, base = '') {
       out.push('<pre><code>' + esc(buf.join('\n')) + '</code></pre>');
       continue;
     }
-    const m = line.match(/^(#{1,6})\s+(.*)$/);                    // heading
-    if (m) { const l = m[1].length; out.push(`<h${l}>${inl(m[2].trim())}</h${l}>`); i++; continue; }
+    const m = line.match(/^(#{1,6})\s+(.*)$/);                    // heading (GitHub-style slug id)
+    if (m) {
+      const l = m[1].length, raw = m[2].trim();
+      const id = raw.toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, '').trim().replace(/\s+/g, '-');
+      out.push(`<h${l} id="${id}">${inl(raw)}</h${l}>`);
+      i++; continue;
+    }
 
     if (/^\s*([-*_])\1\1+\s*$/.test(line)) { out.push('<hr>'); i++; continue; }   // hr
 

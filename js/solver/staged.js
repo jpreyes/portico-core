@@ -23,8 +23,8 @@
 // Deliberate limitation: frame (bar) elements only. Areas/diaphragms are ignored in
 // the staged assembly (staged bridges are trusses/girders).
 // ──────────────────────────────────────────────────────────────────────────────
-import { buildNodeIndex, assembleK, assembleF, getNodeDOFs, selfWeightPerLength } from './assembler.js?v=5';
-import { Results } from './postprocess.js?v=5';
+import { buildNodeIndex, assembleK, assembleF, getNodeDOFs, selfWeightPerLength } from './assembler.js?v=6';
+import { Results } from './postprocess.js?v=6';
 
 // Numeric end-force fields that ACCUMULATE between stages.
 const EF_KEYS = ['N','Vy1','Vz1','T','My1','Mz1','Vy2','Vz2','My2','Mz2',

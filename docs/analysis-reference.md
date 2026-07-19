@@ -24,6 +24,85 @@ the viewport, numeric.js and an in-house banded solver for the linear algebra). 
 client-side — there is no native kernel, no WASM, no remote backend — which is a design goal, not an
 accident.
 
+## Capabilities at a glance
+
+This chapter is the honest, scannable answer to *"what can portico-core do, and what can it not?"* —
+so you can decide whether it fits your problem before reading the theory. Every row is what the code
+actually does at **v0.2.0**; the detailed caveats live in [§8 Scope and limitations](#8-scope-and-limitations).
+
+**Legend:** ✔ available · ◐ available but simplified/partial (read the note) · ✘ not available.
+
+### Modeling
+
+| Capability | | Notes |
+| --- | :-: | --- |
+| Frame element — 3D Timoshenko (shear-flexible) | ✔ | End releases, rigid-end offsets, semi-rigid end springs, elastic (Winkler) foundation |
+| Membrane — CST, Quad4, Allman drilling triangle | ✔ | Plane stress/strain; drilling DOF opt-in |
+| Plate bending — MITC4 (quad), DKT (tri) | ✔ | Thin and thick (Mindlin) plates |
+| Shell (membrane + plate combined) | ✔ | Composed per element (`behavior:'shell'`) |
+| Truss / cable / compression-only strut | ◐ | Only in the geometric-nonlinear path (3-DOF bar); **no linear truss element, no cable sag/catenary** |
+| Rigid links, couplings, rigid diaphragms | ✔ | Penalty formulation (tiny, bounded constraint error) |
+| Springs — elastic, coupled/inclined, unilateral (uplift), nonlinear soil (p–y/t–z) | ✔ | |
+| Solid / brick / shell-buckling elements | ✘ | No 3D continuum elements |
+| Sections — numeric props or parametric shapes (I, rect, circle, CHS, RHS, U, L, T, polygon) | ✔ | Built-in property calculator (S, Z, r, J, Av, Cw) |
+| Profile database — European IPE / HEA / HEB + CHS / RHS | ✔ | **American W (AISC) tables not shipped** |
+| Materials — steel, concrete, timber, aluminium (isotropic linear-elastic) | ✔ | **No orthotropic / nonlinear analysis material** |
+| Loads — nodal, distributed (uniform/trapezoidal; global/local/gravity/projected), thermal (member + area gradient), self-weight, tendon/prestress | ✔ | **No member point-load as a static type** (add a node); **no area pressure/face load** |
+| Mass — consistent/lumped, nodal point mass + rotary inertia, ETABS-style mass source | ✔ | |
+| Load cases, linear combinations, 2D / 3D modes, diaphragm CR/CM | ✔ | Single unit system (kN, m, t); **no unit-conversion engine** |
+
+### Analysis
+
+| Capability | | Notes |
+| --- | :-: | --- |
+| Linear static — load cases and combinations | ✔ | Combinations by linear superposition |
+| Modal / eigenvalue | ✔ | Inverse (Stodola) iteration with deflation; mass source; participation and effective mass |
+| Response spectrum — CQC or SRSS | ◐ | **One horizontal direction (X or Y) per run; no vertical Z; no 100/30 directional combination** |
+| Built-in design spectrum — NCh433 / DS61 (Chile) | ✔ | **No ASCE 7 / Eurocode 8 / IBC spectrum generator** (accepts any user `[{T,Sa}]` curve) |
+| Linear buckling — `(K + λ·Kg)φ = 0`, subspace iteration | ✔ | Frame flexural geometric stiffness; shell buckling only partial |
+| P-Delta (second-order) | ✔ | Fixed-point tangent iteration (not Newton/arc-length) |
+| Geometric nonlinear — large-displacement truss/cable, planar corotational beam, form-finding | ✔ | **Corotational beam is planar (X–Z) only; no 3D large-rotation beam** |
+| Prestress / stress-stiffened (preloaded) modal | ✔ | |
+| Plastic-hinge pushover — event-to-event to collapse | ✔ | Concentrated hinges (N, V, M); ductile/brittle drop; collapse = mechanism |
+| Displacement-control pushover | ◐ | Arc-length on the axial (truss/cable) idealization — geometric snap-through, not a hinge pushover |
+| Nonlinear time-history | ◐ | **Equivalent elastoplastic shear-building** (1 DOF/diaphragm, bilinear stories) — not fiber/distributed plasticity |
+| Linear time-history — modal superposition (exact recurrence) | ✔ | Exposed in the app; not in the public API |
+| Staged / sequential construction | ✔ | **Frames/bars only — areas and diaphragms ignored in staging**; no creep/shrinkage |
+| Moving loads / influence lines | ✔ | Vertical loads |
+| Distributed-plasticity / fiber sections, contact/gap mechanics, explicit dynamics | ✘ | Inelasticity is concentrated hinges or 1-D story springs only |
+
+### Design checks (demand/capacity)
+
+| Capability | | Notes |
+| --- | :-: | --- |
+| Steel — AISC 360-16 (LRFD/ASD) | ◐ | Yielding, E3 flexural buckling, F2/F6/F9/F10 flexure, G2 shear, H1 interaction. **No net-section rupture, torsional/flexural-torsional buckling, slender-element (E7), or torsion** |
+| Steel — Eurocode 3 (EN 1993-1-1) | ◐ | Class 1–3, buckling curves, LTB, 6.3.3 interaction. **No Class-4 effective width, net section, or web shear buckling** |
+| Concrete — ACI 318-19 | ◐ | Flexure, shear, **true P–M interaction (incl. biaxial)**. **Rectangular sections only; no detailing, torsion, slenderness, or punching shear** |
+| Concrete — Eurocode 2 (EN 1992-1-1) | ◐ | **An alias of the ACI procedure** — not the EC2 partial factors / parabola-rectangle law |
+| Aluminium — Eurocode 9 (EN 1999-1-1) | ◐ | Tension, compression, LTB, shear. **Interaction is the conservative linear sum; no auto HAZ softening** |
+| Timber — NCh1198 (allowable stress) | ◐ | Bending, shear, tension, compression (Ylinen), combined. **No connections or perp-to-grain** |
+| Seismic — capacity design | ◐ | **Strong-column/weak-beam only** — no overstrength force amplification, ductile detailing, or joint/connection checks |
+| Serviceability — deflection & story drift | ✔ | Deflection L/limit; drift NCh433 0.002 · ASCE 7 0.02 · EC8 0.01 (compares supplied values) |
+| Auto-design — profile selection from a catalog | ✔ | Picks the lightest passing profile; **not a continuous/cost optimizer** |
+| Connection design, rebar detailing, member torsion check | ✘ | Out of scope |
+
+### Interoperability, reporting and automation
+
+| Capability | | Notes |
+| --- | :-: | --- |
+| Native `.s3d` (JSON) — full-fidelity round-trip | ✔ | Model + design settings; the round-trip container |
+| Import/export — SAP2000, ETABS, SOFiSTiK, Abaqus/CalculiX, OpenSees, NODEX, VECTOR | ◐ | **Geometry + loads, never results.** Distributed loads and/or end releases are dropped on several exporters (each warns) |
+| IFC (BIM) | ◐ | **Geometry-only both ways**; export loses Iy and J; no loads/supports/results |
+| DXF / CAD vector | ✘ | No DXF interchange |
+| Reporting — printable PDF, Word `.docx`, spectrum SVG | ✔ | Cover, design basis, loads, images, participation, D/C, drifts |
+| CSV export — static/modal/spectral results, element & global K/M matrices, time-history | ✔ | |
+| Headless public API (`js/api/portico.js`) | ✔ | Build model, run every solver, post-process, design & serviceability — scriptable in Node or the browser, no DOM |
+| Extensibility — register custom analyses, design codes, IO formats | ✔ | `registerAnalysis` · `registerDesignCode` · `registerFormat` |
+
+Where a row is ◐ or ✘, the reason is a deliberate, bounded choice — spelled out in
+[§8 Scope and limitations](#8-scope-and-limitations) and, for the numbers, validated in the
+[Verification Manual](verification-manual.md).
+
 ## 0. Conventions
 
 ### 0.1 Coordinate system
@@ -678,6 +757,19 @@ The engine is deliberately explicit about what it does and does not cover. As im
   formula as coded; confirm this matches your intended NCh433 formulation before relying on it.
 - Area elements use a **lumped translational mass** (no rotational or consistent area mass), and
   torsional frame inertia uses an approximate polar mass.
+- **Response spectrum runs one horizontal direction (X or Y) per call** — there is no vertical (Z)
+  direction and no automatic directional combination (100/30, ± sign cases).
+- **Concrete P–M interaction is for rectangular sections only**; there is no rebar detailing
+  (development, splices, spacing, cover minima), no member torsion check (the T demand is collected but
+  not verified), and **no connection design** in any material.
+- The **profile database is European only** (IPE / HEA / HEB, plus CHS / RHS) — American W (AISC) tables
+  are not shipped, though any section can be entered by its numeric properties.
+- **Static loads are nodal, distributed or thermal** — there is no member point-load type (place a node
+  at the point, or mesh) and no area pressure/face-load type (area loading is self-weight or thermal).
+- **Interoperability is geometry + loads, never results.** The text converters (SAP2000, ETABS,
+  SOFiSTiK, Abaqus, OpenSees, NODEX, VECTOR) drop distributed loads and/or end releases on several
+  exporters — each emits a warning; IFC is geometry-only both ways and loses `Iy`/`J` on export. There
+  is no DXF/CAD interchange. Only the native `.s3d` round-trips with full fidelity.
 
 None of these are hidden: each is a bounded, documented choice, and each analysis is validated against
 a closed-form or independent-engine benchmark in the Verification Manual.

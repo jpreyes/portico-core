@@ -27,8 +27,8 @@
 // UNITS — the model header is `model units kN, m`. nodex carries per-value unit
 // suffixes (GPa, cm2, cm4, t/m3, kN, kN/m); we convert to/from consistent kN·m here.
 // ──────────────────────────────────────────────────────────────────────────────
-import { registerFormat } from '../registry.js?v=5';
-import { profileToSection } from '../../design/profiles.js?v=5';
+import { registerFormat } from '../registry.js?v=6';
+import { profileToSection } from '../../design/profiles.js?v=6';
 
 // Compact, lossless number formatting (same policy as the sibling adapters).
 const num = (v) => {

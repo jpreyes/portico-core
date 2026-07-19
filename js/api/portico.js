@@ -22,32 +22,32 @@
 // Model units: kN, m (design strengths are given in MPa).
 // ──────────────────────────────────────────────────────────────────────────────
 
-import { Model } from '../model/model.js?v=5';
-import { Serializer } from '../model/serializer.js?v=5';
-import { StaticSolver } from '../solver/static_solver.js?v=5';
-import { ModalSolver } from '../solver/modal_solver.js?v=5';
-import { ModalResults } from '../solver/modal_results.js?v=5';
-import { SpectrumSolver } from '../solver/spectrum_solver.js?v=5';
-import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from '../solver/assembler.js?v=5';
-import { assembleKg } from '../solver/geometric.js?v=5';
-import { StagedSolver } from '../solver/staged.js?v=5';
-import { checkElement, listDesignCodes, getDesignCode, registerDesignCode } from '../design/design.js?v=5';
-import { checkDeflection, checkDrift, driftLimit } from '../design/serviceability.js?v=5';
-import { interstoryDrifts, buildStoryLevels } from '../solver/drift.js?v=5';
-import { polygonProps, compositeProps } from '../design/polygon_props.js?v=5';
-import { jointSCWB, strongColumnWeakBeam } from '../design/seismic.js?v=5';
-import { buildSpectrum } from '../design/nch433_spectrum.js?v=5';
-import { resolveMaterial } from '../design/material_props.js?v=5';
-import { resolveSectionProps } from '../design/section_props.js?v=5';
-import { registerFormat, listFormats, exportModel, importModel } from '../io/index.js?v=5';
-import { solvePlastic } from '../solver/plastic.js?v=5';
-import { linearBuckling, pDelta as pDeltaAnalysis } from '../solver/geometric_analysis.js?v=5';
-import { buildNLTrussProblem, buildCorotProblem, remapCorotSteps, setupPushoverControl, buildFormFindProblem } from '../solver/nl_frame.js?v=5';
-import { solveNonlinear, solveNonlinearDC } from '../solver/nl_lite.js?v=5';
-import { solveCorotBeam } from '../solver/corotbeam.js?v=5';
-import { buildShearStories, runShearHistory } from '../solver/shear_building.js?v=5';
-import { computeMovingLoad } from '../solver/moving_load.js?v=5';
-import { formFind } from '../solver/formfind.js?v=5';
+import { Model } from '../model/model.js?v=6';
+import { Serializer } from '../model/serializer.js?v=6';
+import { StaticSolver } from '../solver/static_solver.js?v=6';
+import { ModalSolver } from '../solver/modal_solver.js?v=6';
+import { ModalResults } from '../solver/modal_results.js?v=6';
+import { SpectrumSolver } from '../solver/spectrum_solver.js?v=6';
+import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from '../solver/assembler.js?v=6';
+import { assembleKg } from '../solver/geometric.js?v=6';
+import { StagedSolver } from '../solver/staged.js?v=6';
+import { checkElement, listDesignCodes, getDesignCode, registerDesignCode } from '../design/design.js?v=6';
+import { checkDeflection, checkDrift, driftLimit } from '../design/serviceability.js?v=6';
+import { interstoryDrifts, buildStoryLevels } from '../solver/drift.js?v=6';
+import { polygonProps, compositeProps } from '../design/polygon_props.js?v=6';
+import { jointSCWB, strongColumnWeakBeam } from '../design/seismic.js?v=6';
+import { buildSpectrum } from '../design/nch433_spectrum.js?v=6';
+import { resolveMaterial } from '../design/material_props.js?v=6';
+import { resolveSectionProps } from '../design/section_props.js?v=6';
+import { registerFormat, listFormats, exportModel, importModel } from '../io/index.js?v=6';
+import { solvePlastic } from '../solver/plastic.js?v=6';
+import { linearBuckling, pDelta as pDeltaAnalysis } from '../solver/geometric_analysis.js?v=6';
+import { buildNLTrussProblem, buildCorotProblem, remapCorotSteps, setupPushoverControl, buildFormFindProblem } from '../solver/nl_frame.js?v=6';
+import { solveNonlinear, solveNonlinearDC } from '../solver/nl_lite.js?v=6';
+import { solveCorotBeam } from '../solver/corotbeam.js?v=6';
+import { buildShearStories, runShearHistory } from '../solver/shear_building.js?v=6';
+import { computeMovingLoad } from '../solver/moving_load.js?v=6';
+import { formFind } from '../solver/formfind.js?v=6';
 
 // ── numeric.js disponible como global (navegador) o cargado bajo demanda (Node) ──
 let _numReady = false;
