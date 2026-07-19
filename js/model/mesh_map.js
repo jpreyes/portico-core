@@ -21,7 +21,7 @@
 // SELF-CONTAINED (no dependencies except the connectivity from `mesher.js`) →
 // verifiable in Node. Grid index identical to mesher.js: idx(i,j)=i*(ny+1)+j.
 // ──────────────────────────────────────────────────────────────────────────────
-import { blockCells, cornerGridIndices } from './mesher.js?v=4';
+import { blockCells, cornerGridIndices } from './mesher.js?v=5';
 
 // Re-export of the connectivity (same grid convention) for convenience.
 export { blockCells, cornerGridIndices };

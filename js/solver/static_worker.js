@@ -10,8 +10,8 @@
 // Strategy: extract K_ff, factor ONCE (banded Cholesky with RCM) and solve each
 // right-hand side. Reactions = K·u − F (in the worker, non-blocking).
 // ──────────────────────────────────────────────────────────────────────────────
-import { makeFactor, makeFactorCSR } from './linsolve.js?v=4';
-import { makeSolverPCG } from './pcg.js?v=4';
+import { makeFactor, makeFactorCSR } from './linsolve.js?v=5';
+import { makeSolverPCG } from './pcg.js?v=5';
 
 self.onmessage = (e) => {
   // SPARSE path: K_ff arrives in CSR + fixed–free coupling (cf). The dense matrix

@@ -12,11 +12,11 @@
 // Axis convention: IFC and PORTICO share VERTICAL Z, so coordinates pass through directly
 // (only unit conversion to meters).  STANDALONE (Node + browser).
 // ──────────────────────────────────────────────────────────────────────────────
-import { parseIFC, lengthUnit } from './ifcLoader.js?v=4';
-import { classify, KIND_LABEL } from './ifcClassifier.js?v=4';
-import { memberAxis, bodyProfile, profileProps, areaSurface, boxSectionProps } from './ifcGeometrySimplifier.js?v=4';
-import { Warnings } from './ifcWarnings.js?v=4';
-import { neutralToModel } from '../neutral.js?v=4';
+import { parseIFC, lengthUnit } from './ifcLoader.js?v=5';
+import { classify, KIND_LABEL } from './ifcClassifier.js?v=5';
+import { memberAxis, bodyProfile, profileProps, areaSurface, boxSectionProps } from './ifcGeometrySimplifier.js?v=5';
+import { Warnings } from './ifcWarnings.js?v=5';
+import { neutralToModel } from '../neutral.js?v=5';
 
 const DEFAULT_TOL = 0.01;       // m — snap tolerance for coincident nodes
 // generic material (steel) when the IFC carries no mechanical properties — kN/m²

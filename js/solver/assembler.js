@@ -6,10 +6,10 @@ import {
   transformMatrix, globalStiffness,
   applyReleases, fixedEndForces, condenseFEF,
   elemLocalK, elemLocalM
-} from './timoshenko.js?v=4';
-import { applyDiaphragmConstraints, applyDiaphragmMass } from './diaphragm.js?v=4';
-import { applyLinkConstraints } from './links.js?v=4';
-import { assembleAreasInto, assembleAreasMassInto, areaThermalContribs, areaSelfWeightContribs } from './membrane.js?v=4';
+} from './timoshenko.js?v=5';
+import { applyDiaphragmConstraints, applyDiaphragmMass } from './diaphragm.js?v=5';
+import { applyLinkConstraints } from './links.js?v=5';
+import { assembleAreasInto, assembleAreasMassInto, areaThermalContribs, areaSelfWeightContribs } from './membrane.js?v=5';
 
 // ── Self-weight ───────────────────────────────────────────────────────────────
 // A material's `rho` is a MASS density: massMatrix() spends it as `rho*A*L = total

@@ -11,10 +11,10 @@
 // amplified displacement field, or a structured refusal `reason` the caller maps to
 // its own message. The dialogs, progress, toasts and overlay stay in app.js.
 // ──────────────────────────────────────────────────────────────────────────────
-import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './assembler.js?v=4';
-import { assembleKg } from './geometric.js?v=4';
-import { solveBuckling } from './buckling.js?v=4';
-import { makeFactor } from './linsolve.js?v=4';
+import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './assembler.js?v=5';
+import { assembleKg } from './geometric.js?v=5';
+import { solveBuckling } from './buckling.js?v=5';
+import { makeFactor } from './linsolve.js?v=5';
 
 /**
  * Reference geometric problem shared by buckling and P-Delta: the full elastic K, the

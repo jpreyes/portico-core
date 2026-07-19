@@ -843,6 +843,56 @@ table.dcl-eq th { background: var(--bg3); color: var(--text-muted); text-align: 
 .help-exobs   { font-size: 11.5px; color: var(--teal); margin-top: 5px; }
 .help-excard .help-exopen { width: auto; margin-top: 8px; padding: 5px 16px; }
 
+/* ── Documentation viewer (Help → Documentación) ─────────────────────────────── */
+#hsec-docs .hidden { display: none; }
+.doc-group { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin: 18px 0 8px; }
+.doc-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.doc-card {
+  display: flex; flex-direction: column; gap: 4px; text-align: left;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+}
+.doc-card:hover { border-color: var(--accent-dim); background: var(--bg4); }
+.doc-card-t { font-size: 12.5px; font-weight: 700; color: var(--text); }
+.doc-card-d { font-size: 11.5px; color: var(--text-muted); line-height: 1.45; }
+.doc-back {
+  background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
+  font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px;
+  cursor: pointer; margin-bottom: 14px;
+}
+.doc-back:hover { color: var(--accent); border-color: var(--accent-dim); }
+
+/* Rendered Markdown */
+.doc-body { font-size: 13px; line-height: 1.7; color: var(--text); max-width: 780px; }
+.doc-body h1 { font-size: 20px; color: var(--text); margin: 0 0 4px; letter-spacing: 0.01em; }
+.doc-body h2 { font-size: 16px; color: var(--accent); margin: 22px 0 8px; }
+.doc-body h3 { font-size: 14px; color: var(--text); margin: 18px 0 6px; }
+.doc-body h4 { font-size: 12.5px; color: var(--text-muted); margin: 14px 0 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+.doc-body p { margin: 9px 0; }
+.doc-body ul, .doc-body ol { padding-left: 22px; margin: 9px 0; }
+.doc-body li { margin-bottom: 5px; }
+.doc-body a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-dim); }
+.doc-body a:hover { border-bottom-style: solid; filter: brightness(1.15); }
+.doc-body img { max-width: 100%; height: auto; display: block; margin: 12px auto; background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 6px; }
+.doc-body code {
+  font-family: var(--font-mono); font-size: 11.5px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; color: var(--teal);
+}
+.doc-body pre {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 15px; overflow-x: auto; margin: 12px 0; line-height: 1.55;
+}
+.doc-body pre code { border: none; background: none; padding: 0; color: var(--text); font-size: 11.5px; white-space: pre; }
+.doc-body blockquote {
+  margin: 12px 0; padding: 2px 14px; border-left: 3px solid var(--accent-dim);
+  background: rgba(56, 189, 248, 0.05); color: var(--text-muted); border-radius: 0 8px 8px 0;
+}
+.doc-body table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 12px; display: block; overflow-x: auto; }
+.doc-body th, .doc-body td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+.doc-body th { background: var(--bg3); color: var(--text); font-weight: 700; }
+.doc-body hr { border: none; border-top: 1px solid var(--border2); margin: 20px 0; }
+.doc-body sub, .doc-body sup { color: var(--text-muted); font-size: 10.5px; }
+
 .help-about-hero {
   display: flex;
   align-items: center;

@@ -96,6 +96,7 @@ export class MenuBar {
       case 'help-guia':     a.openHelp('guia');     break;
       case 'help-signos':   a.openHelp('signos');   break;
       case 'help-ejemplos': a.openHelp('ejemplos'); break;
+      case 'help-docs':     a.openHelp('docs');     break;
       case 'help-acerca':   a.openHelp('acerca');   break;
       case 'view-iso':    a.viewport.setStandardView('iso');   break;
       case 'view-top':    a.viewport.setStandardView('top');   break;

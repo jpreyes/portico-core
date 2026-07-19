@@ -105,7 +105,13 @@ export const EN = {
   'Guía Rápida': 'Quick Guide',
   'Convenciones de Signos y Ejes': 'Sign & Axis Conventions',
   'Ejemplos Guiados': 'Guided Examples',
+  'Documentación (manuales · tutoriales · validaciones)': 'Documentation (manuals · tutorials · validations)',
   'Acerca de PORTICO': 'About PORTICO',
+  'Documentación': 'Documentation',
+  '← Volver a la lista': '← Back to the list',
+  'Manuales, tutoriales y validaciones del proyecto, renderizados aquí mismo (funciona sin conexión). Se abren en el idioma de la interfaz. Un clic en un enlace interno abre el documento enlazado; use ← Volver para regresar a la lista.':
+    'The project\'s manuals, tutorials and validations, rendered right here (works offline). They open in the interface language. Click an internal link to open the linked document; use ← Back to return to the list.',
+  'No se pudo cargar el documento': 'Could not load the document',
 
   // ── Header ──
   'Unidades': 'Units',

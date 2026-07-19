@@ -33,8 +33,8 @@
       window.dispatchEvent(new Event('pwa-installed'));
     });
   </script>
-  <link rel="stylesheet" href="style.css?v=4">
-  <link rel="stylesheet" href="ui-v2.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="ui-v2.css?v=5">
   <script type="importmap">
   {
     "imports": {
@@ -196,6 +196,7 @@
           <li data-action="help-guia">Guía Rápida <kbd>F1</kbd></li>
           <li data-action="help-signos">Convenciones de Signos y Ejes</li>
           <li data-action="help-ejemplos">Ejemplos Guiados</li>
+          <li data-action="help-docs">Documentación (manuales · tutoriales · validaciones)</li>
           <li class="sep"></li>
           <li data-action="help-acerca">Acerca de PORTICO</li>
         </ul>
@@ -764,6 +765,7 @@
         <button class="help-tab active" data-hsec="guia">Guía Rápida</button>
         <button class="help-tab" data-hsec="signos">Convenciones</button>
         <button class="help-tab" data-hsec="ejemplos">Ejemplos Guiados</button>
+        <button class="help-tab" data-hsec="docs">Documentación</button>
         <button class="help-tab" data-hsec="acerca">Acerca de</button>
       </nav>
       <button id="help-close" title="Cerrar (Esc)">✕</button>
@@ -913,6 +915,21 @@
         </details>
       </section>
 
+      <!-- ── DOCUMENTACIÓN ── -->
+      <section id="hsec-docs" class="help-sec">
+        <div id="docs-index">
+          <h2>Documentación</h2>
+          <p class="help-note">Manuales, tutoriales y validaciones del proyecto, renderizados aquí mismo
+            (funciona sin conexión). Se abren en el idioma de la interfaz. Un clic en un enlace interno
+            abre el documento enlazado; use ← Volver para regresar a la lista.</p>
+          <div id="docs-list"></div>
+        </div>
+        <div id="docs-view" class="hidden">
+          <button id="docs-back" class="doc-back">← Volver a la lista</button>
+          <article id="docs-body" class="doc-body"></article>
+        </div>
+      </section>
+
       <!-- ── ACERCA DE ── -->
       <section id="hsec-acerca" class="help-sec">
         <div class="help-about-hero">
@@ -993,7 +1010,7 @@
 
 <!-- numeric.js para solver (Fase 2+) -->
 <script src="lib/numeric.js"></script>
-<script type="module" src="js/app.js?v=4"></script>
+<script type="module" src="js/app.js?v=5"></script>
 
 <!-- PWA: registrar el service worker (offline). Solo en contexto seguro
      (https o localhost); el navegador deja navigator.serviceWorker undefined

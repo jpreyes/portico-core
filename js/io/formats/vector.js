@@ -12,7 +12,7 @@
 // .dat sections: 1 title · 2 constants · 3 nodes · 4 properties · 5 members ·
 // 8 nodal loads · 9 control · 10 output.  Registered in the `registry`.
 // ──────────────────────────────────────────────────────────────────────────────
-import { registerFormat } from '../registry.js?v=4';
+import { registerFormat } from '../registry.js?v=5';
 
 // ── fixed-field helpers ───────────────────────────────────────────────────────
 // Positive integer right-justified (in BZ, spaces count as 0).

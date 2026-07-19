@@ -17,8 +17,8 @@
 // The point load is distributed to the nodes of the element that contains it via
 // Hermite shape functions (consistent nodal forces and moments → exact response).
 // ──────────────────────────────────────────────────────────────────────────────
-import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './assembler.js?v=4';
-import { Results } from './postprocess.js?v=4';
+import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './assembler.js?v=5';
+import { Results } from './postprocess.js?v=5';
 
 const NUM = () => (typeof window !== 'undefined' && window.numeric) || (typeof globalThis !== 'undefined' && globalThis.numeric);
 
