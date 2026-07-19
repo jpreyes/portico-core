@@ -44,7 +44,10 @@ should fail in a **ductile beam-sway** mechanism — the desirable one. The mode
 
 Open `examples/tutorial2_pushover.s3d`. It is a bare lateral frame — columns and beams only (the floor
 gravity is lumped at the joints, and an inverted-triangle lateral pattern **Push X** drives the
-pushover). Its elastic fundamental period is **T = 0.375 s**.
+pushover). Its two lowest modes are a Y-sway (**T = 0.375 s**) and an X-sway (**T = 0.295 s**): the
+W-columns present their major axis to X, so the frame is a little stiffer that way. Since we push in
+**X**, the period that matters here — and in the performance assessment of Tutorial 3 — is **0.295 s**,
+not the (Y) fundamental.
 
 ![The 5-storey, 20 × 20 m steel moment frame (fixed bases).](img/t2-01-geometry.png)
 
@@ -75,8 +78,8 @@ Plotting the base shear `V = λ · 100 kN` against the roof displacement `δ` gi
 
 | Point | Roof displacement δ | Base shear V | V / W |
 | --- | --- | --- | --- |
-| First yield | 0.11 m | 3 562 kN | 0.34 |
-| Collapse | 0.82 m | 5 228 kN | 0.50 |
+| First yield | 0.11 m | 3 562 kN | 0.32 |
+| Collapse | 0.82 m | 5 228 kN | 0.47 |
 
 From these we read the frame's key nonlinear properties:
 

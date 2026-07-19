@@ -83,8 +83,17 @@ console.log('saved  examples/tutorial2_pushover.s3d  (%d KB)', Math.round(s3d.le
 
 // ── headless sanity: elastic period + event-to-event plastic collapse ─────────
 const p = new Portico(m);
-const modal = await p.solveModal(4);
+const modal = await p.solveModal(6);
 console.log('elastic T = [%s] s', (modal.period || []).slice(0, 3).map(t => t.toFixed(3)).join(', '));
+// participation → which mode is X / Y / torsion. The W-columns present their major
+// axis to X, so X is the stiffer direction: the fundamental (longest T) is the Y-sway,
+// and the X-sway (the push direction) is a shorter-period mode. The pushover / PBD
+// assessment (Tutorial 3) must use the X-sway period, not the Y fundamental.
+const part = modal.getParticipation?.();
+if (part) { const T = modal.period || [];
+  console.log('mode  T(s)   Ux%    Uy%    Rz%');
+  part.rows.slice(0, 4).forEach((r, i) => console.log('  %s   %s   %s   %s   %s', i + 1,
+    (T[i] || 0).toFixed(3), r.pct[0].toFixed(1).padStart(5), r.pct[1].toFixed(1).padStart(5), r.pct[2].toFixed(1).padStart(5))); }
 
 const capByElem = new Map();
 for (const el of m.elements.values()) {

@@ -44,7 +44,10 @@ pórtico debería fallar en un **mecanismo dúctil de viga** — el deseable. El
 
 Abre `examples/tutorial2_pushover.s3d`. Es un pórtico lateral desnudo — solo pilares y vigas (la
 gravedad de piso se concentra en los nudos, y un patrón lateral de triángulo invertido **Push X** guía
-la pushover). Su período fundamental elástico es **T = 0.375 s**.
+la pushover). Sus dos modos más bajos son una traslación Y (**T = 0.375 s**) y una traslación X
+(**T = 0.295 s**): las columnas W presentan su eje mayor a X, así que el pórtico es algo más rígido en
+esa dirección. Como empujamos en **X**, el período que importa aquí — y en la evaluación por desempeño
+del Tutorial 3 — es **0.295 s**, no el fundamental (Y).
 
 ![El pórtico de acero de 5 pisos, 20 × 20 m (bases empotradas).](img/t2-01-geometry.png)
 
@@ -77,8 +80,8 @@ Graficando el cortante basal `V = λ · 100 kN` contra el desplazamiento de tech
 
 | Punto | Desplazamiento de techo δ | Cortante basal V | V / W |
 | --- | --- | --- | --- |
-| Primera fluencia | 0.11 m | 3 562 kN | 0.34 |
-| Colapso | 0.82 m | 5 228 kN | 0.50 |
+| Primera fluencia | 0.11 m | 3 562 kN | 0.32 |
+| Colapso | 0.82 m | 5 228 kN | 0.47 |
 
 De ahí leemos las propiedades no lineales clave del pórtico:
 

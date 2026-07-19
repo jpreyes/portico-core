@@ -24,7 +24,10 @@ let W = 0; for (const n of m.nodes.values()) { const R = rG.getReaction?.(n.id);
 
 // ── coefficient method (ASCE 41-17 §7.4.3 / FEMA 440) ─────────────────────────
 const g = 9.80665;
-const Te = 0.40;                      // effective fundamental period (≈ modal 0.375 s)
+// Effective period in the PUSH direction (X). The frame's lowest mode is a Y-sway
+// (0.375 s), but the pushover — and thus this assessment — runs in X, whose modal
+// period is 0.295 s (the W-columns present their major axis to X). Use that one.
+const Te = 0.30;                      // effective period ≈ X-sway modal (0.295 s)
 const SDS = 1.5, SD1 = 0.9;           // high-seismic design spectrum (g)
 const Ts = SD1 / SDS;
 const Sa = Te <= Ts ? SDS : SD1 / Te; // design spectral acceleration (g)
