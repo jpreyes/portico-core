@@ -31,6 +31,14 @@ El modelo se entrega como [`examples/tutorial1_valdivia.s3d`](../../examples/tut
 es reproducible con [`tools/examples/build_valdivia.mjs`](../../tools/examples/build_valdivia.mjs).
 Cada paso muestra el estado final en el visor.
 
+![Planta — grilla de pilares, secciones y materiales.](img/t1-plan.svg)
+
+*Planta — la grilla de pilares de 3 × 5 m, la caja de escalera central, y las secciones y el material.*
+
+![Elevación esquemática — alturas de piso y secciones.](img/t1-elevation.svg)
+
+*Elevación — los tres niveles de 3 m, pilares y vigas, y las bases empotradas.*
+
 <!-- pagebreak -->
 
 ## Paso 1 — Abrir el modelo

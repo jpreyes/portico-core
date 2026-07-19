@@ -24,6 +24,14 @@ Inmediata (IO), Seguridad de Vida (LS) o Prevención de Colapso (CP).
 Modelo: [`examples/tutorial2_pushover.s3d`](../../examples/tutorial2_pushover.s3d) (el pórtico del
 Tutorial 2).
 
+![Planta — grilla de pilares, secciones y material.](img/t2-plan.svg)
+
+*Planta — la grilla de pilares de 3 × 6.67 m y las secciones y el material.*
+
+![Elevación esquemática — alturas de piso y secciones.](img/t2-elevation.svg)
+
+*Elevación — los cinco pisos de 3.5 m, pilares y vigas, y las bases empotradas.*
+
 <!-- pagebreak -->
 
 ## Paso 1 — La curva de capacidad como bilineal

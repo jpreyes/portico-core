@@ -31,6 +31,14 @@ The model is provided as [`examples/tutorial1_valdivia.s3d`](../../examples/tuto
 is reproducible with [`tools/examples/build_valdivia.mjs`](../../tools/examples/build_valdivia.mjs).
 Each step below shows the final state in the viewer.
 
+![Plan — column grid, sections and materials.](img/t1-plan.en.svg)
+
+*Plan — the 3 × 5 m column grid, the central stair core, and the member sections and material.*
+
+![Schematic elevation — storey heights and sections.](img/t1-elevation.en.svg)
+
+*Elevation — the three 3 m storeys, columns and beams, and the fixed bases.*
+
 <!-- pagebreak -->
 
 ## Step 1 — Open the model

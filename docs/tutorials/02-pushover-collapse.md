@@ -30,6 +30,14 @@ should fail in a **ductile beam-sway** mechanism — the desirable one. The mode
 [`examples/tutorial2_pushover.s3d`](../../examples/tutorial2_pushover.s3d), built by
 [`tools/examples/build_pushover.mjs`](../../tools/examples/build_pushover.mjs).
 
+![Plan — column grid, sections and material.](img/t2-plan.en.svg)
+
+*Plan — the 3 × 6.67 m column grid and the member sections and material.*
+
+![Schematic elevation — storey heights and sections.](img/t2-elevation.en.svg)
+
+*Elevation — the five 3.5 m storeys, columns and beams, and the fixed bases.*
+
 <!-- pagebreak -->
 
 ## Step 1 — The model

@@ -30,6 +30,14 @@ pórtico debería fallar en un **mecanismo dúctil de viga** — el deseable. El
 [`examples/tutorial2_pushover.s3d`](../../examples/tutorial2_pushover.s3d), construido por
 [`tools/examples/build_pushover.mjs`](../../tools/examples/build_pushover.mjs).
 
+![Planta — grilla de pilares, secciones y material.](img/t2-plan.svg)
+
+*Planta — la grilla de pilares de 3 × 6.67 m y las secciones y el material.*
+
+![Elevación esquemática — alturas de piso y secciones.](img/t2-elevation.svg)
+
+*Elevación — los cinco pisos de 3.5 m, pilares y vigas, y las bases empotradas.*
+
 <!-- pagebreak -->
 
 ## Paso 1 — El modelo
