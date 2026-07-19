@@ -126,14 +126,14 @@ and reports the demand/capacity ratio (D/C):
 
 | Member | Section · rebar | count | max D/C | Governs | Status |
 | --- | --- | --- | --- | --- | --- |
-| Columns | 50 × 50 · 8Φ25 | 48 | **0.17** | interaction / shear | ✓ passes |
+| Columns | 50 × 50 · 8Φ25 | 48 | **0.34** | P–M interaction | ✓ passes |
 | Beams | 30 × 50 · 3Φ22 | 72 | **0.17** | shear | ✓ passes |
 
-Every member is well below its capacity (D/C ≤ 0.17). The colour map is uniformly green — all beams
-and columns pass comfortably. **Gravity governs** (the seismic demand is tiny because the stiff core
-keeps the forces low), which is why the governing combination is `1.2·CM + 1.6·CV`.
+Every member is well below its capacity (columns D/C ≤ 0.34 in axial–flexural interaction, beams ≤ 0.17
+in shear). The colour map is uniformly green — all beams and columns pass comfortably. The stiff core
+keeps the seismic demand small, so the demands are dominated by gravity.
 
-![Design D/C map — all frame members green (D/C ≤ 0.17): the design passes.](img/t1-09-design-dc.png)
+![Design D/C map — all frame members green (D/C ≤ 0.34): the design passes.](img/t1-09-design-dc.png)
 
 *Figure 7. Demand/capacity map — beams and columns comfortably within capacity.*
 
@@ -157,8 +157,8 @@ core-wall building.
   the translational drifts are tiny.
 - On **soil D** with a short-period building, NCh433's `R*` is low (2.4 here): stiffness does not
   automatically mean a small seismic force, but here the displacements stay small anyway.
-- With **gravity governing**, the frame members are comfortably designed (D/C ≤ 0.17) and the drifts
-  are ~10 % of the NCh433 limit.
+- The frame members are comfortably designed (columns D/C ≤ 0.34 in P–M interaction, beams ≤ 0.17 in
+  shear) and the drifts are ~10 % of the NCh433 limit.
 
 <sub>Model: `examples/tutorial1_valdivia.s3d` (built by `tools/examples/build_valdivia.mjs`). See the
 [Analysis Reference Manual](../analysis-reference.md) for the theory and the

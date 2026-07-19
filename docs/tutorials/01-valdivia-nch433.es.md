@@ -128,15 +128,15 @@ y reporta la razón demanda/capacidad (D/C):
 
 | Miembro | Sección · armadura | cantidad | max D/C | Gobierna | Estado |
 | --- | --- | --- | --- | --- | --- |
-| Pilares | 50 × 50 · 8Φ25 | 48 | **0.17** | interacción / corte | ✓ cumple |
+| Pilares | 50 × 50 · 8Φ25 | 48 | **0.34** | interacción P–M | ✓ cumple |
 | Vigas | 30 × 50 · 3Φ22 | 72 | **0.17** | corte | ✓ cumple |
 
-Todos los miembros están muy por debajo de su capacidad (D/C ≤ 0.17). El mapa de color es
-uniformemente verde — todas las vigas y pilares cumplen holgadamente. **Gobierna la gravedad** (la
-demanda sísmica es mínima porque la caja rígida mantiene bajas las fuerzas), por eso la combinación
-gobernante es `1.2·CM + 1.6·CV`.
+Todos los miembros están muy por debajo de su capacidad (pilares D/C ≤ 0.34 en interacción
+axial–flexión, vigas ≤ 0.17 en corte). El mapa de color es uniformemente verde — todas las vigas y
+pilares cumplen holgadamente. La caja rígida mantiene baja la demanda sísmica, así que las demandas
+están dominadas por la gravedad.
 
-![Mapa D/C de diseño — todos los miembros en verde (D/C ≤ 0.17): el diseño cumple.](img/t1-09-design-dc.png)
+![Mapa D/C de diseño — todos los miembros en verde (D/C ≤ 0.34): el diseño cumple.](img/t1-09-design-dc.png)
 
 *Figura 7. Mapa demanda/capacidad — vigas y pilares holgadamente dentro de capacidad.*
 
@@ -161,8 +161,8 @@ edificio rígido de muros.
 - En **suelo D** con un edificio de período corto, el `R*` de NCh433 es bajo (2.4 aquí): la rigidez no
   significa automáticamente una fuerza sísmica pequeña, pero aquí los desplazamientos quedan chicos de
   todas formas.
-- Con la **gravedad gobernando**, los miembros de pórtico quedan holgadamente diseñados (D/C ≤ 0.17) y
-  las derivas son ~10 % del límite NCh433.
+- Los miembros de pórtico quedan holgadamente diseñados (pilares D/C ≤ 0.34 en interacción P–M, vigas
+  ≤ 0.17 en corte) y las derivas son ~10 % del límite NCh433.
 
 <sub>Modelo: `examples/tutorial1_valdivia.s3d` (construido por `tools/examples/build_valdivia.mjs`). Ver
 el [Manual de Análisis](../analysis-reference.es.md) para la teoría y el
