@@ -15,7 +15,7 @@
 // (EC3 major) and y = weak axis (EC3 minor).
 // ──────────────────────────────────────────────────────────────────────────────
 
-import { finalize } from './aisc360.js?v=3';
+import { finalize } from './aisc360.js?v=4';
 
 const ALPHA = { a0: 0.13, a: 0.21, b: 0.34, c: 0.49, d: 0.76 };   // imperfection factors
 const ratObj = (D, C, extra = {}) => ({

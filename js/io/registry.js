@@ -12,7 +12,7 @@
 //   exportModel(model, id)         → { text, ext, warnings }
 //   importModel(text, id)          → { model, warnings }
 // ──────────────────────────────────────────────────────────────────────────────
-import { modelToNeutral, neutralToModel } from './neutral.js?v=3';
+import { modelToNeutral, neutralToModel } from './neutral.js?v=4';
 
 const _formats = new Map();
 

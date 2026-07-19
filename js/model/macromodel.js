@@ -11,7 +11,7 @@
 // To ADD more macromodels: register them in `macro_registry.js` (see the `infill`
 // registration at the end of this file and the guide `docs/macromodelos.md`).
 // ─────────────────────────────────────────────────────────────────────────────
-import { registerMacro } from './macro_registry.js?v=3';
+import { registerMacro } from './macro_registry.js?v=4';
 
 /**
  * Width of the equivalent diagonal strut (Mainstone / FEMA 356).

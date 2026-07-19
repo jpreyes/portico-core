@@ -10,8 +10,8 @@
 // [u1,v1,w1,rx1,ry1,rz1, u2,v2,w2,rx2,ry2,rz2], XZ plane with dw/dx = −θy).
 // N positive in TENSION (compression N<0 → reduces stiffness → buckling).
 // ──────────────────────────────────────────────────────────────────────────────
-import { localAxes, transformMatrix, globalStiffness } from './timoshenko.js?v=3';
-import { assembleAreasKgInto } from './membrane.js?v=3';
+import { localAxes, transformMatrix, globalStiffness } from './timoshenko.js?v=4';
+import { assembleAreasKgInto } from './membrane.js?v=4';
 
 // Local 12×12 geometric matrix from the axial N (tension +) and the length L.
 // Consistent form (Przemieniecti) for bending in both planes; the geometric axial

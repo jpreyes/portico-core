@@ -10,9 +10,9 @@
 //      CQC:  combine = √ΣΣ ρ_ij × val_i × val_j
 //            ρ_ij = 8ζ²(1+r)r^1.5 / ((1-r²)² + 4ζ²r(1+r)²)  r = ω_min/ω_max
 // ──────────────────────────────────────────────────────────────────────────────
-import { localAxes, stiffnessMatrix, transformMatrix } from './timoshenko.js?v=3';
-import { getNodeDOFs } from './assembler.js?v=3';
-import { SpectrumResults } from './spectrum_results.js?v=3';
+import { localAxes, stiffnessMatrix, transformMatrix } from './timoshenko.js?v=4';
+import { getNodeDOFs } from './assembler.js?v=4';
+import { SpectrumResults } from './spectrum_results.js?v=4';
 
 // Indices match modal_results dirs: X=0, Y=1, Rz=2 (Z vertical removed)
 const DIR_IDX = { X: 0, Y: 1 };

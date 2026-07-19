@@ -13,10 +13,10 @@
 // Note: buildShearStories and shearFreqs need `window.numeric` (the static solve and
 // the symmetric eigenproblem), like the rest of the linear-algebra layer.
 // ──────────────────────────────────────────────────────────────────────────────
-import { StaticSolver } from './static_solver.js?v=3';
-import { shearBuilding, rayleighDamping, newmarkNonlinear } from './nl_timehistory.js?v=3';
-import { checkDrift } from '../design/serviceability.js?v=3';
-import { accStats, G as GACC } from './accelerograms.js?v=3';
+import { StaticSolver } from './static_solver.js?v=4';
+import { shearBuilding, rayleighDamping, newmarkNonlinear } from './nl_timehistory.js?v=4';
+import { checkDrift } from '../design/serviceability.js?v=4';
+import { accStats, G as GACC } from './accelerograms.js?v=4';
 
 /**
  * Reduce the model to a shear building: one story per rigid diaphragm (sorted by z),

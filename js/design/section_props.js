@@ -25,7 +25,7 @@
 // stay consistent.
 // ──────────────────────────────────────────────────────────────────────────────
 
-import { polygonProps } from './polygon_props.js?v=3';
+import { polygonProps } from './polygon_props.js?v=4';
 
 // St. Venant torsion of a solid rectangle (long side a, short side b).
 function rectJ(a, b) {

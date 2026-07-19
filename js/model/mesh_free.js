@@ -15,9 +15,9 @@
 // Supports HOLES (opts.holes): each hole is merged into the contour with a zero-width
 // bridge (earcut-style bridging) → simple polygon that ear-clipping triangulates.
 // ──────────────────────────────────────────────────────────────────────────────
-import { quadMinScaledJacobian, weldPoints } from './mesh_map.js?v=3';
-import { triQuality, quadQuality, boundaryNodes, laplacianSmooth } from './mesh_quality.js?v=3';
-import { maxWeightMatching } from './matching.js?v=3';
+import { quadMinScaledJacobian, weldPoints } from './mesh_map.js?v=4';
+import { triQuality, quadQuality, boundaryNodes, laplacianSmooth } from './mesh_quality.js?v=4';
+import { maxWeightMatching } from './matching.js?v=4';
 
 const EPS = 1e-9;
 const signedArea2 = (pts) => { let s = 0; for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; s += a[0] * b[1] - b[0] * a[1]; } return s / 2; };

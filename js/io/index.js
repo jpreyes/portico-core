@@ -5,14 +5,14 @@
 // registry API.  To add a new engine: create `formats/<engine>.js` that calls
 // `registerFormat({ id, name, ext, write, read })` and add it to the import list.
 // ──────────────────────────────────────────────────────────────────────────────
-export { registerFormat, getFormat, listFormats, exportModel, importModel } from './registry.js?v=3';
-export { modelToNeutral, neutralToModel } from './neutral.js?v=3';
+export { registerFormat, getFormat, listFormats, exportModel, importModel } from './registry.js?v=4';
+export { modelToNeutral, neutralToModel } from './neutral.js?v=4';
 
 // Format adapters (self-registering):
-import './formats/vector.js?v=3';
-import './formats/abaqus.js?v=3';
-import './formats/sap2000.js?v=3';
-import './formats/etabs.js?v=3';
-import './formats/opensees.js?v=3';
-import './formats/sofistik.js?v=3';
-import './formats/ndx.js?v=3';
+import './formats/vector.js?v=4';
+import './formats/abaqus.js?v=4';
+import './formats/sap2000.js?v=4';
+import './formats/etabs.js?v=4';
+import './formats/opensees.js?v=4';
+import './formats/sofistik.js?v=4';
+import './formats/ndx.js?v=4';
