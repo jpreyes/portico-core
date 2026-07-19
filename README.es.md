@@ -60,12 +60,32 @@ prescrito, etapas constructivas, líneas de influencia — más un chequeo de eq
 global (ΣReacciones = ΣCargas) en cada modelo.
 
 Cada caso vive en [`docs/verifications/`](docs/verifications/) con su modelo y la
-referencia contra la que se compara. Corre la batería tú mismo:
+referencia contra la que se compara, y se ensamblan en un **Manual de Verificación** compilado
+(ver Documentación más abajo). Corre la batería tú mismo:
 
 ```bash
 node tests/test_plate.mjs        # un caso
 for f in tests/test_*.mjs; do node "$f"; done   # todos
 ```
+
+---
+
+## Documentación
+
+Tres documentos vivos, todos en **inglés + español** y compilados a PDF (se regeneran con las
+herramientas en [`tools/`](tools/)):
+
+- **[Manual de Análisis](docs/analysis-reference.es.md)** ([EN](docs/analysis-reference.md)) —
+  la teoría de cada elemento, solver y verificación de diseño, tal como está implementada.
+- **[Manual de Verificación](docs/verification-manual.es.md)** ([EN](docs/verification-manual.md)) —
+  los casos de validación vs soluciones analíticas, SAP2000 y OpenSees.
+- **[Tutoriales](docs/tutorials/)** — guías paso a paso con capturas:
+  1. [Edificio de 3 niveles en Valdivia (NCh433)](docs/tutorials/01-valdivia-nch433.es.md) — caja
+     shell, losas placa, pórticos; modal, espectro NCh433, diseño ACI, deriva.
+  2. [Pushover a colapso](docs/tutorials/02-pushover-collapse.es.md) — un pórtico de acero hasta su
+     mecanismo de colapso de viga.
+  3. [Evaluación por desempeño](docs/tutorials/03-performance-based.es.md) — desplazamiento objetivo y
+     nivel de desempeño IO/LS/CP sobre la curva de capacidad.
 
 ---
 

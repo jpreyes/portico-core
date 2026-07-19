@@ -59,12 +59,32 @@ patch tests, an Allman membrane, prescribed support settlement, staged construct
 influence lines — plus a global equilibrium check (ΣReactions = ΣLoads) on every model.
 
 Each case lives in [`docs/verifications/`](docs/verifications/) with its model and the
-reference it is compared to. Run the battery yourself:
+reference it is compared to, and they are assembled into a compiled **Verification Manual**
+(see Documentation below). Run the battery yourself:
 
 ```bash
 node tests/test_plate.mjs        # one case
 for f in tests/test_*.mjs; do node "$f"; done   # all of them
 ```
+
+---
+
+## Documentation
+
+Three living documents, all in **English + Spanish** and compiled to PDF (regenerate with the
+tools in [`tools/`](tools/)):
+
+- **[Analysis Reference Manual](docs/analysis-reference.md)** ([ES](docs/analysis-reference.es.md)) —
+  the theory of every element, solver and design check, as implemented.
+- **[Verification Manual](docs/verification-manual.md)** ([ES](docs/verification-manual.es.md)) —
+  the validation cases vs analytical solutions, SAP2000 and OpenSees.
+- **[Tutorials](docs/tutorials/)** — step-by-step, hands-on walkthroughs with screenshots:
+  1. [3-storey building in Valdivia (NCh433)](docs/tutorials/01-valdivia-nch433.md) — shell core,
+     plate slabs, frames; modal, NCh433 spectrum, ACI design, drift.
+  2. [Pushover to collapse](docs/tutorials/02-pushover-collapse.md) — a steel moment frame to its
+     beam-sway collapse mechanism.
+  3. [Performance-based assessment](docs/tutorials/03-performance-based.md) — target displacement and
+     IO/LS/CP performance level on the capacity curve.
 
 ---
 
