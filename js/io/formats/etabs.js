@@ -15,7 +15,7 @@
 //  · an ETABS section references a material → one section per (material, section) pair.
 // Round-trip verified for buildings (nodes at levels, standard columns/beams).
 // ──────────────────────────────────────────────────────────────────────────────
-import { registerFormat } from '../registry.js?v=6';
+import { registerFormat } from '../registry.js?v=7';
 
 const RF = ['PI', 'V2I', 'V3I', 'TI', 'M2I', 'M3I', 'PJ', 'V2J', 'V3J', 'TJ', 'M2J', 'M3J'];
 const RMAP = { UX: 'ux', UY: 'uy', UZ: 'uz', RX: 'rx', RY: 'ry', RZ: 'rz' };

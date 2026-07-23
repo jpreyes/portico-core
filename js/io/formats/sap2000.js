@@ -11,7 +11,7 @@
 // (material, section) pair in use; on import one material and one section are created
 // per SAP section used.  Exchange units: KN, m, C.
 // ──────────────────────────────────────────────────────────────────────────────
-import { registerFormat } from '../registry.js?v=6';
+import { registerFormat } from '../registry.js?v=7';
 
 const G_ACC = 9.80665;   // specific weight = density · g  (UnitWeight ↔ UnitMass)
 const RF = ['PI', 'V2I', 'V3I', 'TI', 'M2I', 'M3I', 'PJ', 'V2J', 'V3J', 'TJ', 'M2J', 'M3J'];  // releases (local 12-DOF order)

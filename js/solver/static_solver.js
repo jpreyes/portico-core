@@ -2,9 +2,9 @@
 // StaticSolver — direct stiffness method for linear static analysis
 // Solver:  K_ff · u_f = F_f  (Gaussian elimination via numeric.js)
 // ──────────────────────────────────────────────────────────────────────────────
-import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './assembler.js?v=6';
-import { Results } from './postprocess.js?v=6';
-import { STABILITY, nearSingularWarning } from './stability.js?v=6';
+import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './assembler.js?v=7';
+import { Results } from './postprocess.js?v=7';
+import { STABILITY, nearSingularWarning } from './stability.js?v=7';
 
 // Structured mechanism error (singular matrix). Carries `err.stability` so the UI
 // shows the verdict vocabulary of js/solver/stability.js.

@@ -7,7 +7,7 @@
 // cells=[[i,j,k]|[i,j,k,l]…], so it serves both structured (mesh_map) and free
 // (mesh_free) meshes. SELF-CONTAINED → verifiable in Node.
 // ──────────────────────────────────────────────────────────────────────────────
-import { quadMinScaledJacobian } from './mesh_map.js?v=6';
+import { quadMinScaledJacobian } from './mesh_map.js?v=7';
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];

@@ -10,7 +10,7 @@
 // The neutral model uses CONSECUTIVE ids 1..N (external formats usually require it);
 // the conversion stores the remapping so connectivity is not lost.  STANDALONE (Node+browser).
 // ──────────────────────────────────────────────────────────────────────────────
-import { Model } from '../model/model.js?v=6';
+import { Model } from '../model/model.js?v=7';
 
 /** PORTICO `Model` → neutral model (ids renumbered 1..N). */
 export function modelToNeutral(model) {

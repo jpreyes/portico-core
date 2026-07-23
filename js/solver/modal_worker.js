@@ -8,7 +8,7 @@
 //   Main → Worker: { Kff_flat, Mff_flat, nF, nModes, dense }
 //   Worker → Main: { modes: [{omega2, vec}] }  |  { error }
 // ──────────────────────────────────────────────────────────────────────────────
-import { makeFactor, rowBands, permRCM } from './linsolve.js?v=6';
+import { makeFactor, rowBands, permRCM } from './linsolve.js?v=7';
 
 // Product A·x using the per-row extent (variable band) → O(n·b)
 function _mvBand(A, x, n, lo, hi) {

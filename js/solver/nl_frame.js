@@ -16,10 +16,10 @@
 //   remapCorotSteps     — corotational steps [u,w,θ] → nodal [ux,uy=0,uz=w] + axial N
 //   lumpReferenceLoad3D — the shared 3D reference-load lumping (nodal+dist+self-weight)
 // ──────────────────────────────────────────────────────────────────────────────
-import { selfWeightPerLength } from './assembler.js?v=6';
-import { corotBeamForceTangent } from './corotbeam.js?v=6';
-import { rigidEndOffsets } from './timoshenko.js?v=6';
-import { solveNonlinear } from './nl_lite.js?v=6';
+import { selfWeightPerLength } from './assembler.js?v=7';
+import { corotBeamForceTangent } from './corotbeam.js?v=7';
+import { rigidEndOffsets } from './timoshenko.js?v=7';
+import { solveNonlinear } from './nl_lite.js?v=7';
 
 // gravity = −Z; the named global directions otherwise.
 const dirVec = (dir) => dir === 'globalX' ? [1, 0, 0] : dir === 'globalY' ? [0, 1, 0] : dir === 'globalZ' ? [0, 0, 1] : [0, 0, -1];

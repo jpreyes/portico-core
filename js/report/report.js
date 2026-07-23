@@ -8,8 +8,8 @@
 // stay in app.js and call these. Bodies keep their original indentation so every
 // template literal emits byte-identical output.
 // ──────────────────────────────────────────────────────────────────────────────
-import { esc } from '../utils/escape.js?v=6';
-import { i18n } from '../i18n/i18n.js?v=6';
+import { esc } from '../utils/escape.js?v=7';
+import { i18n } from '../i18n/i18n.js?v=7';
 
 export function reportDocx(app, Docx, imgs, diseno, deflex, drift) {
     const d = new Docx();
