@@ -166,5 +166,33 @@ console.log('\n── (7) Area weight = area mass × g ──');
   check(rel(massTot, RHO_C * T * 3 * 2.5) < 1e-12, 'Σmass = rho·t·A', `(${massTot.toFixed(6)} t)`);
 }
 
+// ── (8) A frame element's weight and its mass must describe the same body ───
+// The single-definition rule for `rho`: it is a MASS density, and weight is DERIVED
+// as rho·g. massMatrix() (modal) and selfWeightPerLength() (gravity) are the two
+// readers, and they must never disagree about how much material there is — a model
+// cannot be right in self-weight and wrong in modal at the same time. If someone
+// ever "fixes" self-weight by redefining rho as a weight density, this fails.
+console.log('\n── (8) Frame weight = frame mass × g (rho means mass, always) ──');
+{
+  const { massMatrix } = await import('../js/solver/timoshenko.js');
+  const RHO = 7.85, Ai = 5.38e-3, Lb = 6.0;      // acero, IPE300
+  const mat = { E: 2.1e8, G: 8.1e7, nu: 0.3, rho: RHO };
+  const sec = { A: Ai, Iy: 8.36e-5, Iz: 6.04e-6, J: 2.01e-7, Avy: 1e30, Avz: 1e30 };
+
+  // Masa total = uᵀ·M·u con u = traslación rígida unitaria (GDL axiales 0 y 6):
+  // para una matriz de masa consistente eso integra exactamente ∫ρ dV.
+  const M = massMatrix(Lb, mat, sec);
+  const u = Array(12).fill(0); u[0] = 1; u[6] = 1;
+  let massTot = 0;
+  for (let i = 0; i < 12; i++) for (let j = 0; j < 12; j++) massTot += u[i] * M[i][j] * u[j];
+
+  const wTot = selfWeightPerLength(mat, sec) * Lb;
+
+  check(rel(massTot, RHO * Ai * Lb) < 1e-12, 'Σmass = rho·A·L (rho es densidad de MASA)',
+    `(${massTot.toFixed(6)} t)`);
+  check(rel(wTot, massTot * G_ACC) < 1e-12, 'Σweight = Σmass × g (el peso se DERIVA)',
+    `(${wTot.toFixed(6)} kN vs ${(massTot * G_ACC).toFixed(6)})`);
+}
+
 console.log(`\n=== ${failures === 0 ? 'ALL OK' : failures + ' FAILURE(S)'} ===`);
 process.exit(failures === 0 ? 0 : 1);

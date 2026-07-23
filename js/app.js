@@ -38,7 +38,7 @@ import { resolveSectionProps } from './design/section_props.js?v=6';
 import { autoDetectDiaphragms, computeFloorCR } from './solver/diaphragm.js?v=6';
 import { interstoryDrifts, buildStoryLevels } from './solver/drift.js?v=6';
 import { splitElement, splitByLength, discretizeAll, joinElements, intersectElements } from './model/discretize.js?v=6';
-import { localAxes, stiffnessMatrix, massMatrix, transformMatrix, globalStiffness, applyReleases } from './solver/timoshenko.js?v=6';
+import { localAxes, transformMatrix, globalStiffness, applyReleases, elemLocalK, elemLocalM, rigidEndOffsets } from './solver/timoshenko.js?v=6';
 import { blockCells, cornerGridIndices } from './model/mesher.js?v=6';
 import { coonsGridFromCorners } from './model/mesh_map.js?v=6';
 import { meshPolygonIntoModel } from './model/mesh_free.js?v=6';
@@ -1015,26 +1015,37 @@ class App {
     if (!n1 || !n2 || !mat || !sec) { this.toast('Elemento incompleto', 'warn'); return; }
 
     const { ex, ey, ez, L } = localAxes(n1, n2);
-    const Ke = stiffnessMatrix(L, mat, sec);
-    const Me = massMatrix(L, mat, sec);
+    // What the SOLVER assembles, not a textbook beam of length L: elemLocalK/M carry
+    // the rigid end zone, the elastic foundation and the end springs. Showing the bare
+    // matrix for a member that has any of them is showing a structure nobody solved.
+    const Ke = elemLocalK(elem, mat, sec, L);
+    const Me = elemLocalM(elem, mat, sec, L);
     const T  = transformMatrix(ex, ey, ez);
     const hasRel = elem.releases?.some(r => r);
     const KeC = hasRel ? applyReleases(Ke, elem.releases.map(r => r !== 0)) : null;
     const KG  = globalStiffness(KeC ?? Ke, T);
+    const ro  = rigidEndOffsets(elem, L);
 
     const L12 = ['u₁','v₁','w₁','θx₁','θy₁','θz₁','u₂','v₂','w₂','θx₂','θy₂','θz₂'];
     const fx = v => +v.toFixed(4);
+    // Refinements baked into Ke — say so, otherwise the numbers look wrong for L.
+    const extras = [];
+    if (ro) extras.push(`cacho rígido oi=${+ro.oi.toFixed(4)} m, oj=${+ro.oj.toFixed(4)} m → ` +
+                        `Ke y Me se calculan con la luz FLEXIBLE Lf = ${+ro.Lf.toFixed(4)} m y se llevan a los nodos por brazo rígido`);
+    if (elem.foundation) extras.push('fundación elástica (resorte distribuido)');
+    if (elem.endSprings) extras.push('resortes de extremo (empotramiento parcial)');
     let html = `
       <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px">
         Elemento #${elem.id} (nodos ${elem.n1}→${elem.n2}) · L = ${+L.toFixed(4)} m ·
         ejes locales: x=[${ex.map(fx)}], y=[${ey.map(fx)}], z=[${ez.map(fx)}]<br>
         Orden de GDL locales: [u, v, w, θx, θy, θz] por nodo. Unidades: kN, m, ton.
+        ${extras.length ? `<br><b>Incluye:</b> ${extras.join(' · ')}.` : ''}
       </p>`;
-    html += this._matrixHTML(Ke, L12, 'Ke — rigidez LOCAL (12×12)');
+    html += this._matrixHTML(Ke, L12, `Ke — rigidez LOCAL (12×12)${ro ? ' — con cacho rígido' : ''}`);
     if (KeC) html += this._matrixHTML(KeC, L12, 'Ke* — rigidez local CONDENSADA por liberaciones (filas/columnas liberadas = 0)');
     html += this._matrixHTML(T, L12, 'T — matriz de transformación local ← global');
     html += this._matrixHTML(KG, L12, 'K = Tᵀ·Ke·T — rigidez en coordenadas GLOBALES');
-    html += this._matrixHTML(Me, L12, 'Me — masa consistente LOCAL (12×12)');
+    html += this._matrixHTML(Me, L12, `Me — masa consistente LOCAL (12×12)${ro ? ' — sólo la luz flexible (la masa del cacho se desprecia)' : ''}`);
     html += `<button class="btn-secondary" id="mtx-csv" style="width:100%;margin-top:8px">⬇ Exportar matrices a CSV</button>`;
 
     const overlay = document.getElementById('modal-overlay');
@@ -3295,7 +3306,10 @@ class App {
     const mat = model.materials.get(el.matId), sec = model.sections.get(el.secId);
     if (!n1 || !n2 || !mat || !sec) return out;
     const { ex, ey, ez, L } = localAxes(n1, n2);
-    let Ke = stiffnessMatrix(L, mat, sec);
+    // Same stiffness the modal solve assembled (rigid end zone, foundation, end
+    // springs); a bare stiffnessMatrix(L) would recover forces for a structure whose
+    // modes were never computed.
+    let Ke = elemLocalK(el, mat, sec, L);
     if ((el.releases || []).some(r => r)) Ke = applyReleases(Ke, el.releases.map(r => !!r));
     const T = transformMatrix(ex, ey, ez);
     const ed = [...getNodeDOFs(R.nodeIndex, el.n1), ...getNodeDOFs(R.nodeIndex, el.n2)];

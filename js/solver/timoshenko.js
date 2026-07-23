@@ -475,3 +475,54 @@ export function fixedEndForces(L, load) {
   }
   return f;
 }
+
+// ── Fixed-end forces WITH rigid end zones (#87) ───────────────────────────
+/**
+ * Same contract as fixedEndForces() (local 12-vector, caller does F -= Tᵀ·f),
+ * but consistent with the rigid-arm kinematics used by elemLocalK/elemLocalM.
+ * The load still acts over the whole length L; it is split in three:
+ *   • the part on the rigid segment at i → straight to node i by statics
+ *     (resultant P and its moment about the node — a rigid body has no FEF),
+ *   • the part over the flexible span → standard FEF of length Lf, carried to
+ *     the real node DOFs through the rigid arm (Q_node = Tᵀ·Q_flex),
+ *   • the part on the rigid segment at j → straight to node j, likewise.
+ * Without a rigid end it degrades exactly to fixedEndForces(L, load).
+ */
+export function fixedEndForcesRE(elem, L, load) {
+  const ro = rigidEndOffsets(elem, L);
+  if (!ro) return fixedEndForces(L, load);
+  const { oi, oj, Lf } = ro;
+  const { dir } = load;
+  const w1 = load.w, w2 = (load.w2 == null) ? w1 : load.w2;
+  const wAt = x => w1 + (w2 - w1) * (x / L);     // trapezoidal intensity at x
+
+  // Flexible span, referred to the node DOFs through the rigid arm.
+  const fFlex = fixedEndForces(Lf, { dir, w: wAt(oi), w2: wAt(L - oj) });
+  const T = rigidEndTransform(oi, oj);
+  const f = Array(12).fill(0);
+  for (let i = 0; i < 12; i++)
+    for (let j = 0; j < 12; j++)
+      f[i] += T[j][i] * fFlex[j];
+
+  // Rigid segment [x0, x0+len]: resultant P and its first moment M1 about x0.
+  const seg = (x0, len) => {
+    if (len <= 0) return { P: 0, M1: 0 };
+    const wa = wAt(x0), wb = wAt(x0 + len);
+    return { P: (wa + wb) / 2 * len, M1: len * len * (wa + 2 * wb) / 6 };
+  };
+  const si = seg(0, oi);                        // arm measured from node i (+x)
+  const sj = seg(L - oj, oj);
+  const Pj = sj.P, Mj = oj * sj.P - sj.M1;      // arm measured from node j (−x)
+
+  // f = −(equivalent nodal load). r_i = (+a,0,0), r_j = (−b,0,0) → M = r×F.
+  if (dir === 'x') {                            // axial: no lever arm
+    f[0] -= si.P;   f[6]  -= Pj;
+  } else if (dir === 'y') {
+    f[1] -= si.P;   f[5]  -= si.M1;
+    f[7] -= Pj;     f[11] += Mj;
+  } else if (dir === 'z') {
+    f[2] -= si.P;   f[4]  += si.M1;
+    f[8] -= Pj;     f[10] -= Mj;
+  }
+  return f;
+}

@@ -226,7 +226,19 @@ clamped–clamped reactions are baked in (`V1 = 3gL/20`, `V2 = 7gL/20`, `M1 = gL
 **Rigid end offsets, elastic foundation, partial fixity.** Three optional refinements share the frame
 element. A **rigid end zone** (`rigidEnd {i, j}`) computes the stiffness of the flexible span
 `Lf = L − oi − oj` (never letting less than 5% stay flexible) and maps it to the real nodes through
-rigid-arm kinematics `u(end') = u(node) + θ×r`. A **beam on elastic (Winkler) foundation**
+rigid-arm kinematics `u(end') = u(node) + θ×r`. Distributed loads still act over the whole length `L`:
+the share lying on each rigid segment goes straight to the adjacent node by statics (resultant plus its
+moment about the node — a rigid body has no fixed-end forces), and the share over the flexible span uses
+the standard fixed-end forces of length `Lf` carried to the node DOFs by the same rigid arm
+(`Q_node = Tᵀ·Q_flex`). The geometric stiffness follows the same rule — a rigid segment cannot buckle,
+so `Kg` is built for `Lf` and the axial force comes from `EA·Δ/Lf`, the stiffness actually assembled —
+and the response-spectrum force recovery reuses the assembled element stiffness rather than rebuilding a
+bare one of length `L`. In the plastic-hinge pushover the capacity is checked at the **face** of the
+zone (`M_face = M_node − o·V`): inside a rigid end there is no section that can yield, so a joint declared
+rigid moves the critical section toward midspan. In the corotational (large-rotation) beam the arm rotates
+with its node, `p' = p + R(θ)·r`, so the kinematics are no longer a constant matrix and the tangent carries
+the curvature term `Aᵀ·K'·A + G` — without `G` Newton still converges, but not quadratically.
+A **beam on elastic (Winkler) foundation**
 (`foundation {ky, kz}`) adds a consistent distributed-spring matrix. **End springs**
 (`endSprings {dof: k}`) model semi-rigid connections through a condensed internal DOF — `k → ∞`
 recovers a rigid connection, `k → 0` a hinge.

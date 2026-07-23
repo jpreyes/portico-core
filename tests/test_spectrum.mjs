@@ -97,5 +97,32 @@ console.log('\n── (3) CQC vs SRSS (multi-mode cantilever) ──');
   check(rel(uC, uS) < 0.05, 'CQC ≈ SRSS for well-separated modes');
 }
 
+// ── (4) Force recovery with a RIGID END ZONE (#87) ───────────────────────────
+// Same SDOF (fixed base, GUIDED top — ry restrained), but the column carries a
+// rigid zone `oi` at the base. Equilibrium is blind to it: the base shear is still
+// m_eff·Sa. The base moment does move, and by a known amount: the inflexion point
+// sits at mid-FLEXIBLE-span, so M_base = V·(Hf/2 + oi) = V·(H + oi)/2.
+// What changes is the stiffness that turns the modal displacement into forces —
+// if the recovery used stiffnessMatrix(H) instead of the assembled elemLocalK
+// (flexible span Hf carried through the rigid arm), the shear comes out (H/Hf)³
+// times too large while the displacements stay right: a silent error.
+console.log('\n── (4) Recuperación de fuerzas con cacho rígido ──');
+for (const oi of [0, 0.5, 1.2]) {
+  const H = 3.0;
+  const { m, nodes } = column(1, H, { uy:1, uz:1, rx:1, ry:1, rz:1 }, 1e-9);
+  m.updateNode(nodes[1].id, { restraints: { uy:1, uz:1, rx:1, ry:1, rz:1 }, nodeMass: { mx: 50, my: 50, mz: 50 } });
+  const elId = [...m.elements.keys()][0];
+  if (oi) m.updateElement(elId, { rigidEnd: { i: oi, j: 0 } });
+  const mr = new ModalSolver().solve(m, 1);
+  const Mbar = mr.genMass[0];
+  const sr = new SpectrumSolver().solve(mr, { spectrum: flatSpectrum, direction:'X', method:'SRSS', zeta:0.05 });
+  const ef = sr.getElemForces(elId);
+  check(rel(Math.abs(ef.Vy1), Mbar * flatSa) < 1e-6, `oi=${oi}: corte basal = m_eff·Sa`,
+        `(${Math.abs(ef.Vy1).toExponential(5)} vs ${(Mbar*flatSa).toExponential(5)})`);
+  const Mbase = Mbar * flatSa * (H + oi) / 2;
+  check(rel(Math.abs(ef.Mz1), Mbase) < 1e-6, `oi=${oi}: momento basal = V·(H+oi)/2`,
+        `(${Math.abs(ef.Mz1).toExponential(5)} vs ${Mbase.toExponential(5)})`);
+}
+
 console.log(`\n=== ${failures === 0 ? 'ALL OK' : failures + ' FAILURE(S)'} ===`);
 process.exit(failures === 0 ? 0 : 1);

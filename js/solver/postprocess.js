@@ -7,7 +7,7 @@
 // For UDL this reduces to the exact parabolic formula.
 // Displacements at arbitrary xi use cubic Hermite shape functions.
 // ──────────────────────────────────────────────────────────────────────────────
-import { localAxes, stiffnessMatrix, transformMatrix, fixedEndForces, applyReleases, condenseFEF, recoverReleasedDisp, elemLocalK } from './timoshenko.js?v=6';
+import { localAxes, stiffnessMatrix, transformMatrix, fixedEndForcesRE, applyReleases, condenseFEF, recoverReleasedDisp, elemLocalK } from './timoshenko.js?v=6';
 import { getNodeDOFs, selfWeightPerLength } from './assembler.js?v=6';
 import { areaStress, areaBendingStress, areaStrain, areaCurvature, vonMises } from './membrane.js?v=6';
 
@@ -465,7 +465,7 @@ export class Results {
       for (const load of lc.loads) {
         if (load.type === 'dist' && load.elemId === elem.id) {
           for (const { d, w, w2 } of _toLocalLoad(load, ex, ey, ez)) {
-            const f = fixedEndForces(L, { dir: d, w, w2 });
+            const f = fixedEndForcesRE(elem, L, { dir: d, w, w2 });
             for (let i = 0; i < 12; i++) fef[i] += f[i];
           }
         }
@@ -488,7 +488,7 @@ export class Results {
       if (mat && sec && mat.rho > 0) {
         const w_sw = selfWeightPerLength(mat, sec);
         for (const { d, w, w2 } of _toLocalLoad({ w: w_sw, dir: 'gravity' }, ex, ey, ez)) {
-          const f = fixedEndForces(L, { dir: d, w, w2 });
+          const f = fixedEndForcesRE(elem, L, { dir: d, w, w2 });
           for (let i = 0; i < 12; i++) fef[i] += f[i];
         }
       }

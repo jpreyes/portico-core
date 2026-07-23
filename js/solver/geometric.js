@@ -10,7 +10,7 @@
 // [u1,v1,w1,rx1,ry1,rz1, u2,v2,w2,rx2,ry2,rz2], XZ plane with dw/dx = −θy).
 // N positive in TENSION (compression N<0 → reduces stiffness → buckling).
 // ──────────────────────────────────────────────────────────────────────────────
-import { localAxes, transformMatrix, globalStiffness } from './timoshenko.js?v=6';
+import { localAxes, transformMatrix, globalStiffness, rigidEndOffsets, rigidEndTransform } from './timoshenko.js?v=6';
 import { assembleAreasKgInto } from './membrane.js?v=6';
 
 // Local 12×12 geometric matrix from the axial N (tension +) and the length L.
@@ -43,6 +43,16 @@ export function geometricMatrixLocal(N, L) {
   for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) Kg[xz[i]][xz[j]] = c * Gxz[i][j];
 
   return Kg;
+}
+
+// Geometric matrix of an element WITH rigid end zones (#87), referred to the real
+// node DOFs. Only the flexible span destabilises: a rigid segment cannot buckle,
+// so Kg is built for Lf and carried through the same rigid arm as K and M
+// (Kg_node = Tᵀ·Kg(N,Lf)·T). Without a rigid end it is geometricMatrixLocal(N, L).
+export function elemLocalKg(elem, N, L) {
+  const ro = rigidEndOffsets(elem, L);
+  if (!ro) return geometricMatrixLocal(N, L);
+  return globalStiffness(geometricMatrixLocal(N, ro.Lf), rigidEndTransform(ro.oi, ro.oj));
 }
 
 // Global DOFs (0-based) of a node
@@ -78,11 +88,14 @@ export function assembleKg(model, nodeIndex, uGlobal) {
     for (let j = 0; j < 12; j++) { ul0 += T[0][j] * ug[j]; ul6 += T[6][j] * ug[j]; }
     const mA = sec.mod?.A ?? 1;
     const EA = mat.E * sec.A * mA;
-    const N = EA * (ul6 - ul0) / L;       // tension positive
+    // The elongation is taken up by the FLEXIBLE span alone (a rigid segment does
+    // not strain), so N = EA·Δ/Lf — the same axial stiffness elemLocalK assembles.
+    const ro = rigidEndOffsets(elem, L);
+    const N = EA * (ul6 - ul0) / (ro ? ro.Lf : L);   // tension positive
     Nby.set(elem.id, N);
     if (Math.abs(N) > Nmax) Nmax = Math.abs(N);
 
-    const KgG = globalStiffness(geometricMatrixLocal(N, L), T);
+    const KgG = globalStiffness(elemLocalKg(elem, N, L), T);
     for (let i = 0; i < 12; i++)
       for (let j = 0; j < 12; j++)
         Kg[ed[i] * nDOF + ed[j]] += KgG[i][j];

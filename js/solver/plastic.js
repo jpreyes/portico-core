@@ -19,7 +19,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 import { buildNodeIndex, assembleF, getNodeDOFs } from './assembler.js?v=6';
 import { makeFactor } from './linsolve.js?v=6';
-import { localAxes, stiffnessMatrix, transformMatrix, globalStiffness, applyReleases } from './timoshenko.js?v=6';
+import { localAxes, transformMatrix, globalStiffness, applyReleases, elemLocalK, rigidEndOffsets, rigidEndTransform } from './timoshenko.js?v=6';
 import { applyDiaphragmConstraints } from './diaphragm.js?v=6';
 
 // Assemble the (conditioned) global K for the current release state, returning the
@@ -36,7 +36,9 @@ function plasticAssemble(model, nodeIndex, releasesByElem) {
     const mat = model.materials.get(el.matId), sec = model.sections.get(el.secId);
     if (!n1 || !n2 || !mat || !sec) continue;
     const { ex, ey, ez, L } = localAxes(n1, n2);
-    let Ke = stiffnessMatrix(L, mat, sec);
+    // Same stiffness the linear solver assembles: rigid end zone (#87), elastic
+    // foundation and end springs included. A hinge forms on the force this K gives.
+    let Ke = elemLocalK(el, mat, sec, L);
     const rel = releasesByElem.get(el.id);
     const relBool = rel ? rel.map(r => !!r) : null;
     if (relBool && relBool.some(Boolean)) Ke = applyReleases(Ke, relBool);
@@ -44,7 +46,13 @@ function plasticAssemble(model, nodeIndex, releasesByElem) {
     const KG = globalStiffness(Ke, T);
     const ed = [...getNodeDOFs(nodeIndex, el.n1), ...getNodeDOFs(nodeIndex, el.n2)];
     for (let i = 0; i < 12; i++) for (let j = 0; j < 12; j++) K[ed[i] * nDOF + ed[j]] += KG[i][j];
-    elems.push({ id: el.id, ed, T, KeCond: Ke, L });
+    // With a rigid end zone the plastic rotation is measured against the chord of the
+    // FLEXIBLE span (the rigid arm rotates with the node and deforms nothing), so the
+    // rate needs the flexible-end displacements and Lf — not the nodal ones and L.
+    const ro = rigidEndOffsets(el, L);
+    elems.push({ id: el.id, ed, T, KeCond: Ke, L,
+                 Tre: ro ? rigidEndTransform(ro.oi, ro.oj) : null,
+                 Tinv: ro ? rigidEndTransform(-ro.oi, -ro.oj) : null, Lf: ro ? ro.Lf : L });
   }
   // Rigid-diaphragm constraints (penalty), like assembleK: without this the master
   // nodes (without elements) have zero stiffness → singular K → false «mechanism
@@ -84,10 +92,32 @@ export function solvePlastic(model, {
   ];
   const dropMode = (thetaU !== Infinity || deltaU !== Infinity);   // there is a drop (brittle or ductile-with-drop)
 
-  // Plastic deformation of the hinge RELATIVE TO THE CHORD of the element (not the
-  // raw deformation of the released DOF, which includes the rigid-body
-  // rotation/translation of the span). ul = LOCAL element displacements (12), L = length.
-  //   · Moment (Mz): nodal rotation − chord rotation in the x-y plane = θz − (uy2−uy1)/L
+  // Nodal local displacements → flexible-span end displacements (identity without a
+  // rigid end zone). Same rigid-arm map the stiffness uses.
+  const flexDisp = (e, ul) => {
+    if (!e.Tre) return ul;
+    const out = new Array(12).fill(0);
+    for (let i = 0; i < 12; i++) { let s = 0; for (let j = 0; j < 12; j++) s += e.Tre[i][j] * ul[j]; out[i] = s; }
+    return out;
+  };
+
+  // Node end forces → forces at the FACE of the rigid zone, where the yielding
+  // section actually is. Inside a rigid end zone there is no member to hinge, so a
+  // capacity must be checked against M_face = M_node − o·V, not against the node
+  // moment (that is the whole point of declaring the joint rigid). Exact: the arm's
+  // equilibrium is f_node = Tᵀ·f_face, and T⁻¹ is the arm with negated offsets.
+  const faceForces = (e, fl) => {
+    if (!e.Tinv) return fl;
+    const out = new Array(12).fill(0);
+    for (let k = 0; k < 12; k++) { let s = 0; for (let r = 0; r < 12; r++) s += e.Tinv[r][k] * fl[r]; out[k] = s; }
+    return out;
+  };
+
+  // Plastic deformation of the hinge RELATIVE TO THE CHORD of the flexible span (not
+  // the raw deformation of the released DOF, which includes the rigid-body
+  // rotation/translation of the span). ul = LOCAL displacements of the FLEXIBLE ends
+  // (12), L = its length Lf (both equal the nodal ones when there is no rigid end).
+  //   · Moment (Mz): end rotation − chord rotation in the x-y plane = θz − (uy2−uy1)/L
   //   · Moment (My): θy + (uz2−uz1)/L  (sign of the local frame [ux,uy,uz,rx,ry,rz])
   //   · Axial (N):    relative elongation ux2−ux1
   //   · Shear (V):    relative transverse slip uy2−uy1 / uz2−uz1
@@ -163,10 +193,11 @@ export function solvePlastic(model, {
       for (const e of elemsD) {
         const ue = e.ed.map(d => duJ[d]);
         const ul = new Array(12).fill(0); for (let i = 0; i < 12; i++) { let s = 0; for (let j = 0; j < 12; j++) s += e.T[i][j] * ue[j]; ul[i] = s; }
-        const fl = new Array(12).fill(0); for (let i = 0; i < 12; i++) { let s = 0; for (let j = 0; j < 12; j++) s += e.KeCond[i][j] * ul[j]; fl[i] = s; }
+        const fn = new Array(12).fill(0); for (let i = 0; i < 12; i++) { let s = 0; for (let j = 0; j < 12; j++) s += e.KeCond[i][j] * ul[j]; fn[i] = s; }
+        const fl = faceForces(e, fn);
         for (const c of COMPS) {
           const key = `${e.id}:${c.end}:${c.axis}`;
-          if (hinged.has(key)) { if (!dropped.has(key)) thetaP.set(key, (thetaP.get(key) || 0) + plasticRate(ul, c, e.L)); continue; }
+          if (hinged.has(key)) { if (!dropped.has(key)) thetaP.set(key, (thetaP.get(key) || 0) + plasticRate(flexDisp(e, ul), c, e.Lf)); continue; }
           const cap = capOf(e.id, c.axis); if (!isFinite(cap)) continue;
           const M1 = (Macc.get(key) || 0) + fl[c.dl]; Macc.set(key, M1);
           if (Math.abs(M1) > cap * (1 + 1e-6)) over.push({ key, elemId: e.id, dofLocal: c.dl, end: c.end, axis: c.axis, rot: c.rot, M_form: Math.sign(M1) * cap });
@@ -204,11 +235,12 @@ export function solvePlastic(model, {
       const ue = e.ed.map(d => uUnit[d]);
       const ul = new Array(12).fill(0);
       for (let i = 0; i < 12; i++) { let s = 0; for (let j = 0; j < 12; j++) s += e.T[i][j] * ue[j]; ul[i] = s; }
-      const fl = new Array(12).fill(0);
-      for (let i = 0; i < 12; i++) { let s = 0; for (let j = 0; j < 12; j++) s += e.KeCond[i][j] * ul[j]; fl[i] = s; }
+      const fn = new Array(12).fill(0);
+      for (let i = 0; i < 12; i++) { let s = 0; for (let j = 0; j < 12; j++) s += e.KeCond[i][j] * ul[j]; fn[i] = s; }
+      const fl = faceForces(e, fn);
       for (const c of COMPS) {
         const key = `${e.id}:${c.end}:${c.axis}`;
-        if (hinged.has(key)) { if (!dropped.has(key)) hingeDef.push({ key, dl: c.dl, rot: c.rot, vrate: plasticRate(ul, c, e.L) }); continue; }
+        if (hinged.has(key)) { if (!dropped.has(key)) hingeDef.push({ key, dl: c.dl, rot: c.rot, vrate: plasticRate(flexDisp(e, ul), c, e.Lf) }); continue; }
         const cap = capOf(e.id, c.axis); if (!isFinite(cap)) continue;   // no capacity → doesn't yield
         rates.push({ key, elemId: e.id, end: c.end, axis: c.axis, dofLocal: c.dl, rot: c.rot, mr: fl[c.dl], cap });
       }

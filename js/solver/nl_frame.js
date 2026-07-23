@@ -18,6 +18,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 import { selfWeightPerLength } from './assembler.js?v=6';
 import { corotBeamForceTangent } from './corotbeam.js?v=6';
+import { rigidEndOffsets } from './timoshenko.js?v=6';
 import { solveNonlinear } from './nl_lite.js?v=6';
 
 // gravity = −Z; the named global directions otherwise.
@@ -148,9 +149,14 @@ export function buildCorotProblem(model) {
     const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2);
     const mat = model.materials.get(el.matId), sec = model.sections.get(el.secId);
     if (!n1 || !n2 || !mat || !sec) continue;
-    if (Math.hypot(n2.x - n1.x, n2.z - n1.z) < 1e-12) continue;
+    const Lp = Math.hypot(n2.x - n1.x, n2.z - n1.z);
+    if (Lp < 1e-12) continue;
     const mod = sec.mod || {};
-    elems.push({ n1: idxOf.get(el.n1), n2: idxOf.get(el.n2), EA: mat.E * sec.A * (mod.A ?? 1), EI: mat.E * sec.Iz * (mod.Iz ?? 1) });
+    // Rigid end zones (#87): capped by the same rule as the linear solver, and the
+    // corotational element then spans only the flexible part.
+    const ro = rigidEndOffsets(el, Lp);
+    elems.push({ n1: idxOf.get(el.n1), n2: idxOf.get(el.n2), EA: mat.E * sec.A * (mod.A ?? 1), EI: mat.E * sec.Iz * (mod.Iz ?? 1),
+                 oi: ro ? ro.oi : 0, oj: ro ? ro.oj : 0 });
     elemIds.push(el.id);
   }
   if (!elems.length) return { ok: false, reason: 'no-elements' };

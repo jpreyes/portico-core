@@ -28,6 +28,7 @@ const COL = {
   AXIS_X:      0xff4444,
   AXIS_Y:      0x44cc44,
   AXIS_Z:      0x4488ff,
+  RIGID_END:   0xb0bec5,   // rigid end zone (#87): same bar, drawn fat — no other symbol is light steel
 };
 const NODE_R      = 0.08;   // VISUAL node radius (the selection area is larger, see _pickNodes)
 const NODE_SEG    = 8;
@@ -404,6 +405,10 @@ export class Viewport {
       for (const g of this._hingeSprites.values()) this._scene.remove(g);
       this._hingeSprites.clear();
     }
+    if (this._rigidEndMarks) {
+      for (const g of this._rigidEndMarks.values()) this._scene.remove(g);
+      this._rigidEndMarks.clear();
+    }
     if (this._springSymbols) {
       for (const g of this._springSymbols.values()) this._scene.remove(g);
       this._springSymbols.clear();
@@ -485,6 +490,7 @@ export class Viewport {
         this._scene.remove(line);
         this._elemLines.delete(eid);
         this._removeHingeMarkers(eid);
+        this._removeRigidEndMarks(eid);
       }
     }
     this._selected.delete(`node:${nodeId}`);
@@ -506,6 +512,7 @@ export class Viewport {
     this._scene.add(line);
     this._elemLines.set(elem.id, line);
     this._buildHingeMarkers(elem);
+    this._buildRigidEndMarks(elem);
   }
 
   // ── Area elements (CST/QUAD membrane) ─────────────────────────────────────
@@ -603,7 +610,59 @@ export class Viewport {
     const l = this._elemLines.get(elemId);
     if (l) { this._scene.remove(l); this._elemLines.delete(elemId); }
     this._removeHingeMarkers(elemId);
+    this._removeRigidEndMarks(elemId);
     this._selected.delete(`elem:${elemId}`);
+  }
+
+  // ── Rigid end zones (#87) ──────────────────────────────────────────────────
+  // Drawn as a FAT segment over the offset portion of the bar (the SAP2000/ETABS
+  // convention): it is the same member, just the part that does not deform. Until
+  // now nothing on screen distinguished a bar with a 1 m cacho from a plain one —
+  // the stiffness differed silently.
+  _removeRigidEndMarks(elemId) {
+    const g = this._rigidEndMarks?.get(elemId);
+    if (g) { this._scene.remove(g); this._rigidEndMarks.delete(elemId); }
+  }
+
+  _buildRigidEndMarks(elem) {
+    if (!this._rigidEndMarks) this._rigidEndMarks = new Map();
+    this._removeRigidEndMarks(elem.id);
+    const re = elem.rigidEnd;
+    if (!re || (!(+re.i > 0) && !(+re.j > 0))) return;
+    const n1 = this.app.model.nodes.get(elem.n1);
+    const n2 = this.app.model.nodes.get(elem.n2);
+    if (!n1 || !n2) return;
+
+    const p1 = this.m2t(n1.x, n1.y, n1.z);
+    const p2 = this.m2t(n2.x, n2.y, n2.z);
+    const L  = p1.distanceTo(p2);            // m2t only permutes axes → distances are model metres
+    if (!(L > 1e-9)) return;
+
+    // Same cap as rigidEndOffsets() in the solver, so what is drawn is what is
+    // solved: the flexible span never collapses below 5%.
+    let oi = Math.max(0, +re.i || 0), oj = Math.max(0, +re.j || 0);
+    const cap = 0.95 * L;
+    if (oi + oj > cap) { const s = cap / (oi + oj); oi *= s; oj *= s; }
+
+    const group = new THREE.Group();
+    const r = Math.min(Math.max(L * 0.015, 0.025), 0.09);
+    const mat = new THREE.MeshBasicMaterial({ color: COL.RIGID_END });
+    const addSeg = (a, b) => {
+      const len = a.distanceTo(b);
+      if (!(len > 1e-9)) return;
+      const geo  = new THREE.CylinderGeometry(r, r, len, 8);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(a.clone().lerp(b, 0.5));
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0),
+        b.clone().sub(a).normalize());
+      group.add(mesh);
+    };
+    if (oi > 0) addSeg(p1, p1.clone().lerp(p2, oi / L));
+    if (oj > 0) addSeg(p2, p2.clone().lerp(p1, oj / L));
+
+    if (this._hiddenElems.has(elem.id)) group.visible = false;
+    this._scene.add(group);
+    this._rigidEndMarks.set(elem.id, group);
   }
 
   // ── Release markers (hinges) ────────────────────────────────────────────────
@@ -1155,6 +1214,7 @@ export class Viewport {
       const vis = !!(n1 && n2 && onPlane(n1) && onPlane(n2));
       line.visible = vis;
       const hg = this._hingeSprites?.get(eid); if (hg) hg.visible = vis;
+      const rg = this._rigidEndMarks?.get(eid); if (rg) rg.visible = vis;
     }
   }
 
@@ -1787,19 +1847,31 @@ export class Viewport {
   }
 
   // ── Element visibility (view state, not model state) ────────────────────────
+  // The per-element decorations (hinge symbols, rigid end zones) follow the line:
+  // hiding a bar used to leave its symbols floating in the air.
+  _setElemDecorVisible(id, vis) {
+    const hg = this._hingeSprites?.get(id);   if (hg) hg.visible = vis;
+    const rg = this._rigidEndMarks?.get(id);  if (rg) rg.visible = vis;
+  }
   hideElements(ids) {
     for (const id of ids) {
       this._hiddenElems.add(id);
       const l = this._elemLines.get(id); if (l) l.visible = false;
+      this._setElemDecorVisible(id, false);
       this._selected.delete(`elem:${id}`);
     }
   }
   showElements(ids) {
-    for (const id of ids) { this._hiddenElems.delete(id); const l = this._elemLines.get(id); if (l) l.visible = true; }
+    for (const id of ids) {
+      this._hiddenElems.delete(id);
+      const l = this._elemLines.get(id); if (l) l.visible = true;
+      this._setElemDecorVisible(id, true);
+    }
   }
   showAllElements() {
     this._hiddenElems.clear();
     for (const l of this._elemLines.values()) l.visible = true;
+    for (const id of this._elemLines.keys()) this._setElemDecorVisible(id, true);
   }
   clearHidden() { this._hiddenElems.clear(); }
   hiddenCount() { return this._hiddenElems.size; }
@@ -3534,18 +3606,10 @@ export class Viewport {
       const sec = model.sections.get(elem.secId);
       if (!n1 || !n2 || !sec) continue;
 
-      // Estimate rectangular b×h from A and Iz:  h=sqrt(12*Iz/A), b=A/h
-      const A  = sec.A  || 0.09;
-      const Iz = sec.Iz || 6.75e-4;
-      const h  = Math.sqrt(12 * Iz / A) || 0.3;
-      const b  = A / h;
-
-      const shape = new THREE.Shape();
-      shape.moveTo(-b / 2, -h / 2);
-      shape.lineTo( b / 2, -h / 2);
-      shape.lineTo( b / 2,  h / 2);
-      shape.lineTo(-b / 2,  h / 2);
-      shape.closePath();
+      // Real cross-section outline (with holes for tubes) from the section's
+      // design shape + dims. Falls back to an equivalent rectangle only when the
+      // section has no tabulated shape (generic A, I).
+      const shape = this._sectionShape(sec);
 
       // Element length
       const dx = n2.x - n1.x, dy = n2.y - n1.y, dz = n2.z - n1.z;
@@ -3575,6 +3639,117 @@ export class Viewport {
       const line = this._elemLines.get(elem.id);
       if (line) line.visible = false;
     }
+  }
+
+  // Builds a THREE.Shape of the REAL cross-section from the section's design
+  // (shape + dims, in meters). Tubes (box/pipe) get their hollow interior as a
+  // hole so the extrusion looks like the actual profile. Falls back to the
+  // equivalent rectangle from A, Iz, Iy (exact for a solid rectangle) when the
+  // section is generic (no tabulated shape). Centered on the centroid: width (b)
+  // along local +X, height (h) along local +Y.
+  _sectionShape(sec) {
+    const dz    = sec.design || {};
+    const d     = dz.dims || dz;                       // catalog uses .dims; manual edits sit on design
+    const shape = String(dz.shape || '').toLowerCase();
+
+    // Round shapes use arcs (centered at origin).
+    if (shape === 'circle' && d.D > 0) {
+      const S = new THREE.Shape();
+      S.absarc(0, 0, d.D / 2, 0, Math.PI * 2, false);
+      return S;
+    }
+    if ((shape === 'pipe' || shape === 'tube' || shape === 'chs') &&
+        d.D > 0 && d.t > 0 && d.t < d.D / 2) {
+      const S = new THREE.Shape();
+      S.absarc(0, 0, d.D / 2, 0, Math.PI * 2, false);
+      const hole = new THREE.Path();
+      hole.absarc(0, 0, d.D / 2 - d.t, 0, Math.PI * 2, true);
+      S.holes.push(hole);
+      return S;
+    }
+
+    // Polygonal profiles (auto-centered on their bounding box).
+    const poly = this._sectionOutline(shape, d);
+    if (poly) {
+      let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
+      for (const [x, y] of poly.outline) {
+        if (x < minx) minx = x; if (x > maxx) maxx = x;
+        if (y < miny) miny = y; if (y > maxy) maxy = y;
+      }
+      const cx = (minx + maxx) / 2, cy = (miny + maxy) / 2;
+      const S = new THREE.Shape(poly.outline.map(([x, y]) => new THREE.Vector2(x - cx, y - cy)));
+      for (const h of (poly.holes || [])) {
+        S.holes.push(new THREE.Path(h.map(([x, y]) => new THREE.Vector2(x - cx, y - cy))));
+      }
+      return S;
+    }
+
+    // Generic fallback: equivalent rectangle from A, Iz, Iy (exact for solid rect).
+    const A  = sec.A  || 0.09;
+    const Iz = sec.Iz || 6.75e-4;
+    const Iy = sec.Iy || Iz;
+    const h  = Math.sqrt(Math.max(12 * Iz / A, 1e-12)) || 0.3;
+    const b  = Math.sqrt(Math.max(12 * Iy / A, 1e-12)) || h;
+    const S  = new THREE.Shape();
+    S.moveTo(-b / 2, -h / 2); S.lineTo(b / 2, -h / 2);
+    S.lineTo(b / 2, h / 2);   S.lineTo(-b / 2, h / 2);
+    S.closePath();
+    return S;
+  }
+
+  // Returns { outline:[[x,y]…], holes:[[[x,y]…]] } (raw, un-centered coords in m)
+  // for the polygonal profiles, or null if the shape isn't a recognized polygon.
+  _sectionOutline(shape, d) {
+    if (shape === 'box' || shape === 'hss' || shape === 'rhs' || shape === 'tube-rect') {
+      const { b, h, t } = d;
+      if (!(b > 0 && h > 0 && t > 0 && t < Math.min(b, h) / 2)) return null;
+      return {
+        outline: [[0, 0], [b, 0], [b, h], [0, h]],
+        holes:  [[[t, t], [b - t, t], [b - t, h - t], [t, h - t]]],
+      };
+    }
+    if (shape === 'rect' || shape === 'rectangular' || shape === 'r') {
+      const { b, h } = d;
+      if (!(b > 0 && h > 0)) return null;
+      return { outline: [[0, 0], [b, 0], [b, h], [0, h]] };
+    }
+    if (['i', 'w', 'wf', 'ipe', 'hea', 'heb'].includes(shape)) {
+      const H = d.d, bf = d.bf, tf = d.tf, tw = d.tw;
+      if (!(H > 0 && bf > 0 && tf > 0 && tw > 0 && tw < bf && 2 * tf < H)) return null;
+      const xo = bf / 2, xi = tw / 2, yi = H / 2 - tf;
+      // I-outline (CCW): bottom flange → up the web → top flange → back down.
+      return { outline: [
+        [-xo, -H / 2], [xo, -H / 2], [xo, -yi], [xi, -yi], [xi, yi], [xo, yi],
+        [xo, H / 2], [-xo, H / 2], [-xo, yi], [-xi, yi], [-xi, -yi], [-xo, -yi],
+      ] };
+    }
+    if (shape === 'channel' || shape === 'u' || shape === 'upn' || shape === 'c-shape') {
+      const H = d.d, bf = d.bf, tf = d.tf, tw = d.tw;
+      if (!(H > 0 && bf > 0 && tf > 0 && tw > 0 && tw < bf && 2 * tf < H)) return null;
+      return { outline: [
+        [0, 0], [bf, 0], [bf, tf], [tw, tf], [tw, H - tf], [bf, H - tf], [bf, H], [0, H],
+      ] };
+    }
+    if (shape === 'angle' || shape === 'l' || shape === 'l-shape') {
+      const H = d.d, B = d.b, t = d.t;
+      if (!(H > 0 && B > 0 && t > 0 && t < Math.min(H, B))) return null;
+      return { outline: [[0, 0], [B, 0], [B, t], [t, t], [t, H], [0, H]] };
+    }
+    if (shape === 'tee' || shape === 't' || shape === 't-shape') {
+      const H = d.d, bf = d.bf, tf = d.tf, tw = d.tw;
+      if (!(H > 0 && bf > 0 && tf > 0 && tw > 0 && tw < bf && tf < H)) return null;
+      const xl = (bf - tw) / 2, xr = (bf + tw) / 2;
+      return { outline: [
+        [xl, 0], [xr, 0], [xr, H - tf], [bf, H - tf], [bf, H], [0, H], [0, H - tf], [xl, H - tf],
+      ] };
+    }
+    if (shape === 'polygon' || shape === 'poly') {
+      const outline = d.outline;
+      if (!Array.isArray(outline) || outline.length < 3) return null;
+      return { outline: outline.map(p => [p[0], p[1]]),
+               holes: (d.holes || []).map(h => h.map(p => [p[0], p[1]])) };
+    }
+    return null;
   }
 
   // ── Load visualization ────────────────────────────────────────────────────

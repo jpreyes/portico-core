@@ -41,22 +41,32 @@ export function solveDense(K, b, n) {
   return x;
 }
 
-// Original chord angle of each element (cached in el.beta0).
+// Original chord angle of each element (cached in el.beta0). With rigid end zones
+// (el.oi/el.oj, #87) the corotational element IS the flexible span, so its natural
+// length is L0 = L − oi − oj; the chord angle is the same (the offsets run along it).
 export function corotPrep(coords, elems) {
   for (const el of elems) {
     const i = el.n1, j = el.n2;
     const dx = coords[2*j] - coords[2*i], dz = coords[2*j+1] - coords[2*i+1];
-    el.L0 = Math.hypot(dx, dz);
+    const L = Math.hypot(dx, dz);
     el.beta0 = Math.atan2(dz, dx);
+    el.L0 = L - (el.oi || 0) - (el.oj || 0);
   }
 }
 
 // Global internal force (6) and tangent (6×6) of the corotational element, in order
-// [u1,w1,θ1, u2,w2,θ2]. Requires el.{EA, EI, L0, beta0}.
+// [u1,w1,θ1, u2,w2,θ2]. Requires el.{EA, EI, L0, beta0}. Optional el.{oi,oj} add
+// rigid end zones (see corotRigidArm below).
 export function corotBeamForceTangent(coords, u, el) {
   const i = el.n1, j = el.n2;
   const x1 = coords[2*i]   + u[3*i],   z1 = coords[2*i+1] + u[3*i+1], t1 = u[3*i+2];
   const x2 = coords[2*j]   + u[3*j],   z2 = coords[2*j+1] + u[3*j+1], t2 = u[3*j+2];
+  if (el.oi || el.oj) return corotRigidArm(x1, z1, t1, x2, z2, t2, el);
+  return corotBeamCore(x1, z1, t1, x2, z2, t2, el);
+}
+
+// Core element: takes the CURRENT position/rotation of both ends directly.
+export function corotBeamCore(x1, z1, t1, x2, z2, t2, el) {
   const dx = x2 - x1, dz = z2 - z1;
   const ln = Math.hypot(dx, dz) || 1e-300;
   const c = dx / ln, s = dz / ln;
@@ -101,6 +111,61 @@ export function corotBeamForceTangent(coords, u, el) {
     Kt[r*6+col] += g1 * z[r] * z[col] + g2 * (a[r] * z[col] + z[r] * a[col]);
   }
   return { fint, Kt, N, M1, M2, alpha };
+}
+
+// ── Rigid end zones in large rotations (#87) ─────────────────────────────────
+// The offsets are RIGID BODIES welded to their node, so unlike the linear case the
+// arm ROTATES with the node and the kinematics stop being a constant matrix:
+//   p_i' = p_i + R(θ_i)·r_i ,  θ_i' = θ_i        (r_i along the original chord)
+// The flexible span is evaluated between the moved ends p_i', p_j', and its forces
+// come back through A = ∂q'/∂q (which now depends on θ):
+//   f_node = Aᵀ·f'        K_node = Aᵀ·K'·A + G
+// G is the curvature of the map itself (∂²q'/∂θ² contracted with f'), the term that
+// makes the tangent consistent — drop it and Newton stops converging quadratically
+// exactly when the arms rotate enough to matter.
+export function corotRigidArm(x1, z1, t1, x2, z2, t2, el) {
+  const cb = Math.cos(el.beta0), sb = Math.sin(el.beta0);
+  const oi = el.oi || 0, oj = el.oj || 0;
+  const r1x =  oi * cb, r1z =  oi * sb;      // node i → flexible end (toward j)
+  const r2x = -oj * cb, r2z = -oj * sb;      // node j → flexible end (toward i)
+  const c1 = Math.cos(t1), s1 = Math.sin(t1);
+  const c2 = Math.cos(t2), s2 = Math.sin(t2);
+
+  // Current position of the flexible ends: p + R(θ)·r
+  const X1 = x1 + r1x * c1 - r1z * s1, Z1 = z1 + r1x * s1 + r1z * c1;
+  const X2 = x2 + r2x * c2 - r2z * s2, Z2 = z2 + r2x * s2 + r2z * c2;
+
+  const res = corotBeamCore(X1, Z1, t1, X2, Z2, t2, el);
+  const f = res.fint, K = res.Kt;
+
+  // A = I except the rotation columns:  ∂p'/∂θ = R'(θ)·r
+  const a02 = -r1x * s1 - r1z * c1, a12 = r1x * c1 - r1z * s1;
+  const a35 = -r2x * s2 - r2z * c2, a45 = r2x * c2 - r2z * s2;
+  const A = [
+    [1, 0, a02, 0, 0, 0],
+    [0, 1, a12, 0, 0, 0],
+    [0, 0, 1,   0, 0, 0],
+    [0, 0, 0,   1, 0, a35],
+    [0, 0, 0,   0, 1, a45],
+    [0, 0, 0,   0, 0, 1],
+  ];
+
+  // f_node = Aᵀ·f'
+  const fint = new Float64Array(6);
+  for (let k = 0; k < 6; k++) { let s = 0; for (let r = 0; r < 6; r++) s += A[r][k] * f[r]; fint[k] = s; }
+
+  // K_node = Aᵀ·K'·A
+  const Kt = new Float64Array(36);
+  for (let p = 0; p < 6; p++) for (let q = 0; q < 6; q++) {
+    let s = 0;
+    for (let r = 0; r < 6; r++) { const arp = A[r][p]; if (!arp) continue; for (let cc = 0; cc < 6; cc++) { const acq = A[cc][q]; if (!acq) continue; s += arp * K[r*6+cc] * acq; } }
+    Kt[p*6+q] = s;
+  }
+  // + G:  ∂²p'/∂θ² = −R(θ)·r , contracted with the flexible-end forces
+  Kt[2*6+2] += f[0] * (-r1x * c1 + r1z * s1) + f[1] * (-r1x * s1 - r1z * c1);
+  Kt[5*6+5] += f[3] * (-r2x * c2 + r2z * s2) + f[4] * (-r2x * s2 - r2z * c2);
+
+  return { fint, Kt, N: res.N, M1: res.M1, M2: res.M2, alpha: res.alpha };
 }
 
 // ── Incremental-iterative solver (Newton-Raphson, load control) ───────────────

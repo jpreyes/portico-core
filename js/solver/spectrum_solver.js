@@ -10,7 +10,7 @@
 //      CQC:  combine = √ΣΣ ρ_ij × val_i × val_j
 //            ρ_ij = 8ζ²(1+r)r^1.5 / ((1-r²)² + 4ζ²r(1+r)²)  r = ω_min/ω_max
 // ──────────────────────────────────────────────────────────────────────────────
-import { localAxes, stiffnessMatrix, transformMatrix } from './timoshenko.js?v=6';
+import { localAxes, transformMatrix, elemLocalK } from './timoshenko.js?v=6';
 import { getNodeDOFs } from './assembler.js?v=6';
 import { SpectrumResults } from './spectrum_results.js?v=6';
 
@@ -93,7 +93,10 @@ function _computeElemForces(model, nodeIndex, u, nDOF) {
     if (!n1 || !n2 || !mat || !sec) continue;
 
     const { ex, ey, ez, L } = localAxes(n1, n2);
-    const Ke = stiffnessMatrix(L, mat, sec);
+    // Same stiffness the modal solver assembled: rigid end zone (#87), elastic
+    // foundation and end springs included — otherwise the recovered forces do not
+    // belong to the structure whose modes were computed.
+    const Ke = elemLocalK(elem, mat, sec, L);
     const T  = transformMatrix(ex, ey, ez);
 
     const d1 = getNodeDOFs(nodeIndex, elem.n1);

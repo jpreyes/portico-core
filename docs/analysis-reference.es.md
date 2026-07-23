@@ -232,7 +232,19 @@ triangular (`g = w2 − w1`) cuyas reacciones empotrado-empotrado están precalc
 **Zonas rígidas de extremo, fundación elástica, empotramiento parcial.** Tres refinamientos opcionales
 comparten el elemento de barra. Una **zona rígida de extremo** (`rigidEnd {i, j}`) calcula la rigidez del
 tramo flexible `Lf = L − oi − oj` (sin dejar nunca menos del 5% flexible) y la mapea a los nodos reales
-por cinemática de brazo rígido `u(extremo') = u(nodo) + θ×r`. Una **viga sobre fundación elástica
+por cinemática de brazo rígido `u(extremo') = u(nodo) + θ×r`. Las cargas distribuidas siguen actuando
+sobre toda la longitud `L`: la porción que cae sobre cada tramo rígido pasa directo al nodo vecino por
+estática (resultante más su momento respecto del nodo — un cuerpo rígido no tiene fuerzas de
+empotramiento), y la porción sobre la luz flexible usa las fuerzas de empotramiento perfecto de largo
+`Lf` llevadas a los GDL nodales por el mismo brazo rígido (`Q_nodo = Tᵀ·Q_flex`). La rigidez geométrica
+sigue la misma regla —un tramo rígido no puede pandear, así que `Kg` se arma con `Lf` y el axial sale de
+`EA·Δ/Lf`, la rigidez que realmente se ensambla— y la recuperación de fuerzas del espectro de respuesta
+reutiliza la rigidez de elemento ensamblada en vez de rearmar una pelada de largo `L`. En el pushover de
+rótulas plásticas la capacidad se verifica en la **cara** de la zona (`M_cara = M_nudo − o·V`): dentro de un
+cacho no hay sección que pueda fluir, así que declarar el nudo rígido corre la sección crítica hacia el
+centro del vano. En la viga corotacional (gran rotación) el brazo gira con su nodo, `p' = p + R(θ)·r`, así
+que la cinemática deja de ser una matriz constante y la tangente lleva el término de curvatura
+`Aᵀ·K'·A + G` —sin `G` Newton igual converge, pero no cuadráticamente. Una **viga sobre fundación elástica
 (Winkler)** (`foundation {ky, kz}`) agrega una matriz de resorte distribuido consistente. Los **resortes
 de extremo** (`endSprings {dof: k}`) modelan conexiones semirrígidas mediante un GDL interno condensado —
 `k → ∞` recupera una conexión rígida, `k → 0` una rótula.

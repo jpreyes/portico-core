@@ -4,7 +4,7 @@
 import {
   localAxes, stiffnessMatrix, massMatrix,
   transformMatrix, globalStiffness,
-  applyReleases, fixedEndForces, condenseFEF,
+  applyReleases, fixedEndForcesRE, condenseFEF,
   elemLocalK, elemLocalM
 } from './timoshenko.js?v=6';
 import { applyDiaphragmConstraints, applyDiaphragmMass } from './diaphragm.js?v=6';
@@ -216,11 +216,14 @@ export function assembleF(model, nodeIndex, lcId, selfWeight = false) {
         const T = transformMatrix(ex, ey, ez);
         const hasRelease = elem.releases?.some(r => r !== 0);
         const relBool    = hasRelease ? elem.releases.map(r => r !== 0) : null;
-        const Ke_loc     = (hasRelease && mat && sec) ? stiffnessMatrix(L, mat, sec) : null;
+        // Condense on the SAME stiffness the solver assembles (rigid end zone
+        // included), otherwise a member with both a hinge and a cacho gets an
+        // inconsistent release condensation.
+        const Ke_loc     = (hasRelease && mat && sec) ? elemLocalK(elem, mat, sec, L) : null;
 
         const ed = [...dofs(nodeIndex, elem.n1), ...dofs(nodeIndex, elem.n2)];
         for (const ll of _toLocalDistLoad(load, ex, ey, ez)) {
-          let f_local = fixedEndForces(L, ll);
+          let f_local = fixedEndForcesRE(elem, L, ll);
           if (Ke_loc) f_local = condenseFEF(Ke_loc, relBool, f_local);
           const f_global = Array(12).fill(0);
           for (let i=0; i<12; i++)
@@ -266,7 +269,7 @@ export function assembleF(model, nodeIndex, lcId, selfWeight = false) {
         let f_local = Array(12).fill(0);
         f_local[0] = +Nt; f_local[6] = -Nt;
         const hasRelease = elem.releases?.some(r => r !== 0);
-        if (hasRelease) f_local = condenseFEF(stiffnessMatrix(L, mat, sec), elem.releases.map(r => r !== 0), f_local);
+        if (hasRelease) f_local = condenseFEF(elemLocalK(elem, mat, sec, L), elem.releases.map(r => r !== 0), f_local);
         const ed = [...dofs(nodeIndex, elem.n1), ...dofs(nodeIndex, elem.n2)];
         const f_global = Array(12).fill(0);
         for (let i=0; i<12; i++)
@@ -291,10 +294,10 @@ export function assembleF(model, nodeIndex, lcId, selfWeight = false) {
       const ed = [...dofs(nodeIndex, elem.n1), ...dofs(nodeIndex, elem.n2)];
       const hasRel_sw  = elem.releases?.some(r => r !== 0);
       const relBool_sw = hasRel_sw ? elem.releases.map(r => r !== 0) : null;
-      const Ke_loc_sw  = hasRel_sw ? stiffnessMatrix(L, mat, sec) : null;
+      const Ke_loc_sw  = hasRel_sw ? elemLocalK(elem, mat, sec, L) : null;
       const swLoad = { w: selfWeightPerLength(mat, sec), dir: 'gravity' };
       for (const ll of _toLocalDistLoad(swLoad, ex, ey, ez)) {
-        let f_local = fixedEndForces(L, ll);
+        let f_local = fixedEndForcesRE(elem, L, ll);
         if (Ke_loc_sw) f_local = condenseFEF(Ke_loc_sw, relBool_sw, f_local);
         const f_global = Array(12).fill(0);
         for (let i=0; i<12; i++)

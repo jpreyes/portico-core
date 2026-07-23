@@ -104,5 +104,35 @@ console.log('\n── (3) structured refusals (no toast layer) ──');
   check(!nullPat.ok && nullPat.reason === 'null-pattern', 'zero-load pattern → reason "null-pattern"', `(${nullPat.reason})`);
 }
 
+// ── (N) Cantilever with a RIGID END ZONE at the root (#87) ───────────────────
+// The hinge forms in the MEMBER, at the face of the rigid zone — inside the zone
+// there is no section that can yield. So the capacity is reached by the FACE moment
+// P·Lf, not by the node moment P·L, and the collapse multiplier is
+//     λc = Mp/(P0·Lf)   with Lf = L − oi
+// which is HIGHER than without the offset: declaring the joint rigid moves the
+// critical section closer to the load. Checking at the node instead would form the
+// hinge early, at a moment the member never sees.
+console.log('\n── (N) cantilever + rigid end zone → λc = Mp/(P0·Lf) ──');
+for (const oi of [0, 0.6, 1.2]) {
+  const L = 3, P0 = 10, Mp = 100, Lf = L - oi;
+  const { m, mat, sec } = planar();
+  const A = m.addNode(0, 0, 0, { ux: 1, uy: 1, uz: 1, rx: 1, ry: 1, rz: 1 });
+  const B = m.addNode(L, 0, 0);
+  const el = m.addElement(A.id, B.id, mat, sec);
+  if (oi) m.updateElement(el.id, { rigidEnd: { i: oi, j: 0 } });
+  const lc = m.addLoadCase('P');
+  m.addLoad(lc.id, { type: 'nodal', nodeId: B.id, F: [0, 0, -P0, 0, 0, 0] });
+
+  const res = solvePlastic(m, {
+    capByElem: momentCaps(m, Mp),
+    contribs: [{ lcId: lc.id, factor: 1, selfWeight: false }],
+  });
+  check(res.ok && res.collapsed, `oi=${oi}: mecanismo alcanzado`);
+  check(rel(res.lambda, Mp / (P0 * Lf)) < 1e-6, `oi=${oi}: λc = Mp/(P0·Lf) = ${(Mp/(P0*Lf)).toFixed(4)}`,
+    `(${res.lambda?.toFixed(5)})`);
+  check(res.events.length === 1 && res.events[0].nodeId === A.id,
+    `oi=${oi}: una rótula, en el extremo empotrado`, `(${res.events.length})`);
+}
+
 console.log(`\n=== ${failures === 0 ? 'ALL OK' : failures + ' FAILURE(S)'} ===`);
 process.exit(failures === 0 ? 0 : 1);
