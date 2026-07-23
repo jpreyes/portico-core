@@ -2415,9 +2415,12 @@ export class PropertiesPanel {
     return card;
   }
 
-  // Dimensions by shape (m) for the section card.
+  // Dimensions by shape (mm in the UI, meters internally) for the section card.
   _secDimHTML(shape, d = {}) {
-    const f = (k, lbl) => `<div class="prop-field"><label>${lbl} (m)</label><input type="number" data-sd="${k}" value="${d[k] ?? ''}" step="0.001"></div>`;
+    // Dimensions are entered in mm (engineering convention) but stored internally
+    // in meters. m→mm here on display; mm→m on save (see _bindSecDesign.saveDesign).
+    const mm = v => (v === undefined || v === null || v === '') ? '' : +(v * 1000).toFixed(4);
+    const f = (k, lbl) => `<div class="prop-field"><label>${lbl} (mm)</label><input type="number" data-sd="${k}" value="${mm(d[k])}" step="1"></div>`;
     if (shape === 'I')      return `<div class="prop-row">${f('d', 'd canto')}${f('bf', 'bf ala')}</div><div class="prop-row">${f('tf', 'tf ala')}${f('tw', 'tw alma')}</div>`;
     if (shape === 'rect')   return `<div class="prop-row">${f('b', 'b ancho')}${f('h', 'h canto')}</div>`;
     if (shape === 'circle') return `<div class="prop-row">${f('D', 'D diámetro')}</div>`;
@@ -2427,10 +2430,10 @@ export class PropertiesPanel {
     if (shape === 'angle')  return `<div class="prop-row">${f('d', 'd ala vert.')}${f('b', 'b ala horiz.')}</div><div class="prop-row">${f('t', 't espesor')}</div>`;
     if (shape === 'tee')    return `<div class="prop-row">${f('d', 'd canto')}${f('bf', 'bf ala')}</div><div class="prop-row">${f('tf', 'tf ala')}${f('tw', 'tw alma')}</div>`;
     if (shape === 'polygon') {
-      const pts = a => (a || []).map(p => `${p[0]}, ${p[1]}`).join('\n');
+      const pts = a => (a || []).map(p => `${mm(p[0])}, ${mm(p[1])}`).join('\n');
       const holes = (d.holes || []).map(h => pts(h)).join('\n\n');
-      return `<div class="prop-row cols1"><div class="prop-field"><label>Vértices del contorno «x, y» por línea (m)</label>
-          <textarea data-sd-poly="outline" rows="5" style="width:100%;font-family:var(--font-mono);font-size:11px" placeholder="0, 0\n0.3, 0\n0.3, 0.5\n0, 0.5">${pts(d.outline)}</textarea></div></div>
+      return `<div class="prop-row cols1"><div class="prop-field"><label>Vértices del contorno «x, y» por línea (mm)</label>
+          <textarea data-sd-poly="outline" rows="5" style="width:100%;font-family:var(--font-mono);font-size:11px" placeholder="0, 0\n300, 0\n300, 500\n0, 500">${pts(d.outline)}</textarea></div></div>
         <div class="prop-row cols1"><div class="prop-field">
           <label style="display:flex;justify-content:space-between;align-items:center">Editor gráfico del contorno
             <span style="font-size:9px;color:var(--text-muted)">clic = agregar · arrastrar = mover · doble clic = borrar</span></label>
@@ -2501,11 +2504,12 @@ export class PropertiesPanel {
       const shape = shapeSel.value;
       const design = { ...(sec.design || {}) };
       design.shape = shape;
-      dimsBox.querySelectorAll('[data-sd]').forEach(i => { const v = parseFloat(i.value); if (i.value !== '' && !isNaN(v)) design[i.dataset.sd] = v; });
-      // Free polygon / with holes: parses the vertices from the textareas.
+      // Inputs are in mm; store internally in meters (mm→m).
+      dimsBox.querySelectorAll('[data-sd]').forEach(i => { const v = parseFloat(i.value); if (i.value !== '' && !isNaN(v)) design[i.dataset.sd] = v / 1000; });
+      // Free polygon / with holes: parses the vertices (mm) from the textareas → m.
       if (shape === 'polygon') {
         const parsePts = txt => txt.split(/\n/).map(l => l.trim()).filter(Boolean)
-          .map(l => l.split(/[,\s]+/).map(Number)).filter(p => p.length >= 2 && p.slice(0, 2).every(Number.isFinite)).map(p => [p[0], p[1]]);
+          .map(l => l.split(/[,\s]+/).map(Number)).filter(p => p.length >= 2 && p.slice(0, 2).every(Number.isFinite)).map(p => [p[0] / 1000, p[1] / 1000]);
         const outEl = dimsBox.querySelector('[data-sd-poly="outline"]');
         const holEl = dimsBox.querySelector('[data-sd-poly="holes"]');
         if (outEl) design.outline = parsePts(outEl.value);
@@ -2708,31 +2712,31 @@ export class PropertiesPanel {
     const shapes = {
       rect: `
         <div class="prop-row">
-          <div class="prop-field"><label>b (m)</label>
-            <input type="number" id="sc-b" value="0.30" step="0.01" min="0.001"></div>
-          <div class="prop-field"><label>h (m)</label>
-            <input type="number" id="sc-h" value="0.50" step="0.01" min="0.001"></div>
+          <div class="prop-field"><label>b (mm)</label>
+            <input type="number" id="sc-b" value="300" step="10" min="1"></div>
+          <div class="prop-field"><label>h (mm)</label>
+            <input type="number" id="sc-h" value="500" step="10" min="1"></div>
         </div>`,
       circ: `
         <div class="prop-row cols1">
-          <div class="prop-field"><label>D (m)</label>
-            <input type="number" id="sc-D" value="0.40" step="0.01" min="0.001"></div>
+          <div class="prop-field"><label>D (mm)</label>
+            <input type="number" id="sc-D" value="400" step="10" min="1"></div>
         </div>`,
       hrect: `
         <div class="prop-row">
-          <div class="prop-field"><label>b (m)</label>
-            <input type="number" id="sc-b" value="0.40" step="0.01" min="0.01"></div>
-          <div class="prop-field"><label>h (m)</label>
-            <input type="number" id="sc-h" value="0.60" step="0.01" min="0.01"></div>
-          <div class="prop-field"><label>t espesor (m)</label>
-            <input type="number" id="sc-t" value="0.06" step="0.005" min="0.001"></div>
+          <div class="prop-field"><label>b (mm)</label>
+            <input type="number" id="sc-b" value="400" step="10" min="10"></div>
+          <div class="prop-field"><label>h (mm)</label>
+            <input type="number" id="sc-h" value="600" step="10" min="10"></div>
+          <div class="prop-field"><label>t espesor (mm)</label>
+            <input type="number" id="sc-t" value="60" step="5" min="1"></div>
         </div>`,
       hcirc: `
         <div class="prop-row">
-          <div class="prop-field"><label>D ext (m)</label>
-            <input type="number" id="sc-D" value="0.40" step="0.01" min="0.01"></div>
-          <div class="prop-field"><label>t espesor (m)</label>
-            <input type="number" id="sc-t" value="0.02" step="0.005" min="0.001"></div>
+          <div class="prop-field"><label>D ext (mm)</label>
+            <input type="number" id="sc-D" value="400" step="10" min="10"></div>
+          <div class="prop-field"><label>t espesor (mm)</label>
+            <input type="number" id="sc-t" value="20" step="5" min="1"></div>
         </div>`,
       ipe:  `<div class="prop-field"><label>Perfil IPE</label>
                <select id="sc-ipe">${ipeOpts}</select></div>`,
@@ -2741,6 +2745,7 @@ export class PropertiesPanel {
     };
 
     const g = id => parseFloat(document.getElementById(id)?.value) || 0;
+    const gm = id => g(id) / 1000;   // length inputs are in mm → meters
     const kappa = 5 / 6;
 
     const calc = () => {
@@ -2748,7 +2753,7 @@ export class PropertiesPanel {
       let A, Iz, Iy, J, Avy, Avz, name;
 
       if (shape === 'rect') {
-        const b = g('sc-b'), h = g('sc-h');
+        const b = gm('sc-b'), h = gm('sc-h');
         A = b * h; Iz = b * h ** 3 / 12; Iy = h * b ** 3 / 12;
         // St. Venant torsion constant (Roark series, a=long side, t=short side):
         // J = a·t³·[1/3 − 0.21·(t/a)·(1 − (t/a)⁴/12)]  (≈0.1406·a⁴ for a square)
@@ -2757,19 +2762,19 @@ export class PropertiesPanel {
         Avy = kappa * b * h; Avz = kappa * b * h;
         name = `Rect ${(b*100).toFixed(0)}×${(h*100).toFixed(0)}cm`;
       } else if (shape === 'circ') {
-        const r = g('sc-D') / 2;
+        const r = gm('sc-D') / 2;
         A = Math.PI * r ** 2; Iz = Iy = Math.PI * r ** 4 / 4;
         J = Math.PI * r ** 4 / 2; Avy = Avz = 0.9 * A;
         name = `Circ Ø${(r*200).toFixed(0)}cm`;
       } else if (shape === 'hrect') {
-        const b = g('sc-b'), h = g('sc-h'), t = g('sc-t');
+        const b = gm('sc-b'), h = gm('sc-h'), t = gm('sc-t');
         const bi = b-2*t, hi = h-2*t;
         A = b*h - bi*hi; Iz = (b*h**3 - bi*hi**3)/12; Iy = (h*b**3 - hi*bi**3)/12;
         J = 2*t*(b-t)**2*(h-t)**2/(b+h-2*t);
         Avy = Avz = 2*h*t;
         name = `Rect ${(b*100).toFixed(0)}×${(h*100).toFixed(0)}×${(t*100).toFixed(1)}cm`;
       } else if (shape === 'hcirc') {
-        const D = g('sc-D'), t = g('sc-t'), ro = D/2, ri = D/2 - t;
+        const D = gm('sc-D'), t = gm('sc-t'), ro = D/2, ri = D/2 - t;
         A = Math.PI*(ro**2 - ri**2); Iz = Iy = Math.PI*(ro**4 - ri**4)/4;
         J = Math.PI*(ro**4 - ri**4)/2; Avy = Avz = A * 0.5;
         name = `Tubo Ø${(D*100).toFixed(0)}×${(t*100).toFixed(1)}cm`;
