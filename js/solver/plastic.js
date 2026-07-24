@@ -18,18 +18,20 @@
 // toasts and overlay that used to wrap this stay in app.js.
 // ──────────────────────────────────────────────────────────────────────────────
 import { buildNodeIndex, assembleF, getNodeDOFs } from './assembler.js?v=7';
-import { makeFactor } from './linsolve.js?v=7';
+import { makeFactorCSR, permRCMcsr } from './linsolve.js?v=7';
+import { SparseSym, extractFreeCSR } from './sparse.js?v=7';
 import { localAxes, transformMatrix, globalStiffness, applyReleases, elemLocalK, rigidEndOffsets, rigidEndTransform } from './timoshenko.js?v=7';
-import { applyDiaphragmConstraints } from './diaphragm.js?v=7';
+import { applyDiaphragmConstraintsW } from './diaphragm.js?v=7';
 
-// Assemble the (conditioned) global K for the current release state, returning the
-// per-element data (element DOFs, transform, condensed local Ke, length) the event
-// loop needs. Same assembly as assembleK, but honoring per-element `releasesByElem`
-// (the hinges formed so far) and keeping the diaphragm penalty so master nodes are
-// not spuriously singular.
-function plasticAssemble(model, nodeIndex, releasesByElem) {
+// Assemble the (conditioned) global K for the current release state as a free-DOF
+// CSR, returning the per-element data (element DOFs, transform, condensed local Ke,
+// length) the event loop needs. Same assembly as assembleK, but honoring per-element
+// `releasesByElem` (the hinges formed so far) and keeping the diaphragm penalty so
+// master nodes are not spuriously singular. Sparse (SparseSym → CSR): no dense nDOF²
+// is ever formed, so the pushover scales past the dense ceiling.
+function plasticAssemble(model, nodeIndex, releasesByElem, freeMap, nF) {
   const nDOF = nodeIndex.size * 6;
-  const K = new Float64Array(nDOF * nDOF);
+  const S = new SparseSym(nDOF);
   const elems = [];
   for (const el of model.elements.values()) {
     const n1 = model.nodes.get(el.n1), n2 = model.nodes.get(el.n2);
@@ -45,7 +47,7 @@ function plasticAssemble(model, nodeIndex, releasesByElem) {
     const T = transformMatrix(ex, ey, ez);
     const KG = globalStiffness(Ke, T);
     const ed = [...getNodeDOFs(nodeIndex, el.n1), ...getNodeDOFs(nodeIndex, el.n2)];
-    for (let i = 0; i < 12; i++) for (let j = 0; j < 12; j++) K[ed[i] * nDOF + ed[j]] += KG[i][j];
+    for (let i = 0; i < 12; i++) for (let j = 0; j < 12; j++) S.add(ed[i], ed[j], KG[i][j]);
     // With a rigid end zone the plastic rotation is measured against the chord of the
     // FLEXIBLE span (the rigid arm rotates with the node and deforms nothing), so the
     // rate needs the flexible-end displacements and Lf — not the nodal ones and L.
@@ -57,8 +59,9 @@ function plasticAssemble(model, nodeIndex, releasesByElem) {
   // Rigid-diaphragm constraints (penalty), like assembleK: without this the master
   // nodes (without elements) have zero stiffness → singular K → false «mechanism
   // from the start» in models with diaphragms.
-  applyDiaphragmConstraints(K, model, nodeIndex, nDOF);
-  return { K, nDOF, elems };
+  applyDiaphragmConstraintsW(S.writer(), model, nodeIndex, nDOF);
+  const Kcsr = extractFreeCSR(S, freeMap, nF).csr;
+  return { Kcsr, nDOF, elems };
 }
 
 /**
@@ -143,6 +146,7 @@ export function solvePlastic(model, {
   }
   if (!freeDOF.length) return { ok: false, reason: 'no-free-dof' };
   const nF = freeDOF.length;
+  const freeMap = new Int32Array(nDOF).fill(-1); for (let i = 0; i < nF; i++) freeMap[freeDOF[i]] = i;
 
   // Reference load per the chosen pattern (#45): all / one case / one combo.
   const F = new Float64Array(nDOF);
@@ -172,11 +176,9 @@ export function solvePlastic(model, {
   const applyDrops = (queue0) => {
     let queue = queue0, guard2 = 0;
     while (queue.length && guard2++ < 600) {
-      const { K: Kd, elems: elemsD } = plasticAssemble(model, nodeIndex, releasesByElem);
+      const { Kcsr, elems: elemsD } = plasticAssemble(model, nodeIndex, releasesByElem, freeMap, nF);
       const eb = new Map(elemsD.map(e => [e.id, e]));
-      const Kffd = new Float64Array(nF * nF);
-      for (let i = 0; i < nF; i++) { const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) Kffd[i * nF + j] = Kd[ri + freeDOF[j]]; }
-      const facd = makeFactor(Kffd, nF, false);
+      const facd = makeFactorCSR(Kcsr, permRCMcsr(Kcsr));
       if (!facd.ok) return true;   // mechanism after the drop
       const G = new Float64Array(nDOF);
       for (const c of queue) {
@@ -218,10 +220,8 @@ export function solvePlastic(model, {
   };
 
   for (let k = 0; k < maxEvents; k++) {
-    const { K, elems } = plasticAssemble(model, nodeIndex, releasesByElem);
-    const Kff = new Float64Array(nF * nF);
-    for (let i = 0; i < nF; i++) { const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) Kff[i * nF + j] = K[ri + freeDOF[j]]; }
-    const fac = makeFactor(Kff, nF, false);
+    const { Kcsr, elems } = plasticAssemble(model, nodeIndex, releasesByElem, freeMap, nF);
+    const fac = makeFactorCSR(Kcsr, permRCMcsr(Kcsr));
     if (!fac.ok) { collapsed = true; break; }   // mechanism → collapse
 
     const Ff = new Float64Array(nF); for (let i = 0; i < nF; i++) Ff[i] = F[freeDOF[i]];
