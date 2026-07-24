@@ -55,6 +55,12 @@ let PcrModel;
     `(${PcrModel.toFixed(1)} vs ${PcrEuler.toFixed(1)})`);
   check(res.modes[0].lambda > 0, 'λcr > 0 for a compressed reference', `(λcr=${res.modes[0].lambda.toFixed(3)})`);
   check(res.Nby && res.Nby.size > 0, 'per-element reference axial force returned');
+
+  // Default SPARSE buckling (solveBucklingCSR, no dense nF²) must match the dense one.
+  const den = linearBuckling(m, { nModes: 2, dense: true });
+  check(den.ok && rel(res.modes[0].lambda, den.modes[0].lambda) < 1e-9,
+    'sparse buckling λcr ≡ dense to machine precision',
+    `(${res.modes[0].lambda.toFixed(6)} vs ${den.modes[0].lambda.toFixed(6)})`);
 }
 
 // ── (2) P-Delta amplification, self-consistent with (1) ───────────────────────

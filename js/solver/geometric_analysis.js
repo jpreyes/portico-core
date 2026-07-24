@@ -13,7 +13,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './assembler.js?v=7';
 import { assembleKg, assembleKgInto } from './geometric.js?v=7';
-import { solveBuckling } from './buckling.js?v=7';
+import { solveBuckling, solveBucklingCSR } from './buckling.js?v=7';
 import { makeFactor, makeFactorCSR, permRCMcsr, csrLinComb } from './linsolve.js?v=7';
 import { SparseSym, assembleSparseGlobal, extractFreeCSR } from './sparse.js?v=7';
 
@@ -89,31 +89,47 @@ export function maxTransDisp(u, model, nodeIndex) {
  *   reason ∈ 'no-free-dof' | 'no-loads' | 'ref-singular' | 'no-kg' | 'solver-error' | 'no-modes'.
  */
 export function linearBuckling(model, { nModes = 6, dense = false, contribs = null } = {}) {
-  const { nodeIndex, K, nDOF, freeDOF, F, nCasos } = buildGeomProblem(model, contribs);
+  const base = buildGeomLoads(model, contribs);
+  const { nodeIndex, nDOF, freeDOF, F, nCasos } = base;
   if (!freeDOF.length) return { ok: false, reason: 'no-free-dof' };
   if (!nCasos) return { ok: false, reason: 'no-loads' };
-
   const nF = freeDOF.length;
-  // Kff and Ff in flat format (Float64Array nF×nF)
-  const Kff_flat = new Float64Array(nF * nF);
-  const Ff = new Float64Array(nF);
-  for (let i = 0; i < nF; i++) { Ff[i] = F[freeDOF[i]]; const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) Kff_flat[i * nF + j] = K[ri + freeDOF[j]]; }
+  const Ff = new Float64Array(nF); for (let i = 0; i < nF; i++) Ff[i] = F[freeDOF[i]];
 
-  // Reference state: K_ff·u = F_ff (banded Cholesky; gives the axial force for Kg).
-  const fac = makeFactor(Kff_flat, nF, dense);
-  if (!fac.ok) return { ok: false, reason: 'ref-singular' };
-  const ufA = fac.solve(Ff);
-  const u = new Float64Array(nDOF); for (let i = 0; i < nF; i++) u[freeDOF[i]] = ufA[i];
+  let buckResult, Nby;
 
-  const { Kg, Nby } = assembleKg(model, nodeIndex, u);
+  if (dense) {
+    // ── Dense path (legacy; small models) ──
+    const { K } = assembleK(model, nodeIndex);
+    const Kff_flat = new Float64Array(nF * nF);
+    for (let i = 0; i < nF; i++) { const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) Kff_flat[i * nF + j] = K[ri + freeDOF[j]]; }
+    const fac = makeFactor(Kff_flat, nF, true);
+    if (!fac.ok) return { ok: false, reason: 'ref-singular' };
+    const u = new Float64Array(nDOF); { const ufA = fac.solve(Ff); for (let i = 0; i < nF; i++) u[freeDOF[i]] = ufA[i]; }
+    const kg = assembleKg(model, nodeIndex, u); Nby = kg.Nby;
+    const Kgff_flat = new Float64Array(nF * nF);
+    let kgMax = 0;
+    for (let i = 0; i < nF; i++) { const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) { const v = kg.Kg[ri + freeDOF[j]]; Kgff_flat[i * nF + j] = v; if (Math.abs(v) > kgMax) kgMax = Math.abs(v); } }
+    if (kgMax < 1e-12) return { ok: false, reason: 'no-kg' };
+    buckResult = solveBuckling({ Kff_flat, Kgff_flat, nF, nModes, dense: true });
+  } else {
+    // ── Sparse path (default; no dense nF²) ──
+    const freeMap = new Int32Array(nDOF).fill(-1); for (let i = 0; i < nF; i++) freeMap[freeDOF[i]] = i;
+    const { S: Ks } = assembleSparseGlobal(model, nodeIndex);
+    const Kcsr = extractFreeCSR(Ks, freeMap, nF).csr;
 
-  // Flat Kgff for the eigensolver (+ Kg magnitude = is there a buckling effect?).
-  const Kgff_flat = new Float64Array(nF * nF);
-  let kgMax = 0;
-  for (let i = 0; i < nF; i++) { const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) { const v = Kg[ri + freeDOF[j]]; Kgff_flat[i * nF + j] = v; const av = Math.abs(v); if (av > kgMax) kgMax = av; } }
-  if (kgMax < 1e-12) return { ok: false, reason: 'no-kg' };
+    // Reference state K·u = F (banded Cholesky from CSR) → axial force for Kg.
+    const fac = makeFactorCSR(Kcsr, permRCMcsr(Kcsr));
+    if (!fac.ok) return { ok: false, reason: 'ref-singular' };
+    const u = new Float64Array(nDOF); { const ufA = fac.solve(Ff); for (let i = 0; i < nF; i++) u[freeDOF[i]] = ufA[i]; }
 
-  const buckResult = solveBuckling({ Kff_flat, Kgff_flat, nF, nModes, dense });
+    const Kgs = new SparseSym(nDOF);
+    const kg = assembleKgInto(Kgs.writer(), model, nodeIndex, u); Nby = kg.Nby;
+    const Kgcsr = extractFreeCSR(Kgs, freeMap, nF).csr;
+    let kgMax = 0; for (const v of Kgcsr.val) if (Math.abs(v) > kgMax) kgMax = Math.abs(v);
+    if (kgMax < 1e-12) return { ok: false, reason: 'no-kg' };
+    buckResult = solveBucklingCSR({ Kcsr, Kgcsr, nF, nModes });
+  }
   if (buckResult.error) return { ok: false, reason: 'solver-error', message: buckResult.error };
 
   // Expand each mode (vec in free DOFs) to the global vector indexed by nDOF.

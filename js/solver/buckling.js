@@ -17,7 +17,7 @@
 // SELF-CONTAINED except for linsolve.js (banded factorization) and subspace.js (core
 // shared with the modal solver). Reusable in Node + browser + Worker.
 // ──────────────────────────────────────────────────────────────────────────────
-import { makeFactor, rowBands, permRCM } from './linsolve.js?v=7';
+import { makeFactor, rowBands, permRCM, makeFactorCSR, permRCMcsr, csrMv } from './linsolve.js?v=7';
 import { smallGenEig, mvBand, dot } from './subspace.js?v=7';
 
 /**
@@ -67,6 +67,31 @@ export function solveBuckling(o) {
   if (perm) for (const md of modes) {
     const v = new Float64Array(nF); for (let i = 0; i < nF; i++) v[perm[i]] = md.vec[i]; md.vec = v;
   }
+  return { modes };
+}
+
+/**
+ * CSR variant of solveBuckling: the subspace iteration only needs K·x, (−Kg)·x and
+ * K⁻¹·b, so it runs entirely on sparse matrices — no dense nF² is ever formed. K is
+ * factored ONCE (banded Cholesky from CSR); matrix·vector products are O(nnz). The
+ * banded solve un-permutes, so vectors stay in the original free-DOF order.
+ * @param {object} o  { Kcsr, Kgcsr, nF, nModes }  (Kcsr/Kgcsr in free-DOF CSR)
+ * @returns { modes:[{lambda, vec}] } | { error }
+ */
+export function solveBucklingCSR(o) {
+  const { Kcsr, Kgcsr, nF, nModes } = o;
+  if (nF === 0) return { error: 'Sin GDL libres.' };
+  const p = Math.max(1, Math.min(nModes, nF));
+
+  const fac = makeFactorCSR(Kcsr, permRCMcsr(Kcsr));
+  if (!fac.ok) return { error: 'Factorización de K falló (¿estructura inestable / sin apoyos?).' };
+
+  const mvK = (x) => csrMv(Kcsr, x);
+  const mvB = (x) => { const y = csrMv(Kgcsr, x); for (let i = 0; i < nF; i++) y[i] = -y[i]; return y; };   // (−Kg)·x
+  const solveK = (b) => fac.solve(b);
+
+  const modes = _subspaceBuckling(mvK, mvB, solveK, nF, p);
+  if (!modes.length) return { error: 'No se hallaron modos de pandeo (la carga de referencia no produce compresión). Revise su sentido.' };
   return { modes };
 }
 
