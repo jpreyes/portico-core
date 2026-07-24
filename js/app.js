@@ -50,6 +50,7 @@ import { SpectrumSolver, buildSpectrumElemData, spectrumCombine } from './solver
 import { SpectrumResults }  from './solver/spectrum_results.js?v=7';
 import { modalTimeHistory }  from './solver/timehistory.js?v=7';
 import { directTimeHistory, assembleDirectSystem, directResultView, newmarkLinear, rayleigh } from './solver/direct_integration.js?v=7';
+import { nlDirectTimeHistory } from './solver/nl_direct.js?v=7';
 import { StagedSolver }      from './solver/staged.js?v=7';
 import { solveNonlinear, solveNonlinearDC } from './solver/nl_lite.js?v=7';
 import { formFind }          from './solver/formfind.js?v=7';
@@ -3044,7 +3045,7 @@ class App {
     if (this.viewport._inResultsMode) this.viewport.clearResults();
     const btn = document.getElementById('btn-run'); if (btn) btn.classList.add('running');
     document.getElementById('sb-mode').textContent = i18n.t('Time-history…');
-    this._showProgress('Time-history…', method === 'direct' ? 'Integración directa Newmark-β sobre el sistema completo' : 'Modal + integración de Duhamel por modo (en segundo plano)');
+    this._showProgress('Time-history…', method === 'direct' ? 'Integración directa Newmark-β sobre el sistema completo' : method === 'nldirect' ? 'Integración directa NO lineal (corotacional, HHT-α + Newton)' : 'Modal + integración de Duhamel por modo (en segundo plano)');
     await new Promise(r => setTimeout(r, 20));
     try {
       this._applyAutoDiscIfEnabled();
@@ -3117,6 +3118,35 @@ class App {
         this._thResult._label = label; this._thRuns.set(label, this._thResult);
         const T1 = (2 * Math.PI / w1).toFixed(3);
         this.toast(`Integración directa OK · Newmark-β · ${dir} · PGA ${stats.pga.toFixed(2)} m/s² · u_máx ${peakU.toExponential(2)} m (${i18n.t('nodo')} ${monitorNodeId}) · T₁=${T1}s · ${dres.solver}`, 'ok');
+        this._thOpenOverlay();
+        this._updateResultsIndicator();
+      } else if (method === 'nldirect') {
+        // ── NONLINEAR direct integration (planar corotational, HHT-α + Newton) ──
+        // Large displacements/rotations carried through the history: the internal force
+        // and tangent (K + Kg, rigid end zones) are re-formed every step. The modal solve
+        // above is reused only to anchor Rayleigh damping. Planar X–Z model only.
+        if (model.mode !== '2D') throw new Error('La integración directa no lineal (corotacional) es planar: use un modelo 2D (plano X–Z).');
+        if (dir === 'Y') throw new Error('Excitación fuera del plano (Y): elija dirección X o Z para el modelo planar.');
+        const w1 = modes[0].omega, wN = modes[modes.length - 1]?.omega || 0;
+        const { a0, a1 } = rayleigh(zeta, w1, wN > w1 * 1.01 ? wN : w1 * 8);
+        const nSteps = ag.length;
+        const bytes = nF * nSteps * 8;
+        if (bytes > 500e6) throw new Error(`La reproducción de integración directa necesita ~${(bytes / 1e6).toFixed(0)} MB (${nF} GDL × ${nSteps} pasos). Reduzca la duración / suba Δt del registro.`);
+        const dres = await this._nlDirectSolveInWorker(model, { ag, dt, direction: dir, a0, a1 });
+
+        let monitorDOF = null, monitorNodeId = null, peakU = -1;
+        for (const node of model.nodes.values()) {
+          const g = 6 * dres.nodeIndex.get(node.id) + dirComp, fi = dres.freeMap[g];
+          if (fi >= 0 && dres.peak[fi] > peakU) { peakU = dres.peak[fi]; monitorDOF = g; monitorNodeId = node.id; }
+        }
+        const stats = accStats(ag, dt);
+        this._thResult = { method: 'nldirect', directRes: dres, dt, nodeIndex: dres.nodeIndex, nF: dres.nF, dir, zeta, ag, agName, nSteps, monitorDOF, monitorNodeId, stats, peakU, w1, wN, a0, a1 };
+        this._thRuns ??= new Map();
+        let label = `${agName} · ${dir} · directa NL`, kk = 1; while (this._thRuns.has(label) && this._thRuns.get(label) !== this._thResult) { kk++; label = `${agName} · ${dir} · directa NL (${kk})`; }
+        this._thResult._label = label; this._thRuns.set(label, this._thResult);
+        const T1 = (2 * Math.PI / w1).toFixed(3);
+        const nc = dres.notConverged ? ` · ${dres.notConverged} paso(s) sin converger` : '';
+        this.toast(`Integración directa NO lineal OK · HHT-α + Newton (corotacional) · ${dir} · PGA ${stats.pga.toFixed(2)} m/s² · u_máx ${peakU.toExponential(2)} m (${i18n.t('nodo')} ${monitorNodeId}) · T₁=${T1}s · ${dres.avgNewton.toFixed(1)} iter/paso${nc}`, dres.notConverged ? 'warn' : 'ok');
         this._thOpenOverlay();
         this._updateResultsIndicator();
       } else {
@@ -3265,10 +3295,51 @@ class App {
     return directResultView(res, sys.nodeIndex, sys.freeMap, recPairs);
   }
 
+  // NONLINEAR direct integration (planar corotational, HHT-α + Newton) in a worker.
+  // The engine re-assembles every step, so — like the geometric-nonlinear worker — it
+  // gets the whole Model serialized. The planar 3-DOF field it returns [u,w,θ] is wrapped
+  // into a 6-DOF result view (ux←u, uz←w, ry←θ) so the whole time-history overlay,
+  // animation and CSV — all written for the 6-DOF direct path — work unchanged.
+  async _nlDirectSolveInWorker(model, o) {
+    const wrap = (data) => {
+      // data: { U, peak, nF, nSteps, freeMap3, nodeIds }
+      const nodeIndex = buildNodeIndex(model);
+      const nDOF6 = nodeIndex.size * 6, freeMap = new Int32Array(nDOF6).fill(-1);
+      const slot = [0, 2, 4];   // planar local {0:u→ux, 1:w→uz, 2:θ→ry} → 6-DOF offset
+      for (let g = 0; g < data.freeMap3.length; g++) {
+        const fi = data.freeMap3[g]; if (fi < 0) continue;
+        const nodeId = data.nodeIds[Math.floor(g / 3)];
+        freeMap[6 * nodeIndex.get(nodeId) + slot[g % 3]] = fi;
+      }
+      const n = data.nF, U = data.U;
+      return {
+        nodeIndex, freeMap, nF: n, peak: data.peak, nSteps: data.nSteps,
+        solver: 'HHT-α', avgNewton: data.avgNewton, notConverged: data.notConverged,
+        uAt: (s) => U.subarray(s * n, s * n + n),
+      };
+    };
+
+    let w;
+    try { w = new Worker(new URL('./solver/nl_direct_worker.js?v=7', import.meta.url), { type: 'module' }); }
+    catch (e) {
+      const res = nlDirectTimeHistory(model, { ...o, keepAll: true });
+      if (!res.ok) throw new Error('Integración directa no lineal: ' + res.reason);
+      return wrap({ U: res.U, peak: res.peak, nF: res.nF, nSteps: res.nSteps, freeMap3: res.freeMap, nodeIds: res.nodeIds, avgNewton: res.avgNewton, notConverged: res.notConverged });
+    }
+
+    const modelJSON = this.serializer.toJSON(model);
+    const data = await new Promise((resolve, reject) => {
+      w.onmessage = ev => { w.terminate(); const d = ev.data; d.error ? reject(new Error(d.error)) : (d.ok === false ? reject(new Error('Integración directa no lineal: ' + d.reason)) : resolve(d)); };
+      w.onerror = ev => { w.terminate(); reject(new Error(ev.message || 'Error en worker de integración directa no lineal')); };
+      w.postMessage({ modelJSON, opts: { ag: o.ag, dt: o.dt, direction: o.direction, a0: o.a0, a1: o.a1, alpha: o.alpha } });
+    });
+    return wrap(data);
+  }
+
   // Time history of a global DOF. Modal → Σφᵢqᵢ ; direct → the stored u(t) history.
   _thNodalDOF(dof) {
     const R = this._thResult;
-    if (R.method === 'direct') {
+    if (R.directRes) {   // direct (linear Newmark) or nldirect (corotational) — stored u(t)
       const dres = R.directRes, fi = dres.freeMap[dof], h = new Float64Array(R.nSteps);
       if (fi >= 0) for (let k = 0; k < R.nSteps; k++) h[k] = dres.uAt(k)[fi];   // fixed DOF → 0
       return h;
@@ -3282,7 +3353,7 @@ class App {
   // Full displacement vector at step `step`.
   _thUAt(step) {
     const R = this._thResult, nDOF = R.nodeIndex.size * 6, u = new Float64Array(nDOF);
-    if (R.method === 'direct') {
+    if (R.directRes) {
       const dres = R.directRes, uf = dres.uAt(step), fm = dres.freeMap;
       for (let g = 0; g < nDOF; g++) { const fi = fm[g]; if (fi >= 0) u[g] = uf[fi]; }
       return u;
@@ -3356,8 +3427,9 @@ class App {
         <div class="prop-row cols1">
           <div class="prop-field"><label>Método de integración</label>
             <select id="th-method">
-              <option value="modal" ${d.method!=='direct'?'selected':''}>Superposición modal (Duhamel) — rápido, lineal</option>
-              <option value="direct" ${d.method==='direct'?'selected':''}>Integración directa (Newmark-β) — sin truncar modos</option>
+              <option value="modal" ${d.method!=='direct'&&d.method!=='nldirect'?'selected':''}>Superposición modal (Duhamel) — rápido, lineal</option>
+              <option value="direct" ${d.method==='direct'?'selected':''}>Integración directa (Newmark-β) — lineal, sin truncar modos</option>
+              <option value="nldirect" ${d.method==='nldirect'?'selected':''}>Integración directa NO lineal (corotacional) — geometría, 2D</option>
             </select></div>
         </div>
         <div class="prop-row">
@@ -3394,7 +3466,7 @@ class App {
       srcSel.addEventListener('change', () => { pasteBox.style.display = srcSel.value === 'paste' ? '' : 'none'; });
       // With direct integration the "N° de modos" only anchors the Rayleigh damping.
       const methodSel = document.getElementById('th-method'), nmLbl = document.getElementById('th-nmodes-lbl');
-      const syncMethod = () => { nmLbl.textContent = methodSel.value === 'direct' ? 'N° modos (para ζ Rayleigh)' : 'N° de modos'; };
+      const syncMethod = () => { nmLbl.textContent = methodSel.value !== 'modal' ? 'N° modos (para ζ Rayleigh)' : 'N° de modos'; };
       methodSel.addEventListener('change', syncMethod); syncMethod();
       document.getElementById('th-file').addEventListener('change', async (e) => {
         const f = e.target.files?.[0]; if (!f) return;
@@ -3701,7 +3773,7 @@ class App {
     const info = this._thMonitorInfo();
     if (ro) ro.innerHTML = `t = <b>${t.toFixed(3)} s</b> / ${((R.nSteps - 1) * R.dt).toFixed(2)} s · a_g = ${ag.toFixed(3)} m/s²<br>`
       + `${info.txt} = ${R._hist[step].toExponential(3)} ${info.unit} · máx = <b>${(R._peak ?? 0).toExponential(3)} ${info.unit}</b><br>`
-      + `${R.method === 'direct' ? 'Newmark directo' : R.modes.length + ' modos'} · ζ=${(R.zeta * 100).toFixed(1)}% · dir ${R.dir} · PGA=${R.stats.pga.toFixed(2)} m/s² · ${R.agName}`;
+      + `${R.method === 'direct' ? 'Newmark directo' : R.method === 'nldirect' ? 'Newmark directo NL (corot.)' : R.modes.length + ' modos'} · ζ=${(R.zeta * 100).toFixed(1)}% · dir ${R.dir} · PGA=${R.stats.pga.toFixed(2)} m/s² · ${R.agName}`;
   }
 
   _thExportCSV() {
@@ -3710,7 +3782,7 @@ class App {
     const info = this._thMonitorInfo();
     const obj = R.monType === 'elem' ? 'elem' : R.monType === 'area' ? 'area' : 'nodo';
     const col = `${R.monComp}_${obj}${R.monId}[${info.unit}]`;
-    let csv = `# Time-history ${R.method === 'direct' ? '(Newmark directo)' : `modal · ${R.modes.length} modos`} · dir ${R.dir} · zeta ${(R.zeta*100).toFixed(1)}% · ${R.agName}\n`;
+    let csv = `# Time-history ${R.method === 'direct' ? '(Newmark directo)' : R.method === 'nldirect' ? '(Newmark directo NO lineal, corotacional)' : `modal · ${R.modes.length} modos`} · dir ${R.dir} · zeta ${(R.zeta*100).toFixed(1)}% · ${R.agName}\n`;
     csv += `t[s],a_g[m/s2],${col}\n`;
     for (let k = 0; k < R.nSteps; k++) csv += `${(k*R.dt).toFixed(5)},${R.ag[k].toFixed(6)},${h[k].toExponential(6)}\n`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
