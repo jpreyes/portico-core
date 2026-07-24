@@ -4677,7 +4677,7 @@ class App {
       try {
         worker = new Worker(new URL('./solver/nl_worker.js?v=7', import.meta.url), { type: 'module' });
       } catch (e) {
-        try { resolve(kind === 'dc' ? solveNonlinearDC(opts) : solveNonlinear(opts)); return; }
+        try { resolve(kind === 'corot' ? solveCorotBeam(opts) : kind === 'dc' ? solveNonlinearDC(opts) : solveNonlinear(opts)); return; }
         catch (err) { reject(err); }
         return;
       }
@@ -4759,7 +4759,7 @@ class App {
     this._showProgress('Corotacional…', 'Gran rotación: Newton-Raphson por incrementos de carga');
     await new Promise(r => setTimeout(r, 20));
     let res;
-    try { res = solveCorotBeam({ coords, elems, free, Fref, nSteps, maxIter: 80, tol: 1e-9 }); }
+    try { res = await this._solveNLInWorker('corot', { coords, elems, free, Fref, nSteps, maxIter: 80, tol: 1e-9 }); }
     catch (e) { this.toast(`${i18n.t('Error corotacional:')} ${i18n.t(e.message)}`, 'error'); console.error(e); return; }
     finally { this._hideProgress(); }
 

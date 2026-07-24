@@ -17,7 +17,7 @@
 //   lumpReferenceLoad3D — the shared 3D reference-load lumping (nodal+dist+self-weight)
 // ──────────────────────────────────────────────────────────────────────────────
 import { selfWeightPerLength } from './assembler.js?v=7';
-import { corotBeamForceTangent } from './corotbeam.js?v=7';
+import { corotBeamForceTangent, corotPrep } from './corotbeam.js?v=7';
 import { rigidEndOffsets } from './timoshenko.js?v=7';
 import { solveNonlinear } from './nl_lite.js?v=7';
 
@@ -207,6 +207,7 @@ export function buildCorotProblem(model) {
  * @returns {{lambda:number, u:Float64Array, N:number[], taut:boolean[], iters:number, resid:number}[]}
  */
 export function remapCorotSteps({ coords, elems, steps, nNode }) {
+  corotPrep(coords, elems);   // ensure L0/beta0 (idempotent) — the solve may have run in a worker
   return steps.map(s => {
     const u3 = new Float64Array(3 * nNode);
     for (let i = 0; i < nNode; i++) { u3[3 * i] = s.u[3 * i]; u3[3 * i + 1] = 0; u3[3 * i + 2] = s.u[3 * i + 1]; }
