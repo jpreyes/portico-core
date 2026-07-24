@@ -46,7 +46,8 @@ import { smoothAreasInModel } from './model/mesh_quality.js?v=7';
 import { listFormats, exportModel, importModel } from './io/index.js?v=7';
 import { extensions } from './ext/extensions.js?v=7';
 import { loadBranding, getBranding } from './branding.js?v=7';
-import { SpectrumSolver }    from './solver/spectrum_solver.js?v=7';
+import { SpectrumSolver, buildSpectrumElemData, spectrumCombine } from './solver/spectrum_solver.js?v=7';
+import { SpectrumResults }  from './solver/spectrum_results.js?v=7';
 import { modalTimeHistory }  from './solver/timehistory.js?v=7';
 import { directTimeHistory, assembleDirectSystem, directResultView, newmarkLinear, rayleigh } from './solver/direct_integration.js?v=7';
 import { StagedSolver }      from './solver/staged.js?v=7';
@@ -2973,7 +2974,7 @@ class App {
 
     return new Promise(resolve => setTimeout(async () => {
       try {
-        this._results = new SpectrumSolver().solve(this._modalResults, params);
+        this._results = await this._spectrumSolveInWorker(this._modalResults, params);
 
         // Store by direction so combos can reference it (legacy [ESP])
         this._spectrumResults.set('esp' + params.direction, { result: this._results, params });
@@ -3176,6 +3177,35 @@ class App {
       w.onerror = ev => { w.terminate(); reject(new Error(ev.message || 'Error en worker time-history')); };
       w.postMessage({ modes, ag, dt, zeta });
     });
+  }
+
+  // Response-spectrum combination off the main thread. The per-element kinematics
+  // (Ke/T) are precomputed here — they need the Model — then the heavy CQC/SRSS
+  // recovery over modes×elements runs in spectrum_worker.js. Rebuilds SpectrumResults
+  // on return so all downstream accessors (diagrams, etc.) keep working. Falls back to
+  // the main thread if a module Worker can't be constructed.
+  async _spectrumSolveInWorker(mr, params) {
+    const { spectrum, saFactor = 1, direction = 'X', zeta = 0.05, method = 'CQC' } = params;
+    const dirIdx = { X: 0, Y: 1 }[direction];
+    if (dirIdx === undefined) throw new Error('Dirección inválida: ' + direction);
+    const { model, nodeIndex, modeShapes, omega, period, nModes, nDOF, genMass } = mr;
+    const part = mr.getParticipation();
+    const gamma = []; for (let mi = 0; mi < nModes; mi++) gamma.push(part.rows[mi].gamma[dirIdx]);
+    const elemData = buildSpectrumElemData(model, nodeIndex);
+    const payload = { elemData, phi: modeShapes, omega, period, genMass, gamma, nDOF, nModes, spectrum, saFactor, zeta, method };
+
+    let w;
+    try { w = new Worker(new URL('./solver/spectrum_worker.js?v=7', import.meta.url), { type: 'module' }); }
+    catch (e) {
+      const { U, forces } = spectrumCombine(payload);   // main-thread fallback
+      return new SpectrumResults(model, nodeIndex, U, new Map(forces), { direction, method, nModes, zeta });
+    }
+    const data = await new Promise((resolve, reject) => {
+      w.onmessage = ev => { w.terminate(); ev.data.error ? reject(new Error(ev.data.error)) : resolve(ev.data); };
+      w.onerror = ev => { w.terminate(); reject(new Error(ev.message || 'Error en worker de espectro')); };
+      w.postMessage(payload);
+    });
+    return new SpectrumResults(model, nodeIndex, data.U, new Map(data.forces), { direction, method, nModes, zeta });
   }
 
   // Linear direct integration off the main thread: assemble here (needs the Model),

@@ -36,90 +36,84 @@ export class SpectrumSolver {
 
     const { model, nodeIndex, modeShapes, omega, period, nModes, nDOF, genMass } = mr;
     const part = mr.getParticipation();
+    const gamma = []; for (let mi = 0; mi < nModes; mi++) gamma.push(part.rows[mi].gamma[dirIdx]);
 
-    // ── Modal spectral displacements ──────────────────────────────────────────
-    const modalDisp = [];  // nModes × Float64Array(nDOF)
-
-    for (let mi = 0; mi < nModes; mi++) {
-      const T   = period[mi];
-      const w   = omega[mi];
-      const Sa  = _interpSa(spectrum, T) * saFactor;    // model accel. units
-      const Sd  = Sa / (w * w);                         // spectral displacement
-      const G   = part.rows[mi].gamma[dirIdx];          // Γ_d_i
-      const Mn  = genMass[mi];                          // φ^T M φ
-      const eff = Mn > 1e-30 ? G / Mn : 0;             // effective participation
-
-      const u = new Float64Array(nDOF);
-      const phi = modeShapes[mi];
-      for (let dof = 0; dof < nDOF; dof++) u[dof] = phi[dof] * eff * Sd;
-      modalDisp.push(u);
-    }
-
-    // ── CQC correlation matrix ────────────────────────────────────────────────
-    const RHO = method === 'CQC'
-      ? _buildCQC(omega, zeta)
-      : _buildSRSS(nModes);       // SRSS = identity (ρ_ij = δ_ij)
-
-    // ── Combine nodal displacements ───────────────────────────────────────────
-    const U_combined = new Float64Array(nDOF);
-    for (let dof = 0; dof < nDOF; dof++) {
-      let sum = 0;
-      for (let i = 0; i < nModes; i++) {
-        for (let j = 0; j < nModes; j++) {
-          sum += RHO[i][j] * modalDisp[i][dof] * modalDisp[j][dof];
-        }
-      }
-      U_combined[dof] = Math.sqrt(Math.max(0, sum));
-    }
-
-    // ── Recover and combine element forces ────────────────────────────────────
-    const modalEF  = modalDisp.map(u => _computeElemForces(model, nodeIndex, u, nDOF));
-    const combined = _combineElemForces(modalEF, RHO, nModes);
-
-    return new SpectrumResults(model, nodeIndex, U_combined, combined, {
-      direction, method, nModes, zeta
+    const elemData = buildSpectrumElemData(model, nodeIndex);
+    const { U, forces } = spectrumCombine({
+      elemData, phi: modeShapes, omega, period, genMass, gamma, nDOF, nModes,
+      spectrum, saFactor, zeta, method,
     });
+    return new SpectrumResults(model, nodeIndex, U, new Map(forces), { direction, method, nModes, zeta });
   }
 }
 
-// ── Element force recovery ────────────────────────────────────────────────────
-function _computeElemForces(model, nodeIndex, u, nDOF) {
-  const forces = new Map();
+// ── Per-element kinematics (MAIN thread; needs the Model) ─────────────────────
+// Precompute, ONCE per element, the data the spectral force recovery needs: the 12
+// global DOF indices, the local stiffness Ke (rigid end zone / foundation / springs
+// included — the same the modal solver assembled) and the transform T, as flat
+// Float64Array(144). Plain and transferable, so the heavy combination can run in a
+// worker. (It also avoids recomputing Ke/T once per mode, as the old path did.)
+export function buildSpectrumElemData(model, nodeIndex) {
+  const elemData = [];
   for (const elem of model.elements.values()) {
-    const n1  = model.nodes.get(elem.n1);
-    const n2  = model.nodes.get(elem.n2);
-    const mat = model.materials.get(elem.matId);
-    const sec = model.sections.get(elem.secId);
+    const n1 = model.nodes.get(elem.n1), n2 = model.nodes.get(elem.n2);
+    const mat = model.materials.get(elem.matId), sec = model.sections.get(elem.secId);
     if (!n1 || !n2 || !mat || !sec) continue;
-
     const { ex, ey, ez, L } = localAxes(n1, n2);
-    // Same stiffness the modal solver assembled: rigid end zone (#87), elastic
-    // foundation and end springs included — otherwise the recovered forces do not
-    // belong to the structure whose modes were computed.
-    const Ke = elemLocalK(elem, mat, sec, L);
-    const T  = transformMatrix(ex, ey, ez);
+    const KeM = elemLocalK(elem, mat, sec, L);
+    const TM = transformMatrix(ex, ey, ez);
+    const Ke = new Float64Array(144), T = new Float64Array(144);
+    for (let i = 0; i < 12; i++) for (let j = 0; j < 12; j++) { Ke[i * 12 + j] = KeM[i][j]; T[i * 12 + j] = TM[i][j]; }
+    const d1 = getNodeDOFs(nodeIndex, elem.n1), d2 = getNodeDOFs(nodeIndex, elem.n2);
+    elemData.push({ id: elem.id, ed: Int32Array.from([...d1, ...d2]), Ke, T, ex, ey, ez, L });
+  }
+  return elemData;
+}
 
-    const d1 = getNodeDOFs(nodeIndex, elem.n1);
-    const d2 = getNodeDOFs(nodeIndex, elem.n2);
-    const uG = [...d1, ...d2].map(i => u[i]);
+// ── Spectral combination CORE (pure; no Model / no DOM) ───────────────────────
+// Runs on plain data (elemData + modal arrays) so it is shared verbatim by the main
+// thread and spectrum_worker.js. Returns U (combined nodal displacements) and the
+// element forces as [id, forceObj] entries.
+export function spectrumCombine(o) {
+  const { elemData, phi, omega, period, genMass, gamma, nDOF, nModes,
+          spectrum, saFactor = 1, zeta = 0.05, method = 'CQC' } = o;
 
-    // u_local = T · u_global
-    const uL = Array(12).fill(0);
-    for (let i = 0; i < 12; i++)
-      for (let j = 0; j < 12; j++) uL[i] += T[i][j] * uG[j];
+  // Modal spectral displacements u_i = φ_i · (Γ_i/genMass_i) · Sd_i.
+  const modalDisp = [];
+  for (let mi = 0; mi < nModes; mi++) {
+    const w = omega[mi], Sa = _interpSa(spectrum, period[mi]) * saFactor, Sd = Sa / (w * w);
+    const Mn = genMass[mi], eff = Mn > 1e-30 ? gamma[mi] / Mn : 0;
+    const u = new Float64Array(nDOF), p = phi[mi];
+    for (let dof = 0; dof < nDOF; dof++) u[dof] = p[dof] * eff * Sd;
+    modalDisp.push(u);
+  }
 
-    // f_local = Ke · u_local
-    const f = Array(12).fill(0);
-    for (let i = 0; i < 12; i++)
-      for (let j = 0; j < 12; j++) f[i] += Ke[i][j] * uL[j];
+  const RHO = method === 'CQC' ? _buildCQC(omega, zeta) : _buildSRSS(nModes);
 
-    forces.set(elem.id, {
-      N:    -f[0],
-      Vy1:   f[1],  Vz1:  f[2],  T_:  f[3],
-      My1:   f[4],  Mz1:  f[5],
-      Vy2:  -f[7],  Vz2: -f[8],
-      My2:  -f[10], Mz2: -f[11],
-      ex, ey, ez, L
+  const U = new Float64Array(nDOF);
+  for (let dof = 0; dof < nDOF; dof++) {
+    let sum = 0;
+    for (let i = 0; i < nModes; i++) for (let j = 0; j < nModes; j++) sum += RHO[i][j] * modalDisp[i][dof] * modalDisp[j][dof];
+    U[dof] = Math.sqrt(Math.max(0, sum));
+  }
+
+  const modalEF = modalDisp.map(u => _elemForcesFromData(elemData, u));
+  const combined = _combineElemForces(modalEF, RHO, nModes);
+  return { U, forces: [...combined.entries()] };
+}
+
+// Element forces for one modal displacement, from precomputed elemData.
+function _elemForcesFromData(elemData, u) {
+  const forces = new Map();
+  const uG = new Float64Array(12), uL = new Float64Array(12), f = new Float64Array(12);
+  for (const e of elemData) {
+    const { ed, Ke, T } = e;
+    for (let i = 0; i < 12; i++) uG[i] = u[ed[i]];
+    for (let i = 0; i < 12; i++) { let s = 0; for (let j = 0; j < 12; j++) s += T[i * 12 + j] * uG[j]; uL[i] = s; }
+    for (let i = 0; i < 12; i++) { let s = 0; for (let j = 0; j < 12; j++) s += Ke[i * 12 + j] * uL[j]; f[i] = s; }
+    forces.set(e.id, {
+      N: -f[0], Vy1: f[1], Vz1: f[2], T_: f[3], My1: f[4], Mz1: f[5],
+      Vy2: -f[7], Vz2: -f[8], My2: -f[10], Mz2: -f[11], ex: e.ex, ey: e.ey, ez: e.ez, L: e.L,
     });
   }
   return forces;
