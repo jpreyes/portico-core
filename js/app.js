@@ -4071,8 +4071,12 @@ class App {
     this._showProgress('Time-history no lineal…', 'Integración directa Newmark-β + Newton (rótulas elastoplásticas)');
     await new Promise(r => setTimeout(r, 20));
     try {
-      // Newmark-β + drift/yield post-processing (js/solver/shear_building.js).
-      const result = runShearHistory({ stories: st, dir, zeta, alpha, ag, dt, agName, driftCode: this._lastNLTH?.driftCode || 'NCh433' });
+      // Newmark-β + drift/yield post-processing (js/solver/shear_building.js), off the
+      // main thread (nl_worker, kind 'shear'). Falls back to the main thread if needed.
+      // The Rayleigh anchor frequencies use window.numeric (absent in the worker), so
+      // they are computed here and passed in.
+      const ws = shearFreqs(m, k), w1 = ws[0], wN = ws[n - 1] || ws[0];
+      const result = await this._solveNLInWorker('shear', { stories: st, dir, zeta, alpha, ag, dt, agName, driftCode: this._lastNLTH?.driftCode || 'NCh433', w1, wN });
       this._nlthResult = result;
       const nY = result.yielded.filter(Boolean).length;
       this.toast(`Time-history NL OK · ${n} ${i18n.t('pisos')} · ${dir} · T₁=${result.T1.toFixed(3)}s · ${i18n.t('u_techo máx')} ${result.peak.toExponential(2)} m · ${nY} ${i18n.t('piso(s) en fluencia')}`, 'ok');
@@ -4677,7 +4681,7 @@ class App {
       try {
         worker = new Worker(new URL('./solver/nl_worker.js?v=7', import.meta.url), { type: 'module' });
       } catch (e) {
-        try { resolve(kind === 'corot' ? solveCorotBeam(opts) : kind === 'dc' ? solveNonlinearDC(opts) : solveNonlinear(opts)); return; }
+        try { resolve(kind === 'shear' ? runShearHistory(opts) : kind === 'corot' ? solveCorotBeam(opts) : kind === 'dc' ? solveNonlinearDC(opts) : solveNonlinear(opts)); return; }
         catch (err) { reject(err); }
         return;
       }

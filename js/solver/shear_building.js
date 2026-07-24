@@ -95,13 +95,15 @@ export function shearFreqs(m, k) {
  * @param {string}  [o.driftCode='NCh433']  code for the interstory-drift limit
  * @returns {object}  the full _nlthResult shape (stories echoed + computed fields).
  */
-export function runShearHistory({ stories, dir, zeta, alpha, ag, dt, agName, driftCode = 'NCh433' }) {
+export function runShearHistory({ stories, dir, zeta, alpha, ag, dt, agName, driftCode = 'NCh433', w1, wN }) {
   const st = stories;
   const m = st.map(s => s.m), k = st.map(s => s.k), Vy = st.map(s => s.Vy);
   const n = st.length;
 
-  const ws = shearFreqs(m, k);                 // frequencies of the shear building
-  const w1 = ws[0], wN = ws[n - 1] || ws[0];
+  // Frequencies anchor the Rayleigh damping. shearFreqs needs window.numeric, which is
+  // absent in a Web Worker — so the caller may precompute w1/wN on the main thread and
+  // pass them in; only compute here when they are not supplied.
+  if (!(w1 > 0) || !(wN > 0)) { const ws = shearFreqs(m, k); w1 = ws[0]; wN = ws[n - 1] || ws[0]; }
   const sb = shearBuilding({ m, k, Fy: Vy, alpha: m.map(() => alpha) });
   const { C } = rayleighDamping(sb.M, sb.resist.K0(), n, zeta, w1, wN);
   const res = newmarkNonlinear({ M: sb.M, resist: sb.resist, C, ag, dt, store: 'full', monitorDof: n - 1 });
