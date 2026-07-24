@@ -3179,6 +3179,26 @@ class App {
     });
   }
 
+  // P-Delta / linear buckling / plastic pushover off the main thread. Unlike the
+  // other solvers these RE-ASSEMBLE inside their loop (Kg depends on u; the plastic
+  // tangent changes each event), so the whole Model travels as a serialized .s3d and
+  // is reconstructed in geom_worker.js. Their assemblies are sparse now (Phase 2), so
+  // the solves scale. Falls back to the main thread if a module Worker can't be built.
+  _solveGeomInWorker(kind, opts) {
+    let w;
+    try { w = new Worker(new URL('./solver/geom_worker.js?v=7', import.meta.url), { type: 'module' }); }
+    catch (e) {
+      const fn = kind === 'pdelta' ? pDelta : kind === 'buckling' ? linearBuckling : solvePlastic;
+      return Promise.resolve(fn(this.model, opts));
+    }
+    const modelJSON = this.serializer.toJSON(this.model);
+    return new Promise((resolve, reject) => {
+      w.onmessage = ev => { w.terminate(); ev.data.error ? reject(new Error(ev.data.error)) : resolve(ev.data.res); };
+      w.onerror = ev => { w.terminate(); reject(new Error(ev.message || 'Error en worker geométrico')); };
+      w.postMessage({ kind, modelJSON, opts });
+    });
+  }
+
   // Response-spectrum combination off the main thread. The per-element kinematics
   // (Ke/T) are precomputed here — they need the Model — then the heavy CQC/SRSS
   // recovery over modes×elements runs in spectrum_worker.js. Rebuilds SpectrumResults
@@ -4910,7 +4930,7 @@ class App {
     try {
       this._applyAutoDiscIfEnabled();   // same mesh as the static analysis (#36)
       const dense = !!this._config?.analisis?.matrizDensa;
-      const res = linearBuckling(this.model, { nModes, dense });   // js/solver/geometric_analysis.js
+      const res = await this._solveGeomInWorker('buckling', { nModes, dense });   // js/solver/geometric_analysis.js
       if (!res.ok) {
         const msg = {
           'no-free-dof':  'Sin GDL libres',
@@ -5049,10 +5069,10 @@ class App {
     this._applyAutoDiscIfEnabled();   // same mesh as the static (#36)
     const dense = !!this._config?.analisis?.matrizDensa;
 
-    this._showProgress('P-Delta…', 'Resolviendo (K + Kg(u))·u = F por iteración (motor en banda)');
+    this._showProgress('P-Delta…', 'Resolviendo (K + Kg(u))·u = F por iteración (en segundo plano)');
     await new Promise(r => setTimeout(r, 20));
     try {
-      const res = pDelta(this.model, { dense });   // js/solver/geometric_analysis.js
+      const res = await this._solveGeomInWorker('pdelta', { dense });   // js/solver/geometric_analysis.js
       if (!res.ok) {
         const msg = {
           'no-free-dof':      ['Sin GDL libres', 'warn'],
@@ -5215,9 +5235,11 @@ class App {
 
     // Blocking event-by-event solve (js/solver/plastic.js) — yield once so the
     // progress overlay paints before it takes over the main thread.
-    this._showProgress('Rótulas plásticas…', 'Análisis incremental evento a evento (motor en banda)');
+    this._showProgress('Rótulas plásticas…', 'Análisis incremental evento a evento (en segundo plano)');
     await new Promise(r => setTimeout(r, 20));
-    const res = solvePlastic(model, { capByElem, contribs, residual, thetaU, deltaU });
+    let res;
+    try { res = await this._solveGeomInWorker('plastic', { capByElem, contribs, residual, thetaU, deltaU }); }
+    catch (e) { this._hideProgress(); this.toast(`${i18n.t('Error en rótulas plásticas:')} ${i18n.t(e.message)}`, 'error'); console.error(e); return; }
     this._hideProgress();
 
     if (!res.ok) {
