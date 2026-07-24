@@ -257,6 +257,29 @@ export function csrMv(csr, x, out) {
   return y;
 }
 
+// Linear combination α·A + β·B of two CSR matrices (union of sparsity patterns).
+// Each row's columns must be ascending (as extractFreeCSR produces). Used to form
+// tangent/effective matrices like K + Kg or K + a1·M + b1·C without densifying.
+export function csrLinComb(A, alpha, B, beta) {
+  const n = A.n;
+  if (B.n !== n) throw new Error('csrLinComb: size mismatch');
+  const rowPtr = new Int32Array(n + 1);
+  const colTmp = [], valTmp = [];
+  for (let i = 0; i < n; i++) {
+    let pa = A.rowPtr[i], pb = B.rowPtr[i];
+    const ea = A.rowPtr[i + 1], eb = B.rowPtr[i + 1];
+    while (pa < ea || pb < eb) {
+      const ca = pa < ea ? A.colIdx[pa] : Infinity;
+      const cb = pb < eb ? B.colIdx[pb] : Infinity;
+      if (ca === cb) { colTmp.push(ca); valTmp.push(alpha * A.val[pa] + beta * B.val[pb]); pa++; pb++; }
+      else if (ca < cb) { colTmp.push(ca); valTmp.push(alpha * A.val[pa]); pa++; }
+      else { colTmp.push(cb); valTmp.push(beta * B.val[pb]); pb++; }
+    }
+    rowPtr[i + 1] = colTmp.length;
+  }
+  return { n, rowPtr, colIdx: Int32Array.from(colTmp), val: Float64Array.from(valTmp) };
+}
+
 // Per-row sparsity extent (variable band): lo[i]/hi[i] = first and last non-zero
 // column of row i. Enables matrix·vector products in O(n·b).
 export function rowBands(K, n) {

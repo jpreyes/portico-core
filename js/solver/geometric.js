@@ -61,15 +61,14 @@ function dofs(nodeIndex, id) {
   return [b, b + 1, b + 2, b + 3, b + 4, b + 5];
 }
 
-// Assembles the global geometric stiffness (dense, nDOF×nDOF) from the displacement
-// field uGlobal: for each element it computes its axial N from the local elongation
-// (N = EA·Δ/L, tension +) and builds Kg = Tᵀ·Kg_local·T.
-// Returns { Kg, Nmax, Nby } (Nmax = max |N|, for diagnostics; Nby = Map
-// elemId → axial N under uGlobal, tension +, used e.g. for the per-element buckling
-// load = λcr·N).
-export function assembleKg(model, nodeIndex, uGlobal) {
-  const nDOF = nodeIndex.size * 6;
-  const Kg = new Float64Array(nDOF * nDOF);
+// Assembles the global geometric stiffness into a WRITER (writer.add(i,j,v)) from the
+// displacement field uGlobal: for each element it computes its axial N from the local
+// elongation (N = EA·Δ/Lf, tension +) and adds Kg = Tᵀ·Kg_local·T. The writer may be a
+// dense array wrapper (assembleKg below) or a SparseSym — so the same physics feeds
+// both the dense path and the sparse/CSR one (P-Δ, buckling at scale).
+// Returns { Nmax, Nby }: Nmax = max |N| (diagnostics); Nby = Map elemId → axial N
+// (tension +), used e.g. for the per-element buckling load λcr·N.
+export function assembleKgInto(writer, model, nodeIndex, uGlobal) {
   const Nby = new Map();
   let Nmax = 0;
 
@@ -98,10 +97,19 @@ export function assembleKg(model, nodeIndex, uGlobal) {
     const KgG = globalStiffness(elemLocalKg(elem, N, L), T);
     for (let i = 0; i < 12; i++)
       for (let j = 0; j < 12; j++)
-        Kg[ed[i] * nDOF + ed[j]] += KgG[i][j];
+        writer.add(ed[i], ed[j], KgG[i][j]);
   }
   // Membrane/shell geometric stiffness (shell buckling, 2-016/2-017): the in-plane
   // stress state of the areas stiffens/softens the transverse bending.
-  if (model.areas?.size) assembleAreasKgInto({ add: (i, j, v) => { Kg[i * nDOF + j] += v; } }, model, nodeIndex, uGlobal);
+  if (model.areas?.size) assembleAreasKgInto(writer, model, nodeIndex, uGlobal);
+  return { Nmax, Nby };
+}
+
+// Dense geometric stiffness (nDOF×nDOF), a thin wrapper over assembleKgInto for the
+// small-model / matrix-display path. Returns { Kg, Nmax, Nby }.
+export function assembleKg(model, nodeIndex, uGlobal) {
+  const nDOF = nodeIndex.size * 6;
+  const Kg = new Float64Array(nDOF * nDOF);
+  const { Nmax, Nby } = assembleKgInto({ add: (i, j, v) => { Kg[i * nDOF + j] += v; } }, model, nodeIndex, uGlobal);
   return { Kg, Nmax, Nby };
 }

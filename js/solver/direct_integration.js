@@ -22,34 +22,12 @@
 // system with the SAME damping must give the SAME response by either method
 // (test_direct_integration.mjs).
 // ──────────────────────────────────────────────────────────────────────────────
-import { csrMv, makeFactorCSR, permRCMcsr } from './linsolve.js?v=7';
+import { csrMv, makeFactorCSR, permRCMcsr, csrLinComb } from './linsolve.js?v=7';
 import { pcg, ic0 } from './pcg.js?v=7';
 import { buildNodeIndex } from './assembler.js?v=7';
 import { assembleSparseGlobal, extractFreeCSR } from './sparse.js?v=7';
 
-// ── CSR linear combination  α·A + β·B  (union of sparsity patterns) ───────────
-// A, B: { n, rowPtr:Int32Array(n+1), colIdx:Int32Array(nnz), val:Float64Array(nnz) }
-// with each row's columns sorted ascending (as extractFreeCSR produces). Returns a
-// new CSR in the same form.
-export function csrLinComb(A, alpha, B, beta) {
-  const n = A.n;
-  if (B.n !== n) throw new Error('csrLinComb: size mismatch');
-  const rowPtr = new Int32Array(n + 1);
-  const colTmp = [], valTmp = [];
-  for (let i = 0; i < n; i++) {
-    let pa = A.rowPtr[i], pb = B.rowPtr[i];
-    const ea = A.rowPtr[i + 1], eb = B.rowPtr[i + 1];
-    while (pa < ea || pb < eb) {
-      const ca = pa < ea ? A.colIdx[pa] : Infinity;
-      const cb = pb < eb ? B.colIdx[pb] : Infinity;
-      if (ca === cb) { colTmp.push(ca); valTmp.push(alpha * A.val[pa] + beta * B.val[pb]); pa++; pb++; }
-      else if (ca < cb) { colTmp.push(ca); valTmp.push(alpha * A.val[pa]); pa++; }
-      else { colTmp.push(cb); valTmp.push(beta * B.val[pb]); pb++; }
-    }
-    rowPtr[i + 1] = colTmp.length;
-  }
-  return { n, rowPtr, colIdx: Int32Array.from(colTmp), val: Float64Array.from(valTmp) };
-}
+export { csrLinComb };   // re-exported: csrLinComb now lives in linsolve.js
 
 // ── Rayleigh damping coefficients: ζ at two circular frequencies w1, w2 ────────
 // C = a0·M + a1·K gives EXACTLY ζ at w1 and w2, and ζ_i = a0/(2·w_i) + a1·w_i/2 elsewhere.

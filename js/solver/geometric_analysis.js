@@ -12,9 +12,10 @@
 // its own message. The dialogs, progress, toasts and overlay stay in app.js.
 // ──────────────────────────────────────────────────────────────────────────────
 import { buildNodeIndex, assembleK, assembleF, getNodeDOFs } from './assembler.js?v=7';
-import { assembleKg } from './geometric.js?v=7';
+import { assembleKg, assembleKgInto } from './geometric.js?v=7';
 import { solveBuckling } from './buckling.js?v=7';
-import { makeFactor } from './linsolve.js?v=7';
+import { makeFactor, makeFactorCSR, permRCMcsr, csrLinComb } from './linsolve.js?v=7';
+import { SparseSym, assembleSparseGlobal, extractFreeCSR } from './sparse.js?v=7';
 
 /**
  * Reference geometric problem shared by buckling and P-Delta: the full elastic K, the
@@ -22,9 +23,11 @@ import { makeFactor } from './linsolve.js?v=7';
  * and the free-DOF list (2D mode locks uy/rx/rz).
  * @returns {{nodeIndex:Map, K:Float64Array, nDOF:number, freeDOF:number[], F:Float64Array, nCasos:number}}
  */
-export function buildGeomProblem(model, contribs = null) {
+// Free-DOF list + reference load (no K assembly). Shared by the dense buildGeomProblem
+// and the sparse P-Delta path so they combine the load cases identically.
+export function buildGeomLoads(model, contribs = null) {
   const nodeIndex = buildNodeIndex(model);
-  const { K, nDOF } = assembleK(model, nodeIndex);
+  const nDOF = nodeIndex.size * 6;
   const is2D = model.mode === '2D';
   const freeDOF = [];
   for (const node of model.nodes.values()) {
@@ -51,7 +54,13 @@ export function buildGeomProblem(model, contribs = null) {
       nCasos++;
     }
   }
-  return { nodeIndex, K, nDOF, freeDOF, F, nCasos };
+  return { nodeIndex, nDOF, freeDOF, F, nCasos };
+}
+
+export function buildGeomProblem(model, contribs = null) {
+  const base = buildGeomLoads(model, contribs);
+  const { K } = assembleK(model, base.nodeIndex);
+  return { nodeIndex: base.nodeIndex, K, nDOF: base.nDOF, freeDOF: base.freeDOF, F: base.F, nCasos: base.nCasos };
 }
 
 // Largest translational displacement magnitude over the model's nodes.
@@ -135,17 +144,50 @@ export function linearBuckling(model, { nModes = 6, dense = false, contribs = nu
  *          | 'tangent-singular' | 'diverged'.
  */
 export function pDelta(model, { dense = false, maxIter = 25, tol = 1e-6 } = {}) {
-  const { nodeIndex, K, nDOF, freeDOF, F, nCasos } = buildGeomProblem(model);
+  const { nodeIndex, nDOF, freeDOF, F, nCasos } = buildGeomLoads(model);
   if (!freeDOF.length) return { ok: false, reason: 'no-free-dof' };
   if (!nCasos) return { ok: false, reason: 'no-loads' };
-
   const nF = freeDOF.length;
-  // Kff and Ff in flat format (Float64Array): input to the banded factorizer.
-  const Kff = new Float64Array(nF * nF);
-  const Ff = new Float64Array(nF);
-  for (let i = 0; i < nF; i++) { Ff[i] = F[freeDOF[i]]; const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) Kff[i * nF + j] = K[ri + freeDOF[j]]; }
+  const Ff = new Float64Array(nF); for (let i = 0; i < nF; i++) Ff[i] = F[freeDOF[i]];
 
-  const fac0 = makeFactor(Kff, nF, dense);
+  // ── Dense path (small models / exact legacy behaviour) ──────────────────────
+  if (dense) {
+    const { K } = assembleK(model, nodeIndex);
+    const Kff = new Float64Array(nF * nF);
+    for (let i = 0; i < nF; i++) { const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) Kff[i * nF + j] = K[ri + freeDOF[j]]; }
+    const fac0 = makeFactor(Kff, nF, true);
+    if (!fac0.ok) return { ok: false, reason: 'linear-singular' };
+    const uf = fac0.solve(Ff);
+    if (!uf || uf.some(v => !isFinite(v))) return { ok: false, reason: 'linear-nan' };
+    let u = new Float64Array(nDOF); for (let i = 0; i < nF; i++) u[freeDOF[i]] = uf[i];
+    const dLin = maxTransDisp(u, model, nodeIndex);
+    let conv = false, it = 0;
+    for (it = 0; it < maxIter; it++) {
+      const { Kg } = assembleKg(model, nodeIndex, u);
+      const KT = new Float64Array(nF * nF);
+      for (let i = 0; i < nF; i++) { const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) KT[i * nF + j] = Kff[i * nF + j] + Kg[ri + freeDOF[j]]; }
+      const fac = makeFactor(KT, nF, true);
+      if (!fac.ok) return { ok: false, reason: 'tangent-singular' };
+      const uf2 = fac.solve(Ff);
+      if (!uf2 || uf2.some(v => !isFinite(v))) return { ok: false, reason: 'diverged' };
+      const uNew = new Float64Array(nDOF); for (let i = 0; i < nF; i++) uNew[freeDOF[i]] = uf2[i];
+      let dn = 0, de = 0; for (let i = 0; i < nDOF; i++) { dn += (uNew[i] - u[i]) ** 2; de += uNew[i] ** 2; }
+      u = uNew;
+      if (de > 0 && Math.sqrt(dn / de) < tol) { conv = true; it++; break; }
+    }
+    const dPD = maxTransDisp(u, model, nodeIndex);
+    return { ok: true, u, dLin, dPD, amp: dLin > 1e-12 ? dPD / dLin : 1, conv, it, nodeIndex };
+  }
+
+  // ── Sparse path (default; no dense nDOF² matrix → scales) ────────────────────
+  // Elastic K (CSR over the free DOFs); the tangent Kt = K + Kg(u) is re-formed and
+  // re-factored (banded Cholesky) each iteration. Same fixed-point iteration as the
+  // dense path, just without ever materializing an nDOF² matrix.
+  const freeMap = new Int32Array(nDOF).fill(-1); for (let i = 0; i < nF; i++) freeMap[freeDOF[i]] = i;
+  const { S: Ks } = assembleSparseGlobal(model, nodeIndex);
+  const Kcsr = extractFreeCSR(Ks, freeMap, nF).csr;
+
+  const fac0 = makeFactorCSR(Kcsr, permRCMcsr(Kcsr));
   if (!fac0.ok) return { ok: false, reason: 'linear-singular' };
   const uf = fac0.solve(Ff);
   if (!uf || uf.some(v => !isFinite(v))) return { ok: false, reason: 'linear-nan' };
@@ -154,10 +196,11 @@ export function pDelta(model, { dense = false, maxIter = 25, tol = 1e-6 } = {}) 
 
   let conv = false, it = 0;
   for (it = 0; it < maxIter; it++) {
-    const { Kg } = assembleKg(model, nodeIndex, u);
-    const KT = new Float64Array(nF * nF);
-    for (let i = 0; i < nF; i++) { const ri = freeDOF[i] * nDOF; for (let j = 0; j < nF; j++) KT[i * nF + j] = Kff[i * nF + j] + Kg[ri + freeDOF[j]]; }
-    const fac = makeFactor(KT, nF, dense);
+    const Kgs = new SparseSym(nDOF);
+    assembleKgInto(Kgs.writer(), model, nodeIndex, u);
+    const Kgcsr = extractFreeCSR(Kgs, freeMap, nF).csr;
+    const Ktcsr = csrLinComb(Kcsr, 1, Kgcsr, 1);
+    const fac = makeFactorCSR(Ktcsr, permRCMcsr(Ktcsr));
     if (!fac.ok) return { ok: false, reason: 'tangent-singular' };
     const uf2 = fac.solve(Ff);
     if (!uf2 || uf2.some(v => !isFinite(v))) return { ok: false, reason: 'diverged' };
@@ -167,6 +210,5 @@ export function pDelta(model, { dense = false, maxIter = 25, tol = 1e-6 } = {}) 
     if (de > 0 && Math.sqrt(dn / de) < tol) { conv = true; it++; break; }
   }
   const dPD = maxTransDisp(u, model, nodeIndex);
-  const amp = dLin > 1e-12 ? dPD / dLin : 1;
-  return { ok: true, u, dLin, dPD, amp, conv, it, nodeIndex };
+  return { ok: true, u, dLin, dPD, amp: dLin > 1e-12 ? dPD / dLin : 1, conv, it, nodeIndex };
 }

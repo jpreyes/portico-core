@@ -76,6 +76,13 @@ console.log('\n── (2) pDelta → δ_PD/δ_lin ≈ 1/(1 − P/Pcr) ──');
   const ampExpected = 1 / (1 - Pax / PcrModel);   // = 2.0
   check(rel(res.amp, ampExpected) < 0.05, 'amplification ≈ 1/(1−P/Pcr) = 2.0',
     `(${res.amp.toFixed(3)} vs ${ampExpected.toFixed(3)})`);
+
+  // The default SPARSE path (no dense nDOF² matrix) must equal the dense one to
+  // machine precision — same fixed-point iteration, same banded factorization.
+  const den = pDelta(m, { dense: true });
+  let maxDiff = 0; for (let i = 0; i < res.u.length; i++) maxDiff = Math.max(maxDiff, Math.abs(res.u[i] - den.u[i]));
+  check(den.ok && maxDiff < 1e-9, 'sparse P-Delta ≡ dense to machine precision',
+    `(maxDiff=${maxDiff.toExponential(2)}, sparse ${res.it} it / dense ${den.it} it)`);
 }
 
 // ── (3) Structured refusals (no toast layer) ──────────────────────────────────
