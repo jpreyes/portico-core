@@ -48,6 +48,7 @@ import { extensions } from './ext/extensions.js?v=7';
 import { loadBranding, getBranding } from './branding.js?v=7';
 import { SpectrumSolver }    from './solver/spectrum_solver.js?v=7';
 import { modalTimeHistory }  from './solver/timehistory.js?v=7';
+import { directTimeHistory, rayleigh } from './solver/direct_integration.js?v=7';
 import { StagedSolver }      from './solver/staged.js?v=7';
 import { solveNonlinear, solveNonlinearDC } from './solver/nl_lite.js?v=7';
 import { formFind }          from './solver/formfind.js?v=7';
@@ -3035,14 +3036,14 @@ class App {
 
     const thOpts = opts.silent ? this._thDefaults() : await this._timeHistoryDialog();
     if (!thOpts) return;
-    const { dir, zeta, nModes, ag, dt, agName } = thOpts;
+    const { dir, zeta, nModes, ag, dt, agName, method = 'modal' } = thOpts;
     if (!ag || ag.length < 2) { this.toast('Acelerograma vacío o no reconocido.', 'warn'); return; }
-    this._lastTH = { dir, zeta, nModes };
+    this._lastTH = { dir, zeta, nModes, method };
 
     if (this.viewport._inResultsMode) this.viewport.clearResults();
     const btn = document.getElementById('btn-run'); if (btn) btn.classList.add('running');
     document.getElementById('sb-mode').textContent = i18n.t('Time-history…');
-    this._showProgress('Time-history…', 'Modal + integración de Duhamel por modo (en segundo plano)');
+    this._showProgress('Time-history…', method === 'direct' ? 'Integración directa Newmark-β sobre el sistema completo' : 'Modal + integración de Duhamel por modo (en segundo plano)');
     await new Promise(r => setTimeout(r, 20));
     try {
       this._applyAutoDiscIfEnabled();
@@ -3090,6 +3091,35 @@ class App {
         return { omega, gamma: genM > 1e-30 ? L / genM : 0, phi };
       });
 
+      if (method === 'direct') {
+        // ── DIRECT integration (Newmark-β) ── The modal solve above is reused ONLY
+        // to anchor Rayleigh damping (ζ exact at the 1st and last computed mode);
+        // the response itself is integrated on the full assembled system, no modal
+        // truncation. Sparse assembly + factor-once/PCG (see direct_integration.js).
+        const w1 = modes[0].omega, wN = modes[modes.length - 1]?.omega || 0;
+        const { a0, a1 } = rayleigh(zeta, w1, wN > w1 * 1.01 ? wN : w1 * 8);
+        const nSteps = ag.length;
+        const bytes = nF * nSteps * 8;
+        if (bytes > 500e6) throw new Error(`La reproducción de integración directa necesita ~${(bytes / 1e6).toFixed(0)} MB (${nF} GDL × ${nSteps} pasos). Use time-history modal, o reduzca la duración / suba Δt del registro.`);
+        const dres = directTimeHistory(model, { ag, dt, direction: dir, a0, a1, keepAll: true });
+
+        // Monitor: translational DOF in the excitation direction with the largest peak.
+        let monitorDOF = null, monitorNodeId = null, peakU = -1;
+        for (const node of model.nodes.values()) {
+          const g = 6 * dres.nodeIndex.get(node.id) + dirComp, fi = dres.freeMap[g];
+          if (fi >= 0 && dres.peak[fi] > peakU) { peakU = dres.peak[fi]; monitorDOF = g; monitorNodeId = node.id; }
+        }
+        const stats = accStats(ag, dt);
+        this._thResult = { method: 'direct', directRes: dres, dt, nodeIndex: dres.nodeIndex, nF, dir, zeta, ag, agName, nSteps, monitorDOF, monitorNodeId, stats, peakU, w1, wN, a0, a1 };
+        this._thRuns ??= new Map();
+        let label = `${agName} · ${dir} · directa`, kk = 1; while (this._thRuns.has(label) && this._thRuns.get(label) !== this._thResult) { kk++; label = `${agName} · ${dir} · directa (${kk})`; }
+        this._thResult._label = label; this._thRuns.set(label, this._thResult);
+        const T1 = (2 * Math.PI / w1).toFixed(3);
+        this.toast(`Integración directa OK · Newmark-β · ${dir} · PGA ${stats.pga.toFixed(2)} m/s² · u_máx ${peakU.toExponential(2)} m (${i18n.t('nodo')} ${monitorNodeId}) · T₁=${T1}s · ${dres.solver}`, 'ok');
+        this._thOpenOverlay();
+        this._updateResultsIndicator();
+      } else {
+
       // Duhamel integration per mode in a worker.
       const { q, peakModal } = await this._thSolveInWorker(modes.map(m => ({ omega: m.omega, gamma: m.gamma })), ag, dt, zeta);
 
@@ -3116,6 +3146,7 @@ class App {
       this.toast(`Time-history OK · ${modes.length} ${i18n.t('modos')} · ${dir} · PGA ${stats.pga.toFixed(2)} m/s² · u_máx ${peakU.toExponential(2)} m (${i18n.t('nodo')} ${monitorNodeId}) · T₁=${T1}s`, 'ok');
       this._thOpenOverlay();
       this._updateResultsIndicator();
+      }
     } catch (err) {
       this.toast(`${i18n.t('Time-history:')} ${i18n.t(err.message)}`, 'error'); console.error(err);
     } finally {
@@ -3147,9 +3178,15 @@ class App {
     });
   }
 
-  // Time history of a global DOF (modal superposition).
+  // Time history of a global DOF. Modal → Σφᵢqᵢ ; direct → the stored u(t) history.
   _thNodalDOF(dof) {
-    const { q, modes, nSteps } = this._thResult;
+    const R = this._thResult;
+    if (R.method === 'direct') {
+      const dres = R.directRes, fi = dres.freeMap[dof], h = new Float64Array(R.nSteps);
+      if (fi >= 0) for (let k = 0; k < R.nSteps; k++) h[k] = dres.uAt(k)[fi];   // fixed DOF → 0
+      return h;
+    }
+    const { q, modes, nSteps } = R;
     const h = new Float64Array(nSteps);
     for (let i = 0; i < modes.length; i++) { const c = modes[i].phi[dof], qi = q[i]; if (!c) continue; for (let k = 0; k < nSteps; k++) h[k] += c * qi[k]; }
     return h;
@@ -3157,8 +3194,13 @@ class App {
 
   // Full displacement vector at step `step`.
   _thUAt(step) {
-    const { q, modes, nodeIndex } = this._thResult;
-    const nDOF = nodeIndex.size * 6, u = new Float64Array(nDOF);
+    const R = this._thResult, nDOF = R.nodeIndex.size * 6, u = new Float64Array(nDOF);
+    if (R.method === 'direct') {
+      const dres = R.directRes, uf = dres.uAt(step), fm = dres.freeMap;
+      for (let g = 0; g < nDOF; g++) { const fi = fm[g]; if (fi >= 0) u[g] = uf[fi]; }
+      return u;
+    }
+    const { q, modes } = R;
     for (let i = 0; i < modes.length; i++) { const qi = q[i][step]; if (!qi) continue; const phi = modes[i].phi; for (let d = 0; d < nDOF; d++) u[d] += phi[d] * qi; }
     return u;
   }
@@ -3224,10 +3266,17 @@ class App {
       document.getElementById('modal-cancel').style.display = '';
       const d = this._lastTH || {};
       document.getElementById('modal-body').innerHTML = `
+        <div class="prop-row cols1">
+          <div class="prop-field"><label>Método de integración</label>
+            <select id="th-method">
+              <option value="modal" ${d.method!=='direct'?'selected':''}>Superposición modal (Duhamel) — rápido, lineal</option>
+              <option value="direct" ${d.method==='direct'?'selected':''}>Integración directa (Newmark-β) — sin truncar modos</option>
+            </select></div>
+        </div>
         <div class="prop-row">
           <div class="prop-field"><label>Dirección de excitación</label>
             <select id="th-dir"><option value="X" ${d.dir==='X'?'selected':''}>X</option><option value="Y" ${d.dir==='Y'?'selected':''}>Y</option><option value="Z" ${d.dir==='Z'?'selected':''}>Z (vertical)</option></select></div>
-          <div class="prop-field"><label>N° de modos</label><input type="number" id="th-nmodes" value="${d.nModes||this._defaultNModes()}" min="1" max="40" step="1" style="width:80px"></div>
+          <div class="prop-field"><label id="th-nmodes-lbl">N° de modos</label><input type="number" id="th-nmodes" value="${d.nModes||this._defaultNModes()}" min="1" max="40" step="1" style="width:80px"></div>
           <div class="prop-field"><label>Amortiguamiento ζ (%)</label><input type="number" id="th-zeta" value="${((d.zeta??0.05)*100)}" min="0" max="20" step="0.5" style="width:80px"></div>
         </div>
         <div class="prop-row cols1" style="margin-top:8px">
@@ -3256,12 +3305,17 @@ class App {
       const srcSel = document.getElementById('th-source');
       const pasteBox = document.getElementById('th-paste-box');
       srcSel.addEventListener('change', () => { pasteBox.style.display = srcSel.value === 'paste' ? '' : 'none'; });
+      // With direct integration the "N° de modos" only anchors the Rayleigh damping.
+      const methodSel = document.getElementById('th-method'), nmLbl = document.getElementById('th-nmodes-lbl');
+      const syncMethod = () => { nmLbl.textContent = methodSel.value === 'direct' ? 'N° modos (para ζ Rayleigh)' : 'N° de modos'; };
+      methodSel.addEventListener('change', syncMethod); syncMethod();
       document.getElementById('th-file').addEventListener('change', async (e) => {
         const f = e.target.files?.[0]; if (!f) return;
         document.getElementById('th-text').value = await f.text();
       });
       overlay._resolve = () => {
         const dir = document.getElementById('th-dir').value;
+        const method = document.getElementById('th-method').value;
         const nModes = Math.max(1, Math.min(40, parseInt(document.getElementById('th-nmodes').value) || 10));
         const zeta = Math.max(0, Math.min(0.2, (parseFloat(document.getElementById('th-zeta').value) || 5) / 100));
         const pga = parseFloat(document.getElementById('th-pga').value) || 0;
@@ -3277,7 +3331,7 @@ class App {
         }
         if (pga > 0) ag = scaleToPGA(ag, pga);
         overlay.classList.add('hidden');
-        resolve({ dir, zeta, nModes, ag, dt, agName });
+        resolve({ dir, zeta, nModes, ag, dt, agName, method });
       };
       overlay._reject = () => resolve(null);
     });
@@ -3314,9 +3368,11 @@ class App {
     const T = transformMatrix(ex, ey, ez);
     const ed = [...getNodeDOFs(R.nodeIndex, el.n1), ...getNodeDOFs(R.nodeIndex, el.n2)];
     const li = { 'N': 6, 'V2': 7, 'V3': 8, 'My-i': 4, 'Mz-i': 5, 'My-j': 10, 'Mz-j': 11 }[comp] ?? 6;
+    // Per-DOF displacement histories (modal Σφᵢqᵢ or direct u(t)) — one path, both methods.
+    const dofH = ed.map(d => this._thNodalDOF(d));
     const ue = new Float64Array(12), ul = new Float64Array(12);
     for (let k = 0; k < R.nSteps; k++) {
-      for (let a = 0; a < 12; a++) { let s = 0; const d = ed[a]; for (let i = 0; i < R.modes.length; i++) s += R.modes[i].phi[d] * R.q[i][k]; ue[a] = s; }
+      for (let a = 0; a < 12; a++) ue[a] = dofH[a][k];
       for (let a = 0; a < 12; a++) { let s = 0; const Ta = T[a]; for (let b = 0; b < 12; b++) s += Ta[b] * ue[b]; ul[a] = s; }
       let f = 0; const Ki = Ke[li]; for (let b = 0; b < 12; b++) f += Ki[b] * ul[b];
       out[k] = f;
@@ -3344,8 +3400,9 @@ class App {
       switch (comp) { case 'sx': return sx; case 'sy': return sy; case 'txy': return txy;
         case 's1': return c + r; case 's2': return c - r; default: return vonMises(sm); }
     };
+    const dofH = dofs.map(d => this._thNodalDOF(d));   // modal or direct — same path
     for (let k = 0; k < R.nSteps; k++) {
-      for (const d of dofs) { let s = 0; for (let i = 0; i < R.modes.length; i++) s += R.modes[i].phi[d] * R.q[i][k]; u[d] = s; }
+      for (let idx = 0; idx < dofs.length; idx++) u[dofs[idx]] = dofH[idx][k];
       const sm = areaStress(area, model, R.nodeIndex, u, 0);
       if (!sm) { out[k] = 0; continue; }
       const sb = areaBendingStress(area, model, R.nodeIndex, u);   // null if pure membrane
@@ -3557,7 +3614,7 @@ class App {
     const info = this._thMonitorInfo();
     if (ro) ro.innerHTML = `t = <b>${t.toFixed(3)} s</b> / ${((R.nSteps - 1) * R.dt).toFixed(2)} s · a_g = ${ag.toFixed(3)} m/s²<br>`
       + `${info.txt} = ${R._hist[step].toExponential(3)} ${info.unit} · máx = <b>${(R._peak ?? 0).toExponential(3)} ${info.unit}</b><br>`
-      + `${R.modes.length} modos · ζ=${(R.zeta * 100).toFixed(1)}% · dir ${R.dir} · PGA=${R.stats.pga.toFixed(2)} m/s² · ${R.agName}`;
+      + `${R.method === 'direct' ? 'Newmark directo' : R.modes.length + ' modos'} · ζ=${(R.zeta * 100).toFixed(1)}% · dir ${R.dir} · PGA=${R.stats.pga.toFixed(2)} m/s² · ${R.agName}`;
   }
 
   _thExportCSV() {
@@ -3566,7 +3623,7 @@ class App {
     const info = this._thMonitorInfo();
     const obj = R.monType === 'elem' ? 'elem' : R.monType === 'area' ? 'area' : 'nodo';
     const col = `${R.monComp}_${obj}${R.monId}[${info.unit}]`;
-    let csv = `# Time-history modal · dir ${R.dir} · ${R.modes.length} modos · zeta ${(R.zeta*100).toFixed(1)}% · ${R.agName}\n`;
+    let csv = `# Time-history ${R.method === 'direct' ? '(Newmark directo)' : `modal · ${R.modes.length} modos`} · dir ${R.dir} · zeta ${(R.zeta*100).toFixed(1)}% · ${R.agName}\n`;
     csv += `t[s],a_g[m/s2],${col}\n`;
     for (let k = 0; k < R.nSteps; k++) csv += `${(k*R.dt).toFixed(5)},${R.ag[k].toFixed(6)},${h[k].toExponential(6)}\n`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
