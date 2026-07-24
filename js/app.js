@@ -48,7 +48,7 @@ import { extensions } from './ext/extensions.js?v=7';
 import { loadBranding, getBranding } from './branding.js?v=7';
 import { SpectrumSolver }    from './solver/spectrum_solver.js?v=7';
 import { modalTimeHistory }  from './solver/timehistory.js?v=7';
-import { directTimeHistory, rayleigh } from './solver/direct_integration.js?v=7';
+import { directTimeHistory, assembleDirectSystem, directResultView, newmarkLinear, rayleigh } from './solver/direct_integration.js?v=7';
 import { StagedSolver }      from './solver/staged.js?v=7';
 import { solveNonlinear, solveNonlinearDC } from './solver/nl_lite.js?v=7';
 import { formFind }          from './solver/formfind.js?v=7';
@@ -3101,7 +3101,7 @@ class App {
         const nSteps = ag.length;
         const bytes = nF * nSteps * 8;
         if (bytes > 500e6) throw new Error(`La reproducción de integración directa necesita ~${(bytes / 1e6).toFixed(0)} MB (${nF} GDL × ${nSteps} pasos). Use time-history modal, o reduzca la duración / suba Δt del registro.`);
-        const dres = directTimeHistory(model, { ag, dt, direction: dir, a0, a1, keepAll: true });
+        const dres = await this._directSolveInWorker(model, { ag, dt, direction: dir, a0, a1, keepAll: true });
 
         // Monitor: translational DOF in the excitation direction with the largest peak.
         let monitorDOF = null, monitorNodeId = null, peakU = -1;
@@ -3176,6 +3176,43 @@ class App {
       w.onerror = ev => { w.terminate(); reject(new Error(ev.message || 'Error en worker time-history')); };
       w.postMessage({ modes, ag, dt, zeta });
     });
+  }
+
+  // Linear direct integration off the main thread: assemble here (needs the Model),
+  // hand the plain CSR data to direct_worker.js, rebuild the result view on return.
+  // Falls back to the main thread if a module Worker can't be constructed.
+  async _directSolveInWorker(model, o) {
+    const sys = assembleDirectSystem(model, o);   // { K, M, iota, nodeIndex, freeMap, nF }
+    const recPairs = (o.record || [])
+      .map(({ node, dof }) => ({ node, dof, gi: sys.freeMap[6 * sys.nodeIndex.get(node) + dof] }))
+      .filter(p => p.gi >= 0);
+    const recordIdx = recPairs.map(p => p.gi);
+
+    let w;
+    try { w = new Worker(new URL('./solver/direct_worker.js?v=7', import.meta.url), { type: 'module' }); }
+    catch (e) {
+      // Main-thread fallback (no worker available).
+      const res = newmarkLinear({ K: sys.K, M: sys.M, iota: sys.iota, ag: o.ag, dt: o.dt, a0: o.a0, a1: o.a1, record: recordIdx, keepAll: o.keepAll, solver: o.solver });
+      return directResultView(res, sys.nodeIndex, sys.freeMap, recPairs);
+    }
+
+    const data = await new Promise((resolve, reject) => {
+      w.onmessage = ev => { w.terminate(); ev.data.error ? reject(new Error(ev.data.error)) : resolve(ev.data); };
+      w.onerror = ev => { w.terminate(); reject(new Error(ev.message || 'Error en worker de integración directa')); };
+      // Transfer the matrix/iota buffers (not needed on the main thread anymore).
+      // NOT `ag` — the overlay/CSV keep it — so it is structured-cloned instead.
+      const t = [sys.K.val.buffer, sys.K.rowPtr.buffer, sys.K.colIdx.buffer,
+                 sys.M.val.buffer, sys.M.rowPtr.buffer, sys.M.colIdx.buffer, sys.iota.buffer];
+      w.postMessage({ K: sys.K, M: sys.M, iota: sys.iota, ag: o.ag, dt: o.dt, a0: o.a0, a1: o.a1, recordIdx, keepAll: o.keepAll, solver: o.solver }, t);
+    });
+
+    const n = data.n, U = data.U;
+    const res = {
+      peak: data.peak, hist: new Map(data.histEntries), nSteps: data.nSteps, n,
+      solver: data.solver, avgIters: data.avgIters,
+      uAt: U ? (s) => U.subarray(s * n, s * n + n) : undefined,
+    };
+    return directResultView(res, sys.nodeIndex, sys.freeMap, recPairs);
   }
 
   // Time history of a global DOF. Modal → Σφᵢqᵢ ; direct → the stored u(t) history.

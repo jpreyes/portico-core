@@ -179,6 +179,7 @@ export function newmarkLinear(o) {
     t, nSteps, n, peak, hist,
     solver: usePcg ? 'pcg' : 'factor',
     avgIters: usePcg ? itersSum / Math.max(1, nSteps - 1) : 0,
+    U: keepAll ? U : undefined,                         // raw nSteps×n buffer (transferable)
     uAt: keepAll ? (s) => U.subarray(s * n, s * n + n) : undefined,
   };
 }
@@ -205,7 +206,12 @@ export function newmarkLinear(o) {
  *   histAt(node,dof) → Float64Array | null,
  *   peakNodal(node)  → Float64Array(6)  peak |u| per local dof.
  */
-export function directTimeHistory(model, o) {
+// ── Assembly step (MAIN thread) ───────────────────────────────────────────────
+// Splits the model-dependent assembly out of directTimeHistory so it can run on the
+// main thread and the heavy integration can be handed to a Web Worker with only
+// plain, transferable data (CSR typed arrays + iota). Returns everything the worker
+// needs plus the maps the main thread keeps to interpret the result.
+export function assembleDirectSystem(model, o = {}) {
   const nodeIndex = buildNodeIndex(model);
   const nDOF = nodeIndex.size * 6;
   const freeMap = new Int32Array(nDOF).fill(-1);
@@ -230,6 +236,27 @@ export function directTimeHistory(model, o) {
     const g = 6 * nodeIndex.get(nd.id) + dirOff;
     if (freeMap[g] >= 0) iota[freeMap[g]] = 1;
   }
+  return { K, M, iota, nodeIndex, freeMap, nF };
+}
+
+// Wraps a newmarkLinear result with node-level accessors, given the maps kept on the
+// main thread. Works whether newmarkLinear ran here or inside a worker (pass the
+// result reconstructed from the worker's transferred buffers).
+export function directResultView(res, nodeIndex, freeMap, recPairs = []) {
+  const recKey = new Map(recPairs.map(p => [`${p.node}:${p.dof}`, p.gi]));
+  return {
+    ...res, nodeIndex, freeMap,
+    histAt(node, dof) { const gi = recKey.get(`${node}:${dof}`); return gi != null && res.hist ? res.hist.get(gi) : null; },
+    peakNodal(node) {
+      const out = new Float64Array(6);
+      for (let d = 0; d < 6; d++) { const gi = freeMap[6 * nodeIndex.get(node) + d]; out[d] = gi >= 0 ? res.peak[gi] : 0; }
+      return out;
+    },
+  };
+}
+
+export function directTimeHistory(model, o) {
+  const { K, M, iota, nodeIndex, freeMap, nF } = assembleDirectSystem(model, o);
 
   // Damping: explicit a0/a1, else Rayleigh from the two anchor frequencies.
   let a0 = o.a0, a1 = o.a1;
@@ -239,7 +266,6 @@ export function directTimeHistory(model, o) {
     ({ a0, a1 } = rayleigh(o.zeta ?? 0.05, w1, w2));
   }
 
-  // record: {node,dof} → free-DOF index
   const recPairs = (o.record || []).map(({ node, dof }) => ({ node, dof, gi: freeMap[6 * nodeIndex.get(node) + dof] }))
                                     .filter(p => p.gi >= 0);
   const res = newmarkLinear({
@@ -248,15 +274,5 @@ export function directTimeHistory(model, o) {
     solver: o.solver, factorMax: o.factorMax, pcgTol: o.pcgTol, keepAll: o.keepAll,
     gamma: o.gamma, beta: o.beta,
   });
-
-  const recKey = new Map(recPairs.map(p => [`${p.node}:${p.dof}`, p.gi]));
-  return {
-    ...res, nodeIndex, freeMap, nF,
-    histAt(node, dof) { const gi = recKey.get(`${node}:${dof}`); return gi != null ? res.hist.get(gi) : null; },
-    peakNodal(node) {
-      const out = new Float64Array(6);
-      for (let d = 0; d < 6; d++) { const gi = freeMap[6 * nodeIndex.get(node) + d]; out[d] = gi >= 0 ? res.peak[gi] : 0; }
-      return out;
-    },
-  };
+  return directResultView(res, nodeIndex, freeMap, recPairs);
 }
